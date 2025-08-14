@@ -30,7 +30,7 @@ def index():
 
         # Obtener todos los clientes (personas) activos en esta habitación CON FECHA DE CHECKOUT
         cur.execute("""
-            SELECT nombre, tipo_doc, numero_doc, telefono, procedencia, check_out FROM clientes
+            SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia, check_out FROM clientes
             WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())
         """, (room_id,))
         active_clientes_data = cur.fetchall()
@@ -38,12 +38,13 @@ def index():
         num_personas_ocupadas = len(active_clientes_data)
         personas_list = [ # Renamed huespedes_list to personas_list
             {
-                'nombre': c[0], 
-                'tipo_doc': c[1], 
-                'numero_doc': c[2], 
-                'telefono': c[3], 
-                'procedencia': c[4],
-                'check_out': c[5]
+                'id': c[0],
+                'nombre': c[1], 
+                'tipo_doc': c[2], 
+                'numero_doc': c[3], 
+                'telefono': c[4], 
+                'procedencia': c[5],
+                'check_out': c[6]
             }
             for c in active_clientes_data
         ]
@@ -54,8 +55,8 @@ def index():
 
         if num_personas_ocupadas > 0:
             current_room_state = 'ocupada'
-            inquilino_principal = active_clientes_data[0][0] # First person is considered principal for display
-            fecha_salida = active_clientes_data[0][5] # Get checkout date from first person
+            inquilino_principal = active_clientes_data[0][1] # First person is considered principal for display
+            fecha_salida = active_clientes_data[0][6] # Get checkout date from first person
 
         # If DB state is 'reservado' or 'mantenimiento', it overrides 'ocupada' for display
         # This ensures manual state changes take precedence
@@ -210,6 +211,120 @@ def registrar():
         flash('Personas registradas exitosamente en la habitación.')
 
     cur.close()
+    return redirect(url_for('index'))
+
+
+@app.route('/editar_cliente/<int:cliente_id>')
+def editar_cliente(cliente_id):
+    cur = mysql.connection.cursor()
+    cur.execute("""
+        SELECT c.id, c.nombre, c.tipo_doc, c.numero_doc, c.telefono, c.procedencia, 
+               c.check_in, c.check_out, c.valor, c.observacion, c.habitacion_id,
+               h.numero AS habitacion_numero, h.descripcion AS habitacion_descripcion
+        FROM clientes c
+        JOIN habitaciones h ON c.habitacion_id = h.id
+        WHERE c.id = %s
+    """, (cliente_id,))
+    cliente = cur.fetchone()
+    cur.close()
+    
+    if not cliente:
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('index'))
+    
+    return render_template('editar_cliente.html', cliente=cliente)
+
+
+@app.route('/actualizar_cliente', methods=['POST'])
+def actualizar_cliente():
+    cliente_id = int(request.form['cliente_id'])
+    nombre = request.form['nombre']
+    tipo_doc = request.form['tipo_doc']
+    numero_doc = request.form['numero_doc']
+    telefono = request.form['telefono']
+    procedencia = request.form['procedencia']
+    
+    cur = mysql.connection.cursor()
+    cur.execute("""
+        UPDATE clientes 
+        SET nombre = %s, tipo_doc = %s, numero_doc = %s, telefono = %s, procedencia = %s
+        WHERE id = %s
+    """, (nombre, tipo_doc, numero_doc, telefono, procedencia, cliente_id))
+    mysql.connection.commit()
+    cur.close()
+    
+    flash('Cliente actualizado exitosamente.')
+    return redirect(url_for('index'))
+
+
+@app.route('/agregar_cliente_habitacion/<int:habitacion_id>')
+def agregar_cliente_habitacion(habitacion_id):
+    cur = mysql.connection.cursor()
+    
+    # Obtener información de la habitación
+    cur.execute("SELECT numero, descripcion FROM habitaciones WHERE id = %s", (habitacion_id,))
+    habitacion = cur.fetchone()
+    
+    # Contar clientes actuales en la habitación
+    cur.execute("""
+        SELECT COUNT(*) FROM clientes 
+        WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())
+    """, (habitacion_id,))
+    clientes_actuales = cur.fetchone()[0]
+    
+    # Obtener datos de un cliente existente para usar como referencia (check_in, check_out, valor, observacion)
+    cur.execute("""
+        SELECT check_in, check_out, valor, observacion FROM clientes 
+        WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())
+        LIMIT 1
+    """, (habitacion_id,))
+    datos_referencia = cur.fetchone()
+    
+    cur.close()
+    
+    if not habitacion:
+        flash('Habitación no encontrada.', 'error')
+        return redirect(url_for('index'))
+    
+    # Validar capacidad
+    max_capacidad = 2 if habitacion[1].lower() == 'sencilla' else 4
+    if clientes_actuales >= max_capacidad:
+        flash(f'La habitación {habitacion[1]} ya está en su capacidad máxima ({max_capacidad} personas).', 'error')
+        return redirect(url_for('index'))
+    
+    return render_template('agregar_cliente.html', 
+                         habitacion=habitacion, 
+                         habitacion_id=habitacion_id,
+                         datos_referencia=datos_referencia)
+
+
+@app.route('/guardar_nuevo_cliente', methods=['POST'])
+def guardar_nuevo_cliente():
+    habitacion_id = int(request.form['habitacion_id'])
+    nombre = request.form['nombre']
+    tipo_doc = request.form['tipo_doc']
+    numero_doc = request.form['numero_doc']
+    telefono = request.form['telefono']
+    procedencia = request.form['procedencia']
+    check_in = request.form['check_in']
+    check_out_fecha = request.form['check_out_fecha']
+    valor = request.form['valor']
+    observacion = request.form['observacion']
+    
+    check_in_dt = datetime.strptime(check_in, "%Y-%m-%dT%H:%M")
+    check_out_dt = datetime.strptime(check_out_fecha, "%Y-%m-%d")
+    check_out_dt = datetime(check_out_dt.year, check_out_dt.month, check_out_dt.day, 13, 0)
+    
+    cur = mysql.connection.cursor()
+    cur.execute("""
+        INSERT INTO clientes 
+        (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, habitacion_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (check_in_dt.time(), nombre, tipo_doc, numero_doc, telefono, procedencia, check_in_dt, check_out_dt, valor, observacion, habitacion_id))
+    mysql.connection.commit()
+    cur.close()
+    
+    flash('Nuevo cliente agregado exitosamente a la habitación.')
     return redirect(url_for('index'))
 
 
