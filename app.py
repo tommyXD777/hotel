@@ -21,7 +21,7 @@ def get_db_connection():
         print(f"   Base de datos: bd_hostal")
         
         conn = pymysql.connect(
-            host='mysql',  # Asegurándonos que sea localhost
+            host='isladigital.xyz',  # Asegurándonos que sea localhost
             user='nelson',
             password='3011551141.Arias',
             database='bd_hostal',
@@ -29,12 +29,12 @@ def get_db_connection():
             autocommit=False,
             port=3311  # cambiado de 3306 a 3311
         )
-        print("✅ Conexión exitosa a MySQL")
+        print("✅ Conexión exitosa a MySQL", flush=True)
         return conn
     except pymysql.err.OperationalError as e:
         error_code = e.args[0]
         if error_code == 2003:
-            print("❌ Error 2003: No se puede conectar al servidor MySQL")
+            print("❌ Error 2003: No se puede conectar al servidor MySQL", flush=True)
             print("💡 Soluciones posibles:")
             print("   1. Verifica que MySQL esté ejecutándose: 'net start mysql' (Windows)")
             print("   2. Verifica que MySQL esté en el puerto 3311")  # actualizado el puerto en el mensaje
