@@ -1,0 +1,26 @@
+<h2 class="text-xl font-bold mb-4">Agregar Habitación</h2>
+
+<form action="{{ url_for('agregar_habitacion') }}" method="POST" class="space-y-4">
+    <div>
+        <label class="block mb-1">Número de habitación</label>
+        <input type="number" name="numero" class="border px-2 py-1 w-full" required>
+    </div>
+
+    <div>
+        <label class="block mb-1">Descripción</label>
+        <textarea name="descripcion" class="border px-2 py-1 w-full" required></textarea>
+    </div>
+
+    <div>
+        <label class="block mb-1">Estado</label>
+        <select name="estado" class="border px-2 py-1 w-full" required>
+            <option value="libre">Libre</option>
+            <option value="ocupada">Ocupada</option>
+            <option value="mantenimiento">Mantenimiento</option>
+        </select>
+    </div>
+
+    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+        Guardar
+    </button>
+</form>

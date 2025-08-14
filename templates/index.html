@@ -4,391 +4,170 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión Hotelera</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .room-status {
-            font-size: 1.2em;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 8px 12px;
-            border-radius: 25px;
-            display: inline-block;
-            margin-bottom: 10px;
-            border: 2px solid;
-        }
-        .status-libre {
-            background-color: #d4edda;
-            color: #155724;
-            border-color: #c3e6cb;
-        }
-        .status-ocupada {
-            background-color: #fff3cd;
-            color: #856404;
-            border-color: #ffeaa7;
-        }
-        .status-reservado {
-            background-color: #f8d7da;
-            color: #721c24;
-            border-color: #f5c6cb;
-        }
-        .status-mantenimiento {
-            background-color: #e2e3e5;
-            color: #383d41;
-            border-color: #d6d8db;
-        }
-        .room-card {
-            transition: transform 0.2s;
-            border: 3px solid;
-            margin-bottom: 20px;
-        }
-        .room-card:hover {
-            transform: translateY(-2px);
-        }
-        .room-card.libre {
-            border-color: #28a745;
-            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
-        }
-        .room-card.ocupada {
-            border-color: #ffc107;
-            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.2);
-        }
-        .room-card.reservado {
-            border-color: #dc3545;
-            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.2);
-        }
-        .room-card.mantenimiento {
-            border-color: #6c757d;
-            box-shadow: 0 4px 8px rgba(108, 117, 125, 0.2);
-        }
-        .status-icon {
-            font-size: 1.5em;
-            margin-right: 8px;
-        }
-        .summary-cards {
-            margin-bottom: 30px;
-        }
-        .summary-card {
-            text-align: center;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-        .persona-form-group {
-            border: 1px solid #e0e0e0;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 8px;
-            background-color: #f9f9f9;
-        }
-        .cliente-item {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            padding: 8px;
-            margin-bottom: 5px;
-        }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-    <div class="container mt-5">
-        <h1 class="text-center mb-4">Sistema de Gestión Hotelera</h1>
-        
-        <!-- Mostrar mensajes flash -->
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6">Sistema de Gestión Hotelera</h1>
+
         {% with messages = get_flashed_messages() %}
             {% if messages %}
-                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
                     {% for message in messages %}
-                        {{ message }}<br>
+                        <p>{{ message }}</p>
                     {% endfor %}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             {% endif %}
         {% endwith %}
-        
-        <!-- Registrar Cliente -->
-        <div class="mt-4">
-            <h2>Registrar Nueva Reserva / Completar Reservación</h2>
-            <form action="{{ url_for('registrar') }}" method="POST">
-                <h4 class="mt-4 mb-3">Datos de Personas</h4>
-                <div id="personas-container">
-                    <!-- La primera persona -->
-                    <div class="persona-form-group" id="persona-group-0">
-                        <h5>Persona 1</h5>
-                        <div class="mb-3">
-                            <label class="form-label">Nombre:</label>
-                            <input type="text" class="form-control" name="persona_nombre_0" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Tipo de Documento:</label>
-                            <select class="form-select" name="persona_tipo_doc_0" required>
-                                <option value="C.c">C.c</option>
-                                <option value="T.i">T.i</option>
-                                <option value="Pasaporte">Pasaporte</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Número de Documento:</label>
-                            <input type="text" class="form-control" name="persona_numero_doc_0" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Teléfono:</label>
-                            <input type="text" class="form-control" name="persona_telefono_0">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Procedencia:</label>
-                            <input type="text" class="form-control" name="persona_procedencia_0">
-                        </div>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-secondary mb-3" id="add-persona">
-                    + Añadir Persona
-                </button>
+<div class="max-w-md mx-auto bg-white p-4 rounded-md shadow-md border border-gray-200">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800">Agregar Habitación</h2>
 
-                <h4 class="mt-4 mb-3">Detalles de la Reserva</h4>
-                <div class="mb-3">
-                    <label for="habitacion_id" class="form-label">Habitación:</label>
-                    <select class="form-select" id="habitacion_id" name="habitacion_id" required>
-                        {% for h in habitaciones %}
-                            <option value="{{ h[0] }}" {% if h[3] not in ['libre', 'reservado'] %}disabled{% endif %}>
-                                Habitación {{ h[1] }} ({{ h[2] }}) - 
-                                {% if h[3] == 'libre' %}
-                                    ✅ DISPONIBLE
-                                {% elif h[3] == 'reservado' %}
-                                    📅 RESERVADO (Completar datos)
-                                {% elif h[3] == 'ocupada' %}
-                                    ❌ NO DISPONIBLE (OCUPADA)
-                                {% elif h[3] == 'mantenimiento' %}
-                                    ❌ NO DISPONIBLE (MANTENIMIENTO)
-                                {% endif %}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="check_in" class="form-label">Check-in:</label>
-                    <input type="datetime-local" class="form-control" id="check_in" name="check_in" required>
-                </div>
-                <div class="mb-3">
-                    <label for="check_out_fecha" class="form-label">Fecha de Check-out:</label>
-                    <input type="date" class="form-control" id="check_out_fecha" name="check_out_fecha" required>
-                </div>
-                <div class="mb-3">
-                    <label for="valor" class="form-label">Valor:</label>
-                    <input type="number" class="form-control" id="valor" name="valor" required>
-                </div>
-                <div class="mb-3">
-                    <label for="observacion" class="form-label">Observación:</label>
-                    <textarea class="form-control" id="observacion" name="observacion"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">Registrar / Completar Reserva</button>
-            </form>
+    <form action="{{ url_for('agregar_habitacion') }}" method="POST" class="space-y-3">
+
+        <!-- Número de habitación -->
+        <div>
+            <label for="numero" class="block text-sm font-medium text-gray-700">Número</label>
+            <input type="number" id="numero" name="numero" 
+                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" 
+                   required>
         </div>
 
-        <!-- Contenedor para Cambiar Estado y Exportar a Excel -->
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <!-- Cambiar Estado de Habitación -->
-                <div>
-                    <h2>Cambiar Estado de Habitación</h2>
-                    <form action="{{ url_for('cambiar_color_general') }}" method="POST">
-                        <div class="mb-3">
-                            <label for="habitacion_id" class="form-label">Habitación:</label>
-                            <select class="form-select" id="habitacion_id" name="habitacion_id" required>
-                                {% for h in habitaciones %}
-                                    <option value="{{ h[0] }}">
-                                        Habitación {{ h[1] }} ({{ h[2] }}) - {{ h[3] | upper }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="nuevo_estado" class="form-label">Estado:</label>
-                            <select class="form-select" id="nuevo_estado" name="nuevo_estado" required>
-                                <option value="libre">🟢 Libre</option>
-                                <option value="ocupada">🟡 Ocupada</option>
-                                <option value="reservado">🔴 Reservado</option>
-                                <option value="mantenimiento">⚙️ Mantenimiento</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Cambiar Estado</button>
-                    </form>
-                </div>
-            </div>
-            <div class="col-md-6 d-flex align-items-end justify-content-center">
-                <!-- Exportar a Excel -->
-                <div class="text-center">
-                    <a href="{{ url_for('exportar_excel') }}" class="btn btn-success btn-lg">
-                        📊 Exportar a Excel
-                    </a>
-                </div>
-            </div>
+        <!-- Descripción -->
+        <div>
+            <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
+            <textarea id="descripcion" name="descripcion" rows="2"
+                      class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      required></textarea>
         </div>
 
-        <!-- Estado de Habitaciones - MEJORADO -->
-        <div class="mt-5">
-            <h2 class="text-center mb-4">🏨 Estado Actual de Habitaciones</h2>
-            <div class="row">
-                {% for room in rooms %}
-                <div class="col-md-4 mb-4">
-                    <div class="card room-card {{ room.estado }}">
-                        <div class="card-body text-center">
-                            <!-- Estado Principal - MUY VISIBLE -->
-                            <div class="room-status status-{{ room.estado }}">
-                                {% if room.estado == 'libre' %}
-                                    <span class="status-icon">✅</span>LIBRE
-                                {% elif room.estado == 'ocupada' %}
-                                    <span class="status-icon">🔴</span>OCUPADA
-                                {% elif room.estado == 'reservado' %}
-                                    <span class="status-icon">📅</span>RESERVADO
-                                {% elif room.estado == 'mantenimiento' %}
-                                    <span class="status-icon">⚙️</span>MANTENIMIENTO
-                                {% endif %}
-                            </div>
+        <!-- Estado -->
+        <div>
+            <label for="estado" class="block text-sm font-medium text-gray-700">Estado</label>
+            <select id="estado" name="estado" 
+                    class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    required>
+                <option value="libre">Libre</option>
+                <option value="ocupada">Ocupada</option>
+                <option value="mantenimiento">Mantenimiento</option>
+            </select>
+        </div>
 
-                            <!-- Información de la Habitación -->
-                            <h4 class="card-title mb-3">
-                                🏠 Habitación {{ room.numero }}
-                            </h4>
-                            <p class="card-text">
-                                <strong>Tipo:</strong> {{ room.descripcion }}
-                            </p>
+        <!-- Botones -->
+        <div class="flex justify-end space-x-2">
+            <a href="{{ url_for('index') }}" 
+               class="bg-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-400 text-sm">
+                Cancelar
+            </a>
+            <button type="submit" 
+                    class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">
+                Guardar
+            </button>
+        </div>
+    </form>
+</div>
 
-                            <!-- Información según el estado -->
+<div class="flex justify-end mb-4">
+   <form action="{{ url_for('logout') }}" method="POST">
+    <button type="submit" 
+            class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 shadow-sm">
+        🔒 Cerrar Sesión
+    </button>
+</form>
+
+
+</div>
+
+
+       <form action="{{ url_for('cambiar_color_general') }}" method="POST" 
+      class="mt-2 flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-2">
+
+    <select name="habitacion_id" 
+            class="border rounded px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+        {% for h in habitaciones %}
+            <option value="{{ h[0] }}">Hab {{ h[1] }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="nuevo_estado" 
+            class="border rounded px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+        <option value="libre">Libre</option>
+        <option value="ocupada">Ocupada</option>
+        <option value="reservado">Reservado</option>
+        <option value="mantenimiento">Mantenimiento</option>
+    </select>
+
+    <button type="submit" 
+            class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm shadow-sm">
+        🔄 Cambiar Estado
+    </button>
+</form>
+
+
+        <div class="mb-6">
+            <a href="{{ url_for('exportar_excel') }}" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                📊 Exportar a Excel
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for room in rooms %}
+                <div class="bg-white p-4 rounded-lg shadow-md">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-lg font-semibold {{ 'text-green-600' if room.estado == 'libre' else 'text-yellow-600' if room.estado == 'ocupada' else 'text-red-600' if room.estado == 'reservado' else 'text-gray-600' }}">
                             {% if room.estado == 'libre' %}
-                                <div class="alert alert-success">
-                                    <strong>✅ DISPONIBLE</strong><br>
-                                    Lista para nueva reserva
-                                </div>
+                                ✅ LIBRE
                             {% elif room.estado == 'ocupada' %}
-                                <div class="alert alert-warning text-start">
-                                    <strong>🔴 OCUPADA</strong><br>
-                                    {% if room.inquilino_principal %}
-                                        <strong>Cliente Principal:</strong> {{ room.inquilino_principal }}<br>
-                                    {% endif %}
-                                    {% if room.num_personas_ocupadas is not none %}
-                                        <strong>Total Personas:</strong> {{ room.num_personas_ocupadas }}<br>
-                                    {% endif %}
-                                    {% if room.fecha_salida %}
-                                        <strong>📅 Fecha de Salida:</strong> {{ room.fecha_salida.strftime('%d/%m/%Y %H:%M') }}<br>
-                                    {% endif %}
-                                    {% if room.personas_list %}
-                                        <h6 class="mt-2">Clientes en la habitación:</h6>
-                                        {% for persona in room.personas_list %}
-                                            <div class="cliente-item d-flex justify-content-between align-items-center">
-                                                <small>
-                                                    <strong>{{ persona.nombre }}</strong><br>
-                                                    {% if persona.telefono %}
-                                                        📞 {{ persona.telefono }}
-                                                    {% else %}
-                                                        📞 Sin teléfono
-                                                    {% endif %}
-                                                </small>
-                                                <a href="{{ url_for('editar_cliente', cliente_id=persona.id) }}" 
-                                                   class="btn btn-outline-primary btn-sm">
-                                                    ✏️ Editar
-                                                </a>
-                                            </div>
-                                        {% endfor %}
-                                    {% endif %}
-                                    No disponible
-                                </div>
-                                <div class="d-flex gap-2 justify-content-center flex-wrap">
-                                    {% if room.inquilino_principal %}
-                                        <a href="{{ url_for('liberar', habitacion_id=room.id) }}" 
-                                           class="btn btn-outline-success btn-sm">
-                                            ✅ Liberar Habitación
-                                        </a>
-                                    {% endif %}
-                                    <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" 
-                                       class="btn btn-outline-info btn-sm">
-                                        👤+ Agregar Cliente
-                                    </a>
-                                </div>
+                                🔴 OCUPADA
                             {% elif room.estado == 'reservado' %}
-                                <div class="alert alert-danger">
-                                    <strong>📅 RESERVADA</strong><br>
-                                    {% if room.num_personas_ocupadas > 0 %}
-                                        <strong>Personas en reserva:</strong> {{ room.num_personas_ocupadas }}<br>
-                                        {% if room.fecha_salida %}
-                                            <strong>📅 Fecha de Salida:</strong> {{ room.fecha_salida.strftime('%d/%m/%Y %H:%M') }}<br>
-                                        {% endif %}
-                                        <small>Usa el formulario arriba para completar los datos</small>
-                                    {% else %}
-                                        Pendiente de completar datos<br>
-                                        <small>Usa el formulario arriba para agendar</small>
-                                    {% endif %}
-                                </div>
+                                📅 RESERVADO
                             {% elif room.estado == 'mantenimiento' %}
-                                <div class="alert alert-secondary">
-                                    <strong>⚙️ MANTENIMIENTO</strong><br>
-                                    Fuera de servicio
-                                </div>
+                                ⚙️ MANTENIMIENTO
+                            {% endif %}
+                        </span>
+                    </div>
+                    <h3 class="text-xl font-bold">🏠 Habitación {{ room.numero }}</h3>
+                    <p>Tipo: {{ room.descripcion }}</p>
+                    <div class="mt-2">
+                        <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" method="POST" class="inline">
+                            <button type="submit" class="text-red-500 hover:text-red-700">🗑 Eliminar</button>
+                        </form>
+                        {% if room.estado != 'ocupada' or room.num_personas_ocupadas < 4 %}
+                            <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" class="text-blue-500 hover:text-blue-700 ml-4">👤+ Agregar Cliente</a>
+                        {% endif %}
+                        {% if room.inquilino_principal %}
+                            <a href="{{ url_for('liberar', habitacion_id=room.id) }}" class="text-green-500 hover:text-green-700 ml-4">✅ Liberar</a>
+                        {% endif %}
+                    </div>
+                    {% if room.estado == 'ocupada' %}
+                        <div class="mt-4">
+                            {% if room.inquilino_principal %}
+                                <p><strong>Cliente Principal:</strong> {{ room.inquilino_principal }}</p>
+                            {% endif %}
+                            {% if room.telefono %}
+                                <p><strong>Teléfono:</strong> {{ room.telefono }}</p>
+                            {% endif %}
+                            {% if room.observacion %}
+                                <p><strong>Observación:</strong> {{ room.observacion }}</p>
+                            {% endif %}
+                            {% if room.fecha_salida %}
+                                <p><strong>Fecha de Salida:</strong> {{ room.fecha_salida.strftime('%d/%m/%Y %H:%M') }}</p>
+                            {% endif %}
+                            {% if room.personas_list %}
+                                <p><strong>Clientes:</strong></p>
+                                <ul class="list-disc pl-5">
+                                    {% for persona in room.personas_list %}
+                                        <li>
+                                            {{ persona.nombre }} - {{ persona.telefono or "Sin teléfono" }}
+                                            <a href="{{ url_for('editar_cliente', cliente_id=persona.id) }}" class="text-blue-500 hover:text-blue-700">✏️ Editar</a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
                             {% endif %}
                         </div>
-                    </div>
+                    {% endif %}
                 </div>
-                {% endfor %}
-            </div>
+            {% endfor %}
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Lógica para añadir personas dinámicamente
-        document.addEventListener('DOMContentLoaded', function() {
-            let personaCount = 1;
-            const personasContainer = document.getElementById('personas-container');
-            const addPersonaBtn = document.getElementById('add-persona');
-
-            addPersonaBtn.addEventListener('click', function() {
-                if (personaCount >= 4) {
-                    alert('Las habitaciones dobles solo permiten un máximo de 4 personas (incluyendo la primera).');
-                    return;
-                }
-
-                const newPersonaGroup = document.createElement('div');
-                newPersonaGroup.classList.add('persona-form-group');
-                newPersonaGroup.id = `persona-group-${personaCount}`;
-                newPersonaGroup.innerHTML = `
-                    <h5>Persona ${personaCount + 1}</h5>
-                    <div class="mb-3">
-                        <label class="form-label">Nombre:</label>
-                        <input type="text" class="form-control" name="persona_nombre_${personaCount}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Tipo de Documento:</label>
-                        <select class="form-select" name="persona_tipo_doc_${personaCount}" required>
-                            <option value="C.c">C.c</option>
-                            <option value="T.i">T.i</option>
-                            <opti
-                            on value="Pasaporte">Pasaporte</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Número de Documento:</label>
-                        <input type="text" class="form-control" name="persona_numero_doc_${personaCount}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Teléfono:</label>
-                        <input type="text" class="form-control" name="persona_telefono_${personaCount}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Procedencia:</label>
-                        <input type="text" class="form-control" name="persona_procedencia_${personaCount}">
-                    </div>
-                    <button type="button" class="btn btn-danger btn-sm remove-persona" data-persona-id="${personaCount}">Eliminar Persona</button>
-                `;
-                personasContainer.appendChild(newPersonaGroup);
-                personaCount++;
-
-                newPersonaGroup.querySelector('.remove-persona').addEventListener('click', function() {
-                    const idToRemove = this.dataset.personaId;
-                    document.getElementById(`persona-group-${idToRemove}`).remove();
-                    personaCount--;
-                });
-            });
-        });
-    </script>
 </body>
 </html>
