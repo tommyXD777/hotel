@@ -77,16 +77,26 @@
 
 </div>
 
-<!-- Formulario modificado para cambiar estado solo de habitaciones libres -->
+<!-- Formulario modificado para mostrar todas las habitaciones, no solo las libres -->
 <form action="{{ url_for('cambiar_color_general') }}" method="POST" 
       class="mt-2 flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-2">
 
     <select name="habitacion_id" 
             class="border rounded px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
         {% for h in habitaciones %}
-            {% if h[3] == 'libre' %}
-                <option value="{{ h[0] }}">Hab {{ h[1] }} (Libre)</option>
-            {% endif %}
+            <option value="{{ h[0] }}">
+                Hab {{ h[1] }} (
+                {%- if h[3] == 'libre' -%}
+                    Libre
+                {%- elif h[3] == 'ocupada' -%}
+                    Ocupada
+                {%- elif h[3] == 'mensualidad' -%}
+                    Mensualidad
+                {%- elif h[3] == 'mantenimiento' -%}
+                    Mantenimiento
+                {%- endif -%}
+                )
+            </option>
         {% endfor %}
     </select>
 

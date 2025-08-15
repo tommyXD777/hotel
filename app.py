@@ -599,7 +599,7 @@ def cambiar_color_general():
     try:
         cur = conn.cursor()
         
-        # Verificar el estado actual de la habitación
+        # Verificar que la habitación existe
         cur.execute("SELECT estado FROM habitaciones WHERE id = %s", (habitacion_id,))
         estado_actual = cur.fetchone()
         
@@ -607,11 +607,7 @@ def cambiar_color_general():
             flash("Habitación no encontrada")
             return redirect(url_for('index'))
         
-        # Solo permitir cambios si la habitación está libre
-        if estado_actual[0] != 'libre':
-            flash("Solo se puede cambiar el estado de habitaciones que estén libres")
-            return redirect(url_for('index'))
-        
+        # Ahora se puede cambiar el estado de cualquier habitación
         cur.execute("UPDATE habitaciones SET estado = %s WHERE id = %s", (nuevo_estado, habitacion_id))
         conn.commit()
         flash("Estado de habitación actualizado con éxito")
