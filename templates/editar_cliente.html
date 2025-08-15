@@ -3,59 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editar Cliente - Sistema Hotelero</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Editar Cliente</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>✏️ Editar Cliente</h3>
-                        <p class="mb-0">Habitación {{ cliente[11] }} ({{ cliente[12] }})</p>
-                    </div>
-                    <div class="card-body">
-                        <form action="{{ url_for('actualizar_cliente') }}" method="POST">
-                            <input type="hidden" name="cliente_id" value="{{ cliente[0] }}">
-                            
-                            <div class="mb-3">
-                                <label for="nombre" class="form-label">Nombre:</label>
-                                <input type="text" class="form-control" id="nombre" name="nombre" value="{{ cliente[1] }}" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="tipo_doc" class="form-label">Tipo de Documento:</label>
-                                <select class="form-select" id="tipo_doc" name="tipo_doc" required>
-                                    <option value="C.c" {% if cliente[2] == 'C.c' %}selected{% endif %}>C.c</option>
-                                    <option value="T.i" {% if cliente[2] == 'T.i' %}selected{% endif %}>T.i</option>
-                                    <option value="Pasaporte" {% if cliente[2] == 'Pasaporte' %}selected{% endif %}>Pasaporte</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="numero_doc" class="form-label">Número de Documento:</label>
-                                <input type="text" class="form-control" id="numero_doc" name="numero_doc" value="{{ cliente[3] }}" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="telefono" class="form-label">Teléfono:</label>
-                                <input type="text" class="form-control" id="telefono" name="telefono" value="{{ cliente[4] or '' }}">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="procedencia" class="form-label">Procedencia:</label>
-                                <input type="text" class="form-control" id="procedencia" name="procedencia" value="{{ cliente[5] or '' }}">
-                            </div>
-                            
-                            <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-primary">💾 Guardar Cambios</button>
-                                <a href="{{ url_for('index') }}" class="btn btn-secondary">❌ Cancelar</a>
-                            </div>
-                        </form>
-                    </div>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6">Editar Cliente</h1>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
                 </div>
-            </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
+            <form action="{{ url_for('actualizar_cliente') }}" method="POST" class="space-y-4">
+                <input type="hidden" name="cliente_id" value="{{ cliente[0] }}">
+                
+                <div>
+                    <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre</label>
+                    <input type="text" id="nombre" name="nombre" value="{{ cliente[1] }}" 
+                           class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" 
+                           required>
+                </div>
+
+                <div>
+                    <label for="tipo_doc" class="block text-sm font-medium text-gray-700">Tipo de Documento</label>
+                    <select id="tipo_doc" name="tipo_doc" 
+                            class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                        <option value="CC" {{ 'selected' if cliente[2] == 'CC' else '' }}>Cédula de Ciudadanía</option>
+                        <option value="CE" {{ 'selected' if cliente[2] == 'CE' else '' }}>Cédula de Extranjería</option>
+                        <option value="PA" {{ 'selected' if cliente[2] == 'PA' else '' }}>Pasaporte</option>
+                        <option value="TI" {{ 'selected' if cliente[2] == 'TI' else '' }}>Tarjeta de Identidad</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="numero_doc" class="block text-sm font-medium text-gray-700">Número de Documento</label>
+                    <input type="text" id="numero_doc" name="numero_doc" value="{{ cliente[3] }}" 
+                           class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                </div>
+
+                <div>
+                    <label for="telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                    <input type="tel" id="telefono" name="telefono" value="{{ cliente[4] }}" 
+                           class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                </div>
+
+                <div>
+                    <label for="procedencia" class="block text-sm font-medium text-gray-700">Procedencia</label>
+                    <input type="text" id="procedencia" name="procedencia" value="{{ cliente[5] }}" 
+                           class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                </div>
+
+                <!-- Nuevo campo para cambiar habitación -->
+                <div>
+                    <label for="nueva_habitacion_id" class="block text-sm font-medium text-gray-700">Cambiar Habitación</label>
+                    <select id="nueva_habitacion_id" name="nueva_habitacion_id" 
+                            class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                        <option value="{{ cliente[10] }}">Hab {{ cliente[11] }} (Actual)</option>
+                        {% for hab in habitaciones_disponibles %}
+                            {% if hab[0] != cliente[10] %}
+                                <option value="{{ hab[0] }}">Hab {{ hab[1] }} - {{ hab[2] }} (Libre)</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-sm text-gray-500">Solo se muestran habitaciones libres para cambio</p>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <a href="{{ url_for('index') }}" 
+                       class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Actualizar Cliente
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </body>

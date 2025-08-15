@@ -239,7 +239,7 @@ def index():
 # ----------------- REGISTRAR -----------------
 @app.route('/registrar', methods=['POST'])
 def registrar():
-    flash("Reserva registrada con éxito")
+    flash("Mensualidad registrada con éxito")
     return redirect(url_for('index'))
 
 @app.route('/guardar_cliente', methods=['POST'])
@@ -301,7 +301,10 @@ def editar_cliente(cliente_id):
             flash('Cliente no encontrado.', 'error')
             return redirect(url_for('index'))
 
-        return render_template('editar_cliente.html', cliente=cliente)
+        cur.execute("SELECT id, numero, descripcion FROM habitaciones WHERE estado = 'libre' OR id = %s ORDER BY numero", (cliente[10],))
+        habitaciones_disponibles = cur.fetchall()
+
+        return render_template('editar_cliente.html', cliente=cliente, habitaciones_disponibles=habitaciones_disponibles)
 
     except pymysql.MySQLError as e:
         flash(f'Error en la base de datos: {str(e)}', 'error')
@@ -319,6 +322,7 @@ def actualizar_cliente():
         numero_doc = request.form['numero_doc']
         telefono = request.form['telefono']
         procedencia = request.form['procedencia']
+        nueva_habitacion_id = request.form.get('nueva_habitacion_id')
 
         conn = get_db_connection()
         if not conn:
@@ -326,10 +330,48 @@ def actualizar_cliente():
             return redirect(url_for('index'))
 
         cur = conn.cursor()
-        cur.execute("""UPDATE clientes SET nombre = %s, tipo_doc = %s, numero_doc = %s, telefono = %s, procedencia = %s WHERE id = %s""", (nombre, tipo_doc, numero_doc, telefono, procedencia, cliente_id))
+        
+        cur.execute("SELECT habitacion_id FROM clientes WHERE id = %s", (cliente_id,))
+        habitacion_actual = cur.fetchone()
+        
+        if not habitacion_actual:
+            flash('Cliente no encontrado.', 'error')
+            return redirect(url_for('index'))
+        
+        habitacion_actual_id = habitacion_actual[0]
+        
+        if nueva_habitacion_id and int(nueva_habitacion_id) != habitacion_actual_id:
+            # Verificar que la nueva habitación esté libre
+            cur.execute("SELECT estado FROM habitaciones WHERE id = %s", (nueva_habitacion_id,))
+            estado_nueva = cur.fetchone()
+            
+            if not estado_nueva or estado_nueva[0] != 'libre':
+                flash('No se puede cambiar a esa habitación. Solo se puede cambiar a habitaciones libres.', 'error')
+                return redirect(url_for('editar_cliente', cliente_id=cliente_id))
+            
+            # Actualizar cliente con nueva habitación
+            cur.execute("""UPDATE clientes SET nombre = %s, tipo_doc = %s, numero_doc = %s, telefono = %s, procedencia = %s, habitacion_id = %s WHERE id = %s""", 
+                       (nombre, tipo_doc, numero_doc, telefono, procedencia, nueva_habitacion_id, cliente_id))
+            
+            # Marcar la nueva habitación como ocupada
+            cur.execute("UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s", (nueva_habitacion_id,))
+            
+            # Verificar si la habitación anterior queda sin clientes para liberarla
+            cur.execute("""SELECT COUNT(*) FROM clientes WHERE habitacion_id = %s AND id != %s AND (check_out IS NULL OR check_out > NOW())""", 
+                       (habitacion_actual_id, cliente_id))
+            clientes_restantes = cur.fetchone()[0]
+            
+            if clientes_restantes == 0:
+                cur.execute("UPDATE habitaciones SET estado = 'libre' WHERE id = %s", (habitacion_actual_id,))
+            
+            flash('Cliente actualizado y habitación cambiada exitosamente.')
+        else:
+            # Solo actualizar datos del cliente sin cambiar habitación
+            cur.execute("""UPDATE clientes SET nombre = %s, tipo_doc = %s, numero_doc = %s, telefono = %s, procedencia = %s WHERE id = %s""", 
+                       (nombre, tipo_doc, numero_doc, telefono, procedencia, cliente_id))
+            flash('Cliente actualizado exitosamente.')
+        
         conn.commit()
-
-        flash('Cliente actualizado exitosamente.')
         return redirect(url_for('index'))
 
     except pymysql.MySQLError as e:
@@ -556,9 +598,24 @@ def cambiar_color_general():
 
     try:
         cur = conn.cursor()
+        
+        # Verificar el estado actual de la habitación
+        cur.execute("SELECT estado FROM habitaciones WHERE id = %s", (habitacion_id,))
+        estado_actual = cur.fetchone()
+        
+        if not estado_actual:
+            flash("Habitación no encontrada")
+            return redirect(url_for('index'))
+        
+        # Solo permitir cambios si la habitación está libre
+        if estado_actual[0] != 'libre':
+            flash("Solo se puede cambiar el estado de habitaciones que estén libres")
+            return redirect(url_for('index'))
+        
         cur.execute("UPDATE habitaciones SET estado = %s WHERE id = %s", (nuevo_estado, habitacion_id))
         conn.commit()
         flash("Estado de habitación actualizado con éxito")
+        
     except pymysql.MySQLError as e:
         flash(f"Error en la base de datos: {str(e)}")
     finally:
