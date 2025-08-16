@@ -6,11 +6,12 @@ from openpyxl.styles import Font, Border, Side, PatternFill, Alignment, NamedSty
 from openpyxl.utils import get_column_letter
 from werkzeug.security import check_password_hash
 import pymysql
+import threading
+import time as time_module
 
 app = Flask(__name__)
 app.secret_key = "una_clave_muy_secreta_y_larga"  # 🔑 obligatorio para sesión y flash
 
-# ----------------- CONEXIÓN DB -----------------
 def get_db_connection():
     """Obtiene una conexión a la base de datos con manejo de errores mejorado"""
     try:
@@ -52,7 +53,77 @@ def get_db_connection():
         print(f"❌ Error inesperado de conexión: {e}")
         return None
 
-# ----------------- LOGIN -----------------
+def verificar_liberacion_automatica():
+    """Verifica y libera habitaciones automáticamente a la 1 PM cuando se cumple la fecha"""
+    while True:
+        try:
+            ahora = datetime.now()
+            # Verificar solo a la 1 PM (13:00)
+            if ahora.hour == 13 and ahora.minute == 0:
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        # Buscar clientes cuya fecha de salida ya pasó
+                        cur.execute("""
+                            SELECT DISTINCT habitacion_id 
+                            FROM clientes 
+                            WHERE check_out <= %s 
+                            AND (check_out IS NOT NULL)
+                        """, (ahora,))
+                        
+                        habitaciones_a_liberar = cur.fetchall()
+                        
+                        for (habitacion_id,) in habitaciones_a_liberar:
+                            # Marcar clientes como salidos
+                            cur.execute("""
+                                UPDATE clientes 
+                                SET check_out = %s 
+                                WHERE habitacion_id = %s 
+                                AND check_out <= %s
+                            """, (ahora, habitacion_id, ahora))
+                            
+                            # Verificar si quedan clientes activos
+                            cur.execute("""
+                                SELECT COUNT(*) 
+                                FROM clientes 
+                                WHERE habitacion_id = %s 
+                                AND (check_out IS NULL OR check_out > %s)
+                            """, (habitacion_id, ahora))
+                            
+                            clientes_activos = cur.fetchone()[0]
+                            
+                            # Si no hay clientes activos, liberar habitación
+                            if clientes_activos == 0:
+                                cur.execute("""
+                                    UPDATE habitaciones 
+                                    SET estado = 'libre' 
+                                    WHERE id = %s
+                                """, (habitacion_id,))
+                                print(f"✅ Habitación {habitacion_id} liberada automáticamente a las 13:00")
+                        
+                        conn.commit()
+                        if habitaciones_a_liberar:
+                            print(f"🔄 Verificación automática: {len(habitaciones_a_liberar)} habitaciones procesadas")
+                        
+                    except Exception as e:
+                        print(f"❌ Error en verificación automática: {e}")
+                    finally:
+                        cur.close()
+                        conn.close()
+            
+            # Esperar 60 segundos antes de la próxima verificación
+            time_module.sleep(60)
+            
+        except Exception as e:
+            print(f"❌ Error en hilo de verificación: {e}")
+            time_module.sleep(60)
+
+def iniciar_verificacion_automatica():
+    hilo_verificacion = threading.Thread(target=verificar_liberacion_automatica, daemon=True)
+    hilo_verificacion.start()
+    print("🔄 Sistema de liberación automática iniciado")
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
@@ -127,14 +198,12 @@ def login():
         if conn:
             conn.close()
 
-# ----------------- LOGOUT -----------------
 @app.route('/logout', methods=['POST'])
 def logout():
     session.clear()  # limpia la sesión
     flash("Sesión cerrada con éxito", "success")
     return redirect(url_for('login'))
 
-# ----------------- PROTECCIÓN DE RUTAS -----------------
 @app.before_request
 def require_login():
     rutas_libres = {'login', 'static'}
@@ -177,7 +246,6 @@ def test_db():
             "error": "❌ No se pudo conectar a la base de datos. Revisa la consola para más detalles."
         })
 
-# ----------------- INDEX -----------------
 @app.route('/')
 def index():
     conn = get_db_connection()
@@ -187,6 +255,39 @@ def index():
 
     try:
         cur = conn.cursor()
+
+        ahora = datetime.now()
+        
+        # Buscar y liberar habitaciones con fechas vencidas
+        cur.execute("""
+            SELECT DISTINCT habitacion_id 
+            FROM clientes 
+            WHERE check_out <= %s 
+            AND (check_out IS NOT NULL)
+        """, (ahora,))
+        
+        habitaciones_vencidas = cur.fetchall()
+        
+        for (habitacion_id,) in habitaciones_vencidas:
+            # Verificar si quedan clientes activos
+            cur.execute("""
+                SELECT COUNT(*) 
+                FROM clientes 
+                WHERE habitacion_id = %s 
+                AND (check_out IS NULL OR check_out > %s)
+            """, (habitacion_id, ahora))
+            
+            clientes_activos = cur.fetchone()[0]
+            
+            # Si no hay clientes activos, liberar habitación
+            if clientes_activos == 0:
+                cur.execute("""
+                    UPDATE habitaciones 
+                    SET estado = 'libre' 
+                    WHERE id = %s
+                """, (habitacion_id,))
+
+        conn.commit()
 
         # Traer todas las habitaciones
         cur.execute("SELECT id, numero, descripcion, estado FROM habitaciones")
@@ -236,7 +337,6 @@ def index():
         if conn:
             conn.close()
 
-# ----------------- REGISTRAR -----------------
 @app.route('/registrar', methods=['POST'])
 def registrar():
     flash("Mensualidad registrada con éxito")
@@ -450,7 +550,8 @@ def guardar_nuevo_cliente():
             flash('La habitación ha alcanzado el límite máximo de 4 clientes.', 'error')
             return redirect(url_for('index'))
 
-        cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, habitacion_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (check_in_dt.time(), nombre, tipo_doc, numero_doc, telefono, procedencia, check_in_dt, check_out_dt, valor, observacion, habitacion_id))
+        cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, 
+                      procedencia, check_in, check_out, valor, observacion, habitacion_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (check_in_dt.time(), nombre, tipo_doc, numero_doc, telefono, procedencia, check_in_dt, check_out_dt, valor, observacion, habitacion_id))
 
         # Cambiar estado a ocupada
         cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s""", (habitacion_id,))
@@ -711,6 +812,91 @@ def registrar_cliente(habitacion_id):
         cur.close()
         conn.close()
 
+@app.route('/agregar_reservacion/<int:habitacion_id>')
+def agregar_reservacion(habitacion_id):
+    conn = get_db_connection()
+    if not conn:
+        flash('Error de conexión a la base de datos.', 'error')
+        return redirect(url_for('index'))
+
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT numero, descripcion FROM habitaciones WHERE id = %s", (habitacion_id,))
+        habitacion = cur.fetchone()
+
+        if not habitacion:
+            flash('Habitación no encontrada.', 'error')
+            return redirect(url_for('index'))
+
+        return render_template('agregar_cliente_reserva.html', habitacion=habitacion, habitacion_id=habitacion_id)
+
+    except pymysql.MySQLError as e:
+        flash(f'Error en la base de datos: {str(e)}', 'error')
+        return redirect(url_for('index'))
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route('/guardar_reservacion', methods=['POST'])
+def guardar_reservacion():
+    try:
+        habitacion_id = int(request.form['habitacion_id'])
+        # Campos obligatorios
+        nombre = request.form['nombre']
+        valor = request.form['valor']
+        fecha_entrada = request.form['fecha_entrada']
+        fecha_salida = request.form['fecha_salida']
+        
+        # Campos opcionales
+        tipo_doc = request.form.get('tipo_doc', '')
+        numero_doc = request.form.get('numero_doc', '')
+        telefono = request.form.get('telefono', '')
+        procedencia = request.form.get('procedencia', '')
+        observacion = request.form.get('observacion', '')
+
+        # Convertir fechas
+        fecha_entrada_dt = datetime.strptime(fecha_entrada, "%Y-%m-%d")
+        fecha_entrada_dt = datetime(fecha_entrada_dt.year, fecha_entrada_dt.month, fecha_entrada_dt.day, 14, 0)  # 2 PM entrada
+        
+        fecha_salida_dt = datetime.strptime(fecha_salida, "%Y-%m-%d")
+        fecha_salida_dt = datetime(fecha_salida_dt.year, fecha_salida_dt.month, fecha_salida_dt.day, 13, 0)  # 1 PM salida
+
+        conn = get_db_connection()
+        if not conn:
+            flash('Error de conexión a la base de datos.', 'error')
+            return redirect(url_for('index'))
+
+        cur = conn.cursor()
+        
+        cur.execute("""
+            INSERT INTO clientes (
+                habitacion_id, nombre, tipo_doc, numero_doc, telefono, 
+                procedencia, check_in, check_out, valor, observacion, hora_ingreso
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            habitacion_id, nombre, tipo_doc or None, numero_doc or None, telefono or None,
+            procedencia or None, fecha_entrada_dt, fecha_salida_dt, valor, observacion or None, 
+            fecha_entrada_dt.time()
+        ))
+
+        cur.execute("UPDATE habitaciones SET estado = 'reservado' WHERE id = %s", (habitacion_id,))
+
+        conn.commit()
+        flash('Reservación guardada exitosamente.', 'success')
+        return redirect(url_for('index'))
+
+    except pymysql.MySQLError as e:
+        flash(f'Error en la base de datos: {str(e)}', 'error')
+        return redirect(url_for('index'))
+    except Exception as e:
+        flash(f'Error al guardar reservación: {str(e)}', 'error')
+        return redirect(url_for('index'))
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        if 'conn' in locals():
+            conn.close()
+
 if __name__ == '__main__':
     print("🚀 Iniciando servidor Flask...")
     print("📊 Probando conexión a base de datos...")
@@ -730,5 +916,7 @@ if __name__ == '__main__':
     else:
         print("❌ Error de conexión a base de datos")
         print("💡 Visita http://localhost:5000/test-db para más detalles")
+    
+    iniciar_verificacion_automatica()
     
     app.run(debug=True, host='0.0.0.0', port=5000)

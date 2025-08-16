@@ -128,14 +128,16 @@
             {% for room in rooms %}
                 <div class="bg-white p-4 rounded-lg shadow-md">
                     <div class="flex justify-between items-center mb-2">
-                        <!-- Cambiado "reservado" por "mensualidad" -->
-                        <span class="text-lg font-semibold {{ 'text-green-600' if room.estado == 'libre' else 'text-yellow-600' if room.estado == 'ocupada' else 'text-blue-600' if room.estado == 'mensualidad' else 'text-gray-600' }}">
+                        <!-- Agregando estado reservado en azul -->
+                        <span class="text-lg font-semibold {{ 'text-green-600' if room.estado == 'libre' else 'text-yellow-600' if room.estado == 'ocupada' else 'text-blue-600' if room.estado == 'mensualidad' else 'text-blue-600' if room.estado == 'reservado' else 'text-gray-600' }}">
                             {% if room.estado == 'libre' %}
                                 ✅ LIBRE
                             {% elif room.estado == 'ocupada' %}
                                 🔴 OCUPADA
                             {% elif room.estado == 'mensualidad' %}
                                 💰 MENSUALIDAD
+                            {% elif room.estado == 'reservado' %}
+                                📅 RESERVADO
                             {% elif room.estado == 'mantenimiento' %}
                                 ⚙️ MANTENIMIENTO
                             {% endif %}
@@ -150,11 +152,16 @@
                         {% if room.estado != 'ocupada' or room.num_personas_ocupadas < 4 %}
                             <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" class="text-blue-500 hover:text-blue-700 ml-4">👤+ Agregar Cliente</a>
                         {% endif %}
+                        <!-- Agregando botón para reservar habitaciones libres -->
+                        {% if room.estado == 'libre' %}
+                            <a href="{{ url_for('agregar_reservacion', habitacion_id=room.id) }}" class="text-purple-500 hover:text-purple-700 ml-4">📅+ Reservar</a>
+                        {% endif %}
                         {% if room.inquilino_principal %}
                             <a href="{{ url_for('liberar', habitacion_id=room.id) }}" class="text-green-500 hover:text-green-700 ml-4">✅ Liberar</a>
                         {% endif %}
                     </div>
-                    {% if room.estado == 'ocupada' %}
+                    <!-- Mostrando información tanto para ocupadas como reservadas -->
+                    {% if room.estado == 'ocupada' or room.estado == 'reservado' %}
                         <div class="mt-4">
                             {% if room.inquilino_principal %}
                                 <p><strong>Cliente Principal:</strong> {{ room.inquilino_principal }}</p>
@@ -185,5 +192,13 @@
             {% endfor %}
         </div>
     </div>
+
+<script>
+function mostrarFormularioReservacion() {
+    // Redirigir a una página de selección de habitación para reservar
+    window.location.href = "{{ url_for('index') }}";
+}
+</script>
+
 </body>
 </html>

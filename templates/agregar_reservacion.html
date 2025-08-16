@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agregar Reservación</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">📅 Agregar Reservación</h2>
+            <h3 class="text-lg mb-4 text-center">Habitación {{ habitacion[0] }} - {{ habitacion[1] }}</h3>
+
+            <form action="{{ url_for('guardar_reservacion') }}" method="POST" class="space-y-4">
+                <input type="hidden" name="habitacion_id" value="{{ habitacion_id }}">
+
+                <!-- Campos obligatorios -->
+                <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <h4 class="font-semibold text-red-800 mb-3">📋 Campos Obligatorios</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Completo *</label>
+                            <input type="text" id="nombre" name="nombre" required
+                                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500">
+                        </div>
+
+                        <div>
+                            <label for="valor" class="block text-sm font-medium text-gray-700">Valor de la Habitación *</label>
+                            <input type="number" id="valor" name="valor" step="0.01" required
+                                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label for="fecha_entrada" class="block text-sm font-medium text-gray-700">Fecha de Entrada *</label>
+                            <input type="date" id="fecha_entrada" name="fecha_entrada" required
+                                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500">
+                        </div>
+
+                        <div>
+                            <label for="fecha_salida" class="block text-sm font-medium text-gray-700">Fecha de Salida *</label>
+                            <input type="date" id="fecha_salida" name="fecha_salida" required
+                                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campos opcionales -->
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 class="font-semibold text-blue-800 mb-3">📝 Información Adicional (Opcional)</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="tipo_doc" class="block text-sm font-medium text-gray-700">Tipo de Documento</label>
+                            <select id="tipo_doc" name="tipo_doc"
+                                    class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <option value="">Seleccionar...</option>
+                                <option value="CC">Cédula de Ciudadanía</option>
+                                <option value="CE">Cédula de Extranjería</option>
+                                <option value="PA">Pasaporte</option>
+                                <option value="TI">Tarjeta de Identidad</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="numero_doc" class="block text-sm font-medium text-gray-700">Número de Documento</label>
+                            <input type="text" id="numero_doc" name="numero_doc"
+                                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label for="telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                            <input type="tel" id="telefono" name="telefono"
+                                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label for="procedencia" class="block text-sm font-medium text-gray-700">Procedencia</label>
+                            <input type="text" id="procedencia" name="procedencia"
+                                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="observacion" class="block text-sm font-medium text-gray-700">Observaciones</label>
+                        <textarea id="observacion" name="observacion" rows="3"
+                                  class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="flex justify-end space-x-3 pt-4">
+                    <a href="{{ url_for('index') }}" 
+                       class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400 transition-colors">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 transition-colors">
+                        📅 Guardar Reservación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
