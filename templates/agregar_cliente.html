@@ -4,178 +4,216 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agregar Cliente - Sistema Hotelero</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .persona-adicional {
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            background-color: #f8f9fa;
-        }
-        .persona-adicional h6 {
-            color: #495057;
-            border-bottom: 1px solid #dee2e6;
-            padding-bottom: 5px;
-        }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>👤+ Agregar Nuevo Cliente</h3>
-                        <p class="mb-0">Habitación {{ habitacion[0] }} ({{ habitacion[1] }})</p>
-                    </div>
-                    <div class="card-body">
-                        <form action="{{ url_for('guardar_nuevo_cliente') }}" method="POST">
-                            <input type="hidden" name="habitacion_id" value="{{ habitacion_id }}">
-                            
-                            <h5 class="mb-3">Datos del Cliente Principal</h5>
-                            
-                            <div class="mb-3">
-                                <label for="nombre" class="form-label">Nombre:</label>
-                                <input type="text" class="form-control" id="nombre" name="nombre" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="tipo_doc" class="form-label">Tipo de Documento:</label>
-                                <select class="form-select" id="tipo_doc" name="tipo_doc" required>
-                                    <option value="C.c">C.c</option>
-                                    <option value="T.i">T.i</option>
-                                    <option value="Pasaporte">Pasaporte</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="numero_doc" class="form-label">Número de Documento:</label>
-                                <input type="text" class="form-control" id="numero_doc" name="numero_doc" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="telefono" class="form-label">Teléfono:</label>
-                                <input type="text" class="form-control" id="telefono" name="telefono">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="procedencia" class="form-label">Procedencia:</label>
-                                <input type="text" class="form-control" id="procedencia" name="procedencia">
-                            </div>
-                            
-                            <h5 class="mb-3 mt-4">Datos de la Estadía</h5>
-                            
-                            <div class="mb-3">
-                                <label for="check_in" class="form-label">Check-in:</label>
-                                <input type="datetime-local" class="form-control" id="check_in" name="check_in" 
-                                       value="{{ datos_referencia[0].strftime('%Y-%m-%dT%H:%M') if datos_referencia else '' }}" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="check_out_fecha" class="form-label">Fecha de Check-out:</label>
-                                <input type="date" class="form-control" id="check_out_fecha" name="check_out_fecha" 
-                                       value="{{ datos_referencia[1].strftime('%Y-%m-%d') if datos_referencia else '' }}" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="valor" class="form-label">Valor:</label>
-                                <input type="number" class="form-control" id="valor" name="valor" 
-                                       value="{{ datos_referencia[2] if datos_referencia else '' }}" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="observacion" class="form-label">Observación:</label>
-                                <textarea class="form-control" id="observacion" name="observacion">{{ datos_referencia[3] if datos_referencia else '' }}</textarea>
-                            </div>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">👤 Agregar Cliente</h1>
+                    <p class="text-gray-600 mt-1">
+                        Habitación {{ habitacion[0] }} - {{ habitacion[1] }} | Hotel: {{ session.usuario }}
+                    </p>
+                </div>
+                <a href="{{ url_for('index') }}" 
+                   class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    ← Volver al Panel
+                </a>
+            </div>
+        </div>
 
-                            <!-- Sección para personas adicionales -->
-                            <div class="mt-4">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="mb-0">👥 Personas Adicionales</h5>
-                                    <button type="button" class="btn btn-outline-primary btn-sm" id="agregarPersona">
-                                        ➕ Agregar Persona
-                                    </button>
-                                </div>
-                                
-                                <div id="personasAdicionales">
-                                    <!-- Las personas adicionales se agregarán aquí dinámicamente -->
-                                </div>
-                                
-                                <small class="text-muted">Máximo 4 personas adicionales por habitación</small>
-                            </div>
-                            
-                            <div class="d-flex gap-2 mt-4">
-                                <button type="submit" class="btn btn-primary">💾 Agregar Cliente(s)</button>
-                                <a href="{{ url_for('index') }}" class="btn btn-secondary">❌ Cancelar</a>
-                            </div>
-                        </form>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Form -->
+        <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-6 text-gray-800">Registro de Cliente</h2>
+
+            <form action="{{ url_for('guardar_nuevo_cliente') }}" method="POST" class="space-y-6">
+                <input type="hidden" name="habitacion_id" value="{{ habitacion_id }}">
+
+                <!-- Cliente Principal -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">👤 Cliente Principal</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                            <input type="text" id="nombre" name="nombre" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label for="tipo_doc" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                            <select id="tipo_doc" name="tipo_doc" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                                <option value="C.c">Cédula de Ciudadanía</option>
+                                <option value="T.i">Tarjeta de Identidad</option>
+                                <option value="Pasaporte">Pasaporte</option>
+                                <option value="C.e">Cédula de Extranjería</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="numero_doc" class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                            <input type="text" id="numero_doc" name="numero_doc" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label for="telefono" class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                            <input type="tel" id="telefono" name="telefono"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label for="procedencia" class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                            <input type="text" id="procedencia" name="procedencia"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                   placeholder="Ciudad o país de origen">
+                        </div>
                     </div>
                 </div>
-            </div>
+
+                <!-- Fechas y Valor -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">📅 Fechas y Valor</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="check_in" class="block text-sm font-medium text-gray-700 mb-1">Check-in *</label>
+                            <input type="datetime-local" id="check_in" name="check_in" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                   value="{{ datos_referencia[0].strftime('%Y-%m-%dT%H:%M') if datos_referencia and datos_referencia[0] else '' }}">
+                        </div>
+                        
+                        <div>
+                            <label for="check_out_fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha Check-out *</label>
+                            <input type="date" id="check_out_fecha" name="check_out_fecha" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                   value="{{ datos_referencia[1].strftime('%Y-%m-%d') if datos_referencia and datos_referencia[1] else '' }}">
+                        </div>
+                        
+                        <div>
+                            <label for="valor" class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
+                            <input type="number" id="valor" name="valor" step="0.01" min="0"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                   value="{{ datos_referencia[2] if datos_referencia and datos_referencia[2] else '' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label for="observacion" class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                        <textarea id="observacion" name="observacion" rows="2"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                  placeholder="Observaciones adicionales...">{{ datos_referencia[3] if datos_referencia and datos_referencia[3] else '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Personas Adicionales -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">👥 Personas Adicionales (Opcional)</h3>
+                    <p class="text-sm text-gray-600 mb-4">Máximo 3 personas adicionales (4 total por habitación)</p>
+                    
+                    <div id="personas-adicionales" class="space-y-4">
+                        <!-- Las personas adicionales se agregarán aquí dinámicamente -->
+                    </div>
+                    
+                    <button type="button" id="agregar-persona" 
+                            class="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        ➕ Agregar Persona
+                    </button>
+                </div>
+
+                <!-- Botones -->
+                <div class="flex justify-end space-x-3 pt-6">
+                    <a href="{{ url_for('index') }}" 
+                       class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                        💾 Registrar Cliente(s)
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- JavaScript para manejar personas adicionales -->
     <script>
-        let contadorPersonas = 0;
-        const maxPersonas = 4;
+        let personaCounter = 0;
+        const maxPersonas = 3;
 
-        document.getElementById('agregarPersona').addEventListener('click', function() {
-            if (contadorPersonas < maxPersonas) {
-                contadorPersonas++;
-                const personaDiv = document.createElement('div');
-                personaDiv.className = 'persona-adicional';
-                personaDiv.id = `persona-${contadorPersonas}`;
-                
-                personaDiv.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Persona ${contadorPersonas}</h6>
-                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarPersona(${contadorPersonas})">
-                            🗑️ Eliminar
-                        </button>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-2">
-                            <label class="form-label">Nombre:</label>
-                            <input type="text" class="form-control" name="persona_${contadorPersonas}_nombre" required>
-                        </div>
-                        <div class="col-md-6 mb-2">
-                            <label class="form-label">Cédula:</label>
-                            <input type="text" class="form-control" name="persona_${contadorPersonas}_cedula" required>
-                        </div>
-                        <div class="col-md-6 mb-2">
-                            <label class="form-label">Teléfono:</label>
-                            <input type="text" class="form-control" name="persona_${contadorPersonas}_telefono">
-                        </div>
-                    </div>
-                `;
-                
-                document.getElementById('personasAdicionales').appendChild(personaDiv);
-                
-                // Deshabilitar el botón si se alcanza el máximo
-                if (contadorPersonas >= maxPersonas) {
-                    document.getElementById('agregarPersona').disabled = true;
-                    document.getElementById('agregarPersona').textContent = 'Máximo alcanzado';
-                }
+        document.getElementById('agregar-persona').addEventListener('click', function() {
+            if (personaCounter >= maxPersonas) {
+                alert('Máximo 3 personas adicionales permitidas');
+                return;
+            }
+
+            personaCounter++;
+            const personasContainer = document.getElementById('personas-adicionales');
+            
+            const personaDiv = document.createElement('div');
+            personaDiv.className = 'border border-gray-100 rounded p-3 bg-gray-50';
+            personaDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="font-medium text-gray-700">Persona ${personaCounter}</h4>
+                    <button type="button" onclick="eliminarPersona(this)" 
+                            class="text-red-500 hover:text-red-700 text-sm">
+                        ❌ Eliminar
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="text" name="persona_${personaCounter}_nombre" 
+                           placeholder="Nombre completo" required
+                           class="px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    <input type="text" name="persona_${personaCounter}_cedula" 
+                           placeholder="Número de documento"
+                           class="px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    <input type="tel" name="persona_${personaCounter}_telefono" 
+                           placeholder="Teléfono"
+                           class="px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            `;
+            
+            personasContainer.appendChild(personaDiv);
+            
+            if (personaCounter >= maxPersonas) {
+                document.getElementById('agregar-persona').style.display = 'none';
             }
         });
 
-        function eliminarPersona(numero) {
-            const personaDiv = document.getElementById(`persona-${numero}`);
-            if (personaDiv) {
-                personaDiv.remove();
-                contadorPersonas--;
-                
-                // Rehabilitar el botón si no se ha alcanzado el máximo
-                const btnAgregar = document.getElementById('agregarPersona');
-                if (contadorPersonas < maxPersonas) {
-                    btnAgregar.disabled = false;
-                    btnAgregar.textContent = '➕ Agregar Persona';
-                }
-            }
+        function eliminarPersona(button) {
+            button.closest('.border').remove();
+            personaCounter--;
+            document.getElementById('agregar-persona').style.display = 'block';
         }
+
+        // Set default check-in to now
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkInInput = document.getElementById('check_in');
+            if (!checkInInput.value) {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                checkInInput.value = now.toISOString().slice(0, 16);
+            }
+            
+            const checkOutInput = document.getElementById('check_out_fecha');
+            if (!checkOutInput.value) {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                checkOutInput.value = tomorrow.toISOString().slice(0, 10);
+            }
+        });
     </script>
 </body>
 </html>

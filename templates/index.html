@@ -8,7 +8,27 @@
 </head>
 <body class="bg-gray-100 font-sans">
     <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold text-center mb-6">Sistema de Gestión Hotelera</h1>
+        <!-- Added hotel-specific header with user info -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">🏨 Panel de Control - {{ session.usuario }}</h1>
+                    <p class="text-gray-600 mt-2">Gestiona las habitaciones de tu hotel de forma independiente</p>
+                </div>
+                <div class="text-right">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                        <p class="text-sm text-blue-800 font-semibold">✨ Espacio Privado</p>
+                        <p class="text-xs text-blue-600">Solo tú puedes ver y gestionar estas habitaciones</p>
+                    </div>
+                    <form action="{{ url_for('logout') }}" method="POST" class="inline">
+                        <button type="submit" 
+                                class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 shadow-sm">
+                            🔒 Cerrar Sesión
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}
@@ -19,155 +39,155 @@
                 </div>
             {% endif %}
         {% endwith %}
-<div class="max-w-md mx-auto bg-white p-4 rounded-md shadow-md border border-gray-200">
-    <h2 class="text-xl font-semibold mb-4 text-gray-800">Agregar Habitación</h2>
 
-    <form action="{{ url_for('agregar_habitacion') }}" method="POST" class="space-y-3">
+        <!-- Updated room management section with multi-tenancy context -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">🏠 Gestión de Habitaciones</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <a href="{{ url_for('agregar_habitacion') }}" 
+                   class="bg-green-500 text-white px-4 py-3 rounded hover:bg-green-600 text-center font-medium">
+                    ➕ Agregar Nueva Habitación
+                </a>
+                
+                <a href="{{ url_for('exportar_excel') }}" 
+                   class="bg-blue-500 text-white px-4 py-3 rounded hover:bg-blue-600 text-center font-medium">
+                    📊 Exportar Datos a Excel
+                </a>
+                
+                <div class="bg-gray-50 border border-gray-200 rounded p-3 text-center">
+                    <p class="text-sm text-gray-600">Total de habitaciones:</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ rooms|length }}</p>
+                </div>
+            </div>
 
-        <!-- Número de habitación -->
-        <div>
-            <label for="numero" class="block text-sm font-medium text-gray-700">Número</label>
-            <input type="number" id="numero" name="numero" 
-                   class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" 
-                   required>
+            <!-- Updated room state management with better UX -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="text-lg font-medium mb-3 text-gray-700">🔄 Cambiar Estado de Habitación</h3>
+                <form action="{{ url_for('cambiar_color_general') }}" method="POST" 
+                      class="flex flex-wrap items-center gap-3">
+                    <select name="habitacion_id" 
+                            class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Seleccionar habitación...</option>
+                        {% for h in habitaciones %}
+                            <option value="{{ h[0] }}">Habitación {{ h[1] }} - {{ h[2] }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="nuevo_estado" 
+                            class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="libre">🟢 Libre</option>
+                        <option value="ocupada">🔴 Ocupada</option>
+                        <option value="reservado">🟡 Reservado</option>
+                        <option value="mantenimiento">⚙️ Mantenimiento</option>
+                    </select>
+
+                    <button type="submit" 
+                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm shadow-sm">
+                        Actualizar Estado
+                    </button>
+                </form>
+            </div>
         </div>
 
-        <!-- Descripción -->
-        <div>
-            <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
-            <textarea id="descripcion" name="descripcion" rows="2"
-                      class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                      required></textarea>
-        </div>
-
-        <!-- Estado -->
-        <div>
-            <label for="estado" class="block text-sm font-medium text-gray-700">Estado</label>
-            <select id="estado" name="estado" 
-                    class="mt-1 block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    required>
-                <option value="libre">Libre</option>
-                <option value="ocupada">Ocupada</option>
-                <option value="mantenimiento">Mantenimiento</option>
-            </select>
-        </div>
-
-        <!-- Botones -->
-        <div class="flex justify-end space-x-2">
-            <a href="{{ url_for('index') }}" 
-               class="bg-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-400 text-sm">
-                Cancelar
-            </a>
-            <button type="submit" 
-                    class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">
-                Guardar
-            </button>
-        </div>
-    </form>
-</div>
-
-<div class="flex justify-end mb-4">
-   <form action="{{ url_for('logout') }}" method="POST">
-    <button type="submit" 
-            class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 shadow-sm">
-        🔒 Cerrar Sesión
-    </button>
-</form>
-
-
-</div>
-
-
-       <form action="{{ url_for('cambiar_color_general') }}" method="POST" 
-      class="mt-2 flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-2">
-
-    <select name="habitacion_id" 
-            class="border rounded px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-        {% for h in habitaciones %}
-            <option value="{{ h[0] }}">Hab {{ h[1] }}</option>
-        {% endfor %}
-    </select>
-
-    <select name="nuevo_estado" 
-            class="border rounded px-3 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-        <option value="libre">Libre</option>
-        <option value="ocupada">Ocupada</option>
-        <option value="reservado">Reservado</option>
-        <option value="mantenimiento">Mantenimiento</option>
-    </select>
-
-    <button type="submit" 
-            class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm shadow-sm">
-        🔄 Cambiar Estado
-    </button>
-</form>
-
-
-        <div class="mb-6">
-            <a href="{{ url_for('exportar_excel') }}" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                📊 Exportar a Excel
-            </a>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Enhanced room grid with better visual hierarchy -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for room in rooms %}
-                <div class="bg-white p-4 rounded-lg shadow-md">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-lg font-semibold {{ 'text-green-600' if room.estado == 'libre' else 'text-yellow-600' if room.estado == 'ocupada' else 'text-red-600' if room.estado == 'reservado' else 'text-gray-600' }}">
-                            {% if room.estado == 'libre' %}
-                                ✅ LIBRE
-                            {% elif room.estado == 'ocupada' %}
-                                🔴 OCUPADA
-                            {% elif room.estado == 'reservado' %}
-                                📅 RESERVADO
-                            {% elif room.estado == 'mantenimiento' %}
-                                ⚙️ MANTENIMIENTO
-                            {% endif %}
-                        </span>
-                    </div>
-                    <h3 class="text-xl font-bold">🏠 Habitación {{ room.numero }}</h3>
-                    <p>Tipo: {{ room.descripcion }}</p>
-                    <div class="mt-2">
-                        <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" method="POST" class="inline">
-                            <button type="submit" class="text-red-500 hover:text-red-700">🗑 Eliminar</button>
-                        </form>
-                        {% if room.estado != 'ocupada' or room.num_personas_ocupadas < 4 %}
-                            <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" class="text-blue-500 hover:text-blue-700 ml-4">👤+ Agregar Cliente</a>
-                        {% endif %}
-                        {% if room.inquilino_principal %}
-                            <a href="{{ url_for('liberar', habitacion_id=room.id) }}" class="text-green-500 hover:text-green-700 ml-4">✅ Liberar</a>
-                        {% endif %}
-                    </div>
-                    {% if room.estado == 'ocupada' %}
-                        <div class="mt-4">
-                            {% if room.inquilino_principal %}
-                                <p><strong>Cliente Principal:</strong> {{ room.inquilino_principal }}</p>
-                            {% endif %}
-                            {% if room.telefono %}
-                                <p><strong>Teléfono:</strong> {{ room.telefono }}</p>
-                            {% endif %}
-                            {% if room.observacion %}
-                                <p><strong>Observación:</strong> {{ room.observacion }}</p>
-                            {% endif %}
-                            {% if room.fecha_salida %}
-                                <p><strong>Fecha de Salida:</strong> {{ room.fecha_salida.strftime('%d/%m/%Y %H:%M') }}</p>
-                            {% endif %}
-                            {% if room.personas_list %}
-                                <p><strong>Clientes:</strong></p>
-                                <ul class="list-disc pl-5">
-                                    {% for persona in room.personas_list %}
-                                        <li>
-                                            {{ persona.nombre }} - {{ persona.telefono or "Sin teléfono" }}
-                                            <a href="{{ url_for('editar_cliente', cliente_id=persona.id) }}" class="text-blue-500 hover:text-blue-700">✏️ Editar</a>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            {% endif %}
+                <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                    <!-- Room header with status -->
+                    <div class="p-4 {{ 'bg-green-50 border-l-4 border-green-500' if room.estado == 'libre' else 'bg-red-50 border-l-4 border-red-500' if room.estado == 'ocupada' else 'bg-yellow-50 border-l-4 border-yellow-500' if room.estado == 'reservado' else 'bg-gray-50 border-l-4 border-gray-500' }}">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-xl font-bold text-gray-800">🏠 Habitación {{ room.numero }}</h3>
+                            <span class="text-sm font-semibold px-2 py-1 rounded {{ 'text-green-700 bg-green-100' if room.estado == 'libre' else 'text-red-700 bg-red-100' if room.estado == 'ocupada' else 'text-yellow-700 bg-yellow-100' if room.estado == 'reservado' else 'text-gray-700 bg-gray-100' }}">
+                                {% if room.estado == 'libre' %}
+                                    ✅ LIBRE
+                                {% elif room.estado == 'ocupada' %}
+                                    🔴 OCUPADA
+                                {% elif room.estado == 'reservado' %}
+                                    📅 RESERVADO
+                                {% elif room.estado == 'mantenimiento' %}
+                                    ⚙️ MANTENIMIENTO
+                                {% endif %}
+                            </span>
                         </div>
-                    {% endif %}
+                        <p class="text-gray-600">{{ room.descripcion }}</p>
+                    </div>
+
+                    <!-- Room content -->
+                    <div class="p-4">
+                        {% if room.estado == 'ocupada' and room.inquilino_principal %}
+                            <div class="space-y-2 mb-4">
+                                <p class="text-sm"><strong class="text-gray-700">Cliente Principal:</strong> {{ room.inquilino_principal }}</p>
+                                {% if room.telefono %}
+                                    <p class="text-sm"><strong class="text-gray-700">Teléfono:</strong> {{ room.telefono }}</p>
+                                {% endif %}
+                                {% if room.observacion %}
+                                    <p class="text-sm"><strong class="text-gray-700">Observación:</strong> {{ room.observacion }}</p>
+                                {% endif %}
+                                {% if room.fecha_salida %}
+                                    <p class="text-sm"><strong class="text-gray-700">Fecha de Salida:</strong> {{ room.fecha_salida.strftime('%d/%m/%Y %H:%M') }}</p>
+                                {% endif %}
+                                
+                                {% if room.personas_list and room.personas_list|length > 1 %}
+                                    <div class="mt-3">
+                                        <p class="text-sm font-semibold text-gray-700 mb-1">Todos los huéspedes ({{ room.personas_list|length }}):</p>
+                                        <div class="space-y-1">
+                                            {% for persona in room.personas_list %}
+                                                <div class="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
+                                                    <span>{{ persona.nombre }} - {{ persona.telefono or "Sin teléfono" }}</span>
+                                                    <a href="{{ url_for('editar_cliente', cliente_id=persona.id) }}" 
+                                                       class="text-blue-500 hover:text-blue-700">✏️</a>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Action buttons -->
+                        <div class="flex flex-wrap gap-2 text-sm">
+                            {% if room.estado != 'ocupada' or room.num_personas_ocupadas < 4 %}
+                                <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" 
+                                   class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                    👤+ Cliente
+                                </a>
+                            {% endif %}
+                            
+                            {% if room.inquilino_principal %}
+                                <a href="{{ url_for('liberar', habitacion_id=room.id) }}" 
+                                   class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                                    ✅ Liberar
+                                </a>
+                            {% endif %}
+                            
+                            <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
+                                  method="POST" class="inline"
+                                  onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
+                                <button type="submit" 
+                                        class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                    🗑 Eliminar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             {% endfor %}
         </div>
+
+        <!-- Added empty state message -->
+        {% if not rooms %}
+            <div class="text-center py-12">
+                <div class="bg-white rounded-lg shadow-md p-8">
+                    <h3 class="text-xl font-semibold text-gray-600 mb-4">🏨 ¡Bienvenido a tu espacio hotelero!</h3>
+                    <p class="text-gray-500 mb-6">Aún no tienes habitaciones registradas. Comienza agregando tu primera habitación.</p>
+                    <a href="{{ url_for('agregar_habitacion') }}" 
+                       class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 font-medium">
+                        ➕ Agregar Primera Habitación
+                    </a>
+                </div>
+            </div>
+        {% endif %}
     </div>
 </body>
 </html>

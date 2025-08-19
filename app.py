@@ -52,6 +52,18 @@ def get_db_connection():
         print(f"❌ Error inesperado de conexión: {e}")
         return None
 
+def get_current_user_id():
+    """Obtiene el ID del usuario actual desde la sesión"""
+    return session.get('usuario_id')
+
+def require_user_session():
+    """Verifica que el usuario esté logueado y retorna su ID"""
+    user_id = get_current_user_id()
+    if not user_id:
+        flash("Debes iniciar sesión para acceder a esta función", "error")
+        return None
+    return user_id
+
 # ----------------- LOGIN -----------------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -180,6 +192,10 @@ def test_db():
 # ----------------- INDEX -----------------
 @app.route('/')
 def index():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     conn = get_db_connection()
     if not conn:
         flash("Error de conexión a la base de datos")
@@ -188,8 +204,7 @@ def index():
     try:
         cur = conn.cursor()
 
-        # Traer todas las habitaciones
-        cur.execute("SELECT id, numero, descripcion, estado FROM habitaciones")
+        cur.execute("SELECT id, numero, descripcion, estado FROM habitaciones WHERE usuario_id = %s ORDER BY numero", (user_id,))
         habitaciones_db = cur.fetchall()
 
         rooms = []
@@ -239,6 +254,10 @@ def registrar():
 
 @app.route('/guardar_cliente', methods=['POST'])
 def guardar_cliente():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     habitacion_id = request.form['habitacion_id']
     nombre = request.form['nombre']
     telefono = request.form.get('telefono')
@@ -254,6 +273,12 @@ def guardar_cliente():
 
     try:
         cur = conn.cursor()
+        
+        cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        if not cur.fetchone():
+            flash('No tienes permisos para modificar esta habitación.', 'error')
+            return redirect(url_for('index'))
+        
         # Verificar el número de clientes actuales
         cur.execute("""SELECT COUNT(*) FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
         clientes_actuales = cur.fetchone()[0]
@@ -266,7 +291,7 @@ def guardar_cliente():
         cur.execute("""INSERT INTO clientes (habitacion_id, nombre, telefono, observacion, check_in, check_out, valor) VALUES (%s, %s, %s, %s, %s, %s, %s)""", (habitacion_id, nombre, telefono, observacion, check_in, check_out, valor))
 
         # Cambiar estado a ocupada
-        cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s""", (habitacion_id,))
+        cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
 
         conn.commit()
         flash('Cliente registrado y habitación marcada como ocupada.', 'success')
@@ -282,6 +307,10 @@ def guardar_cliente():
 
 @app.route('/editar_cliente/<int:cliente_id>')
 def editar_cliente(cliente_id):
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     conn = get_db_connection()
     if not conn:
         flash('Error de conexión a la base de datos.', 'error')
@@ -289,11 +318,11 @@ def editar_cliente(cliente_id):
 
     try:
         cur = conn.cursor()
-        cur.execute("""SELECT c.id, c.nombre, c.tipo_doc, c.numero_doc, c.telefono, c.procedencia, c.check_in, c.check_out, c.valor, c.observacion, c.habitacion_id, h.numero AS habitacion_numero, h.descripcion AS habitacion_descripcion FROM clientes c JOIN habitaciones h ON c.habitacion_id = h.id WHERE c.id = %s""", (cliente_id,))
+        cur.execute("""SELECT c.id, c.nombre, c.tipo_doc, c.numero_doc, c.telefono, c.procedencia, c.check_in, c.check_out, c.valor, c.observacion, c.habitacion_id, h.numero AS habitacion_numero, h.descripcion AS habitacion_descripcion FROM clientes c JOIN habitaciones h ON c.habitacion_id = h.id WHERE c.id = %s AND h.usuario_id = %s""", (cliente_id, user_id))
         cliente = cur.fetchone()
 
         if not cliente:
-            flash('Cliente no encontrado.', 'error')
+            flash('Cliente no encontrado o no tienes permisos para editarlo.', 'error')
             return redirect(url_for('index'))
 
         return render_template('editar_cliente.html', cliente=cliente)
@@ -307,6 +336,10 @@ def editar_cliente(cliente_id):
 
 @app.route('/actualizar_cliente', methods=['POST'])
 def actualizar_cliente():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     try:
         cliente_id = int(request.form['cliente_id'])
         nombre = request.form['nombre']
@@ -321,6 +354,12 @@ def actualizar_cliente():
             return redirect(url_for('index'))
 
         cur = conn.cursor()
+        
+        cur.execute("""SELECT c.id FROM clientes c JOIN habitaciones h ON c.habitacion_id = h.id WHERE c.id = %s AND h.usuario_id = %s""", (cliente_id, user_id))
+        if not cur.fetchone():
+            flash('No tienes permisos para editar este cliente.', 'error')
+            return redirect(url_for('index'))
+        
         cur.execute("""UPDATE clientes SET nombre = %s, tipo_doc = %s, numero_doc = %s, telefono = %s, procedencia = %s WHERE id = %s""", (nombre, tipo_doc, numero_doc, telefono, procedencia, cliente_id))
         conn.commit()
 
@@ -338,6 +377,10 @@ def actualizar_cliente():
 
 @app.route('/agregar_cliente_habitacion/<int:habitacion_id>')
 def agregar_cliente_habitacion(habitacion_id):
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     conn = get_db_connection()
     if not conn:
         flash('Error de conexión a la base de datos.', 'error')
@@ -345,11 +388,11 @@ def agregar_cliente_habitacion(habitacion_id):
 
     try:
         cur = conn.cursor()
-        cur.execute("SELECT numero, descripcion FROM habitaciones WHERE id = %s", (habitacion_id,))
+        cur.execute("SELECT numero, descripcion FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
         habitacion = cur.fetchone()
 
         if not habitacion:
-            flash('Habitación no encontrada.', 'error')
+            flash('Habitación no encontrada o no tienes permisos para acceder a ella.', 'error')
             return redirect(url_for('index'))
 
         cur.execute("""SELECT COUNT(*) FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
@@ -373,6 +416,10 @@ def agregar_cliente_habitacion(habitacion_id):
 
 @app.route('/guardar_nuevo_cliente', methods=['POST'])
 def guardar_nuevo_cliente():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     try:
         habitacion_id = int(request.form['habitacion_id'])
         
@@ -413,6 +460,11 @@ def guardar_nuevo_cliente():
 
         cur = conn.cursor()
         
+        cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        if not cur.fetchone():
+            flash('No tienes permisos para modificar esta habitación.', 'error')
+            return redirect(url_for('index'))
+        
         cur.execute("""SELECT COUNT(*) FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
         clientes_actuales = cur.fetchone()[0]
         
@@ -428,8 +480,7 @@ def guardar_nuevo_cliente():
         for persona in personas_adicionales:
             cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, habitacion_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (check_in_dt.time(), persona['nombre'], 'C.c', persona['cedula'], persona['telefono'], procedencia, check_in_dt, check_out_dt, 0, f'Acompañante de {nombre}', habitacion_id))
 
-        # Cambiar estado a ocupada
-        cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s""", (habitacion_id,))
+        cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
 
         conn.commit()
         
@@ -455,6 +506,10 @@ def guardar_nuevo_cliente():
 
 @app.route('/liberar/<int:habitacion_id>')
 def liberar(habitacion_id):
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     conn = get_db_connection()
     if not conn:
         flash('Error de conexión a la base de datos.', 'error')
@@ -462,13 +517,20 @@ def liberar(habitacion_id):
 
     try:
         cur = conn.cursor()
+        
+        cur.execute("SELECT numero FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        habitacion = cur.fetchone()
+        if not habitacion:
+            flash('No tienes permisos para liberar esta habitación.', 'error')
+            return redirect(url_for('index'))
+        
         cur.execute("""UPDATE clientes SET check_out = NOW() WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
 
         if cur.rowcount > 0:
-            cur.execute("UPDATE habitaciones SET estado = 'libre' WHERE id = %s", (habitacion_id,))
-            flash(f'Habitación {habitacion_id} y sus ocupantes liberados.')
+            cur.execute("UPDATE habitaciones SET estado = 'libre' WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+            flash(f'Habitación {habitacion[0]} y sus ocupantes liberados.')
         else:
-            flash(f'No hay clientes activos para liberar en la habitación {habitacion_id}', 'error')
+            flash(f'No hay clientes activos para liberar en la habitación {habitacion[0]}', 'error')
 
         conn.commit()
         return redirect(url_for('index'))
@@ -482,6 +544,10 @@ def liberar(habitacion_id):
 
 @app.route('/exportar_excel')
 def exportar_excel():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     conn = get_db_connection()
     if not conn:
         flash('Error de conexión a la base de datos.', 'error')
@@ -489,14 +555,27 @@ def exportar_excel():
 
     try:
         cur = conn.cursor()
-        cur.execute("""SELECT c.hora_ingreso, c.nombre, c.tipo_doc, c.numero_doc, c.telefono, c.procedencia, c.check_in, c.check_out, c.valor, c.observacion, h.numero AS habitacion_numero FROM clientes c JOIN habitaciones h ON c.habitacion_id = h.id ORDER BY c.check_in DESC, c.hora_ingreso DESC""")
+        cur.execute("""
+            SELECT c.hora_ingreso, c.nombre, c.tipo_doc, c.numero_doc, 
+                   c.telefono, c.procedencia, c.check_in, c.check_out, 
+                   c.valor, c.observacion, h.numero AS habitacion_numero
+            FROM clientes c 
+            JOIN habitaciones h ON c.habitacion_id = h.id 
+            WHERE h.usuario_id = %s 
+            ORDER BY c.check_in DESC, c.hora_ingreso DESC
+        """, (user_id,))
         all_clientes_data = cur.fetchall()
 
         if not all_clientes_data:
             flash('No hay datos para exportar', 'error')
             return redirect(url_for('index'))
 
-        excel_path = r"C:\Users\USUARIO\Desktop\Nelson\clientes_hotel.xlsx"
+        # 📌 Obtiene escritorio dinámicamente
+        import os
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop", "Nelson")
+        os.makedirs(desktop, exist_ok=True)  # crea la carpeta si no existe
+        excel_path = os.path.join(desktop, "clientes_hotel.xlsx")
+
         columnas = [
             'Hora Ingreso', 'Nombre', 'Tipo Doc', 'Número Doc', 'Teléfono',
             'Procedencia', 'Check-in', 'Check-out', 'Valor', 'Observación', 'Habitación'
@@ -507,7 +586,10 @@ def exportar_excel():
         ws.title = "Todos los Clientes"
         ws.append(columnas)
 
-        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'), 
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
 
         header_style = NamedStyle(name="header_style")
         header_style.font = Font(bold=True, color="FFFFFF")
@@ -570,6 +652,10 @@ def exportar_excel():
 
 @app.route('/cambiar_color_general', methods=['POST'])
 def cambiar_color_general():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     habitacion_id = request.form.get('habitacion_id')
     nuevo_estado = request.form.get('nuevo_estado')
 
@@ -580,9 +666,12 @@ def cambiar_color_general():
 
     try:
         cur = conn.cursor()
-        cur.execute("UPDATE habitaciones SET estado = %s WHERE id = %s", (nuevo_estado, habitacion_id))
-        conn.commit()
-        flash("Estado de habitación actualizado con éxito")
+        cur.execute("UPDATE habitaciones SET estado = %s WHERE id = %s AND usuario_id = %s", (nuevo_estado, habitacion_id, user_id))
+        if cur.rowcount > 0:
+            conn.commit()
+            flash("Estado de habitación actualizado con éxito")
+        else:
+            flash("No tienes permisos para modificar esta habitación", "error")
     except pymysql.MySQLError as e:
         flash(f"Error en la base de datos: {str(e)}")
     finally:
@@ -593,6 +682,10 @@ def cambiar_color_general():
 
 @app.route('/agregar_habitacion', methods=['GET', 'POST'])
 def agregar_habitacion():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     if request.method == 'POST':
         numero = request.form['numero']
         descripcion = request.form['descripcion']
@@ -605,7 +698,13 @@ def agregar_habitacion():
 
         try:
             cur = conn.cursor()
-            cur.execute("INSERT INTO habitaciones (numero, descripcion, estado) VALUES (%s, %s, %s)", (numero, descripcion, estado))
+            
+            cur.execute("SELECT id FROM habitaciones WHERE numero = %s AND usuario_id = %s", (numero, user_id))
+            if cur.fetchone():
+                flash(f"Ya tienes una habitación con el número {numero}. Cada habitación debe tener un número único en tu hotel.", "error")
+                return render_template('agregar_habitacion.html')
+            
+            cur.execute("INSERT INTO habitaciones (numero, descripcion, estado, usuario_id) VALUES (%s, %s, %s, %s)", (numero, descripcion, estado, user_id))
             conn.commit()
             flash("Habitación agregada con éxito", "success")
         except Exception as e:
@@ -621,6 +720,10 @@ def agregar_habitacion():
 
 @app.route('/eliminar_habitacion/<int:habitacion_id>', methods=['POST'])
 def eliminar_habitacion(habitacion_id):
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     conn = get_db_connection()
     if not conn:
         flash("Error de conexión a la base de datos", "error")
@@ -628,9 +731,12 @@ def eliminar_habitacion(habitacion_id):
 
     try:
         cur = conn.cursor()
-        cur.execute("DELETE FROM habitaciones WHERE id = %s", (habitacion_id,))
-        conn.commit()
-        flash("Habitación eliminada con éxito")
+        cur.execute("DELETE FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        if cur.rowcount > 0:
+            conn.commit()
+            flash("Habitación eliminada con éxito")
+        else:
+            flash("No tienes permisos para eliminar esta habitación", "error")
     except pymysql.MySQLError as e:
         flash(f"Error al eliminar habitación: {str(e)}", "error")
     finally:
@@ -641,6 +747,10 @@ def eliminar_habitacion(habitacion_id):
 
 @app.route('/registrar_cliente/<int:habitacion_id>', methods=['POST'])
 def registrar_cliente(habitacion_id):
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
     nombre = request.form.get('nombre')
     tipo_doc = request.form.get('tipo_doc')
     numero_doc = request.form.get('numero_doc')
@@ -658,6 +768,12 @@ def registrar_cliente(habitacion_id):
 
     try:
         cur = conn.cursor()
+        
+        cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        if not cur.fetchone():
+            flash('No tienes permisos para modificar esta habitación.', 'error')
+            return redirect(url_for('index'))
+        
         # Verificar el número de clientes actuales
         cur.execute("""SELECT COUNT(*) FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
         clientes_actuales = cur.fetchone()[0]
@@ -668,8 +784,7 @@ def registrar_cliente(habitacion_id):
 
         cur.execute("""INSERT INTO clientes (nombre, tipo_doc, numero_doc, telefono, procedencia, habitacion_id, check_in, check_out, valor, observacion) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (nombre, tipo_doc, numero_doc, telefono, procedencia, habitacion_id, check_in, check_out, valor, observacion))
 
-        # Cambiar estado a ocupada
-        cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s""", (habitacion_id,))
+        cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
 
         conn.commit()
         flash('Cliente registrado exitosamente.', 'success')
