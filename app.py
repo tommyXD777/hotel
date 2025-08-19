@@ -197,12 +197,7 @@ def index():
             room_id, numero, descripcion, estado = h
 
             # Obtener datos de clientes para la habitación
-            cur.execute("""
-                SELECT nombre, telefono, observacion, check_out, id
-                FROM clientes
-                WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())
-                ORDER BY check_in DESC
-            """, (room_id,))
+            cur.execute("""SELECT nombre, telefono, observacion, check_out, id FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW()) ORDER BY check_in DESC""", (room_id,))
             clientes = cur.fetchall()
 
             inquilino_principal = clientes[0][0] if clientes else None
@@ -380,6 +375,8 @@ def agregar_cliente_habitacion(habitacion_id):
 def guardar_nuevo_cliente():
     try:
         habitacion_id = int(request.form['habitacion_id'])
+        
+        # Datos del cliente principal
         nombre = request.form['nombre']
         tipo_doc = request.form['tipo_doc']
         numero_doc = request.form['numero_doc']
@@ -394,27 +391,54 @@ def guardar_nuevo_cliente():
         check_out_dt = datetime.strptime(check_out_fecha, "%Y-%m-%d")
         check_out_dt = datetime(check_out_dt.year, check_out_dt.month, check_out_dt.day, 13, 0)
 
+        personas_adicionales = []
+        for key in request.form.keys():
+            if key.startswith('persona_') and key.endswith('_nombre'):
+                # Extraer el número de persona
+                numero_persona = key.split('_')[1]
+                nombre_adicional = request.form[key]
+                cedula_adicional = request.form.get(f'persona_{numero_persona}_cedula', '')
+                telefono_adicional = request.form.get(f'persona_{numero_persona}_telefono', '')
+                
+                personas_adicionales.append({
+                    'nombre': nombre_adicional,
+                    'cedula': cedula_adicional,
+                    'telefono': telefono_adicional
+                })
+
         conn = get_db_connection()
         if not conn:
             flash('Error de conexión a la base de datos.', 'error')
             return redirect(url_for('index'))
 
         cur = conn.cursor()
-        # Verificar el número de clientes actuales
+        
         cur.execute("""SELECT COUNT(*) FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
         clientes_actuales = cur.fetchone()[0]
+        
+        total_nuevos_clientes = 1 + len(personas_adicionales)  # Cliente principal + adicionales
+        
+        if clientes_actuales + total_nuevos_clientes > 4:
+            flash(f'No se pueden agregar {total_nuevos_clientes} clientes. La habitación solo puede tener máximo 4 personas y actualmente tiene {clientes_actuales}.', 'error')
+            return redirect(url_for('agregar_cliente_habitacion', habitacion_id=habitacion_id))
 
-        if clientes_actuales >= 4:
-            flash('La habitación ha alcanzado el límite máximo de 4 clientes.', 'error')
-            return redirect(url_for('index'))
-
+        # Insertar cliente principal
         cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, habitacion_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (check_in_dt.time(), nombre, tipo_doc, numero_doc, telefono, procedencia, check_in_dt, check_out_dt, valor, observacion, habitacion_id))
+
+        for persona in personas_adicionales:
+            cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, habitacion_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (check_in_dt.time(), persona['nombre'], 'C.c', persona['cedula'], persona['telefono'], procedencia, check_in_dt, check_out_dt, 0, f'Acompañante de {nombre}', habitacion_id))
 
         # Cambiar estado a ocupada
         cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s""", (habitacion_id,))
 
         conn.commit()
-        flash('Nuevo cliente agregado exitosamente a la habitación.')
+        
+        total_registrados = 1 + len(personas_adicionales)
+        if len(personas_adicionales) > 0:
+            flash(f'Cliente principal y {len(personas_adicionales)} persona(s) adicional(es) registrados exitosamente. Total: {total_registrados} personas.', 'success')
+        else:
+            flash('Cliente registrado exitosamente.', 'success')
+            
         return redirect(url_for('index'))
 
     except pymysql.MySQLError as e:
