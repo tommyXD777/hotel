@@ -5,6 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión Hotelera</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Estilos para el tablero tipo mapa */
+        .room-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            max-width: 100%;
+        }
+        
+        .room-cell {
+            aspect-ratio: 1;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            min-height: 100px;
+        }
+        
+        .room-cell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .room-libre { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
+        .room-ocupada { background: linear-gradient(135deg, #ef4444, #f87171); color: white; }
+        .room-reservado { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
+        .room-llegado { background: linear-gradient(135deg, #059669, #10b981); color: white; }
+        .room-mantenimiento { background: linear-gradient(135deg, #6b7280, #9ca3af); color: white; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 2% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 95%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans">
     <div class="container mx-auto p-4">
@@ -90,6 +146,63 @@
             </div>
         </div>
 
+        <!-- Tablero tipo mapa - MOVIDO ARRIBA DE LAS CARDS -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-gray-800">🗺️ Tablero de Habitaciones</h2>
+                <div class="flex gap-4 text-sm">
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-green-500 rounded"></div>
+                        <span>Libre</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-yellow-500 rounded"></div>
+                        <span>Reservado</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-red-500 rounded"></div>
+                        <span>Ocupada</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-green-600 rounded"></div>
+                        <span>Cliente Llegado</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="room-grid">
+                {% for room in rooms %}
+                    <div class="room-cell 
+                        {% if room.estado == 'libre' %}room-libre
+                        {% elif room.estado == 'ocupada' %}room-ocupada
+                        {% elif room.estado == 'reservado' %}room-reservado
+                        {% elif room.estado == 'mantenimiento' %}room-mantenimiento
+                        {% endif %}"
+                        onclick="abrirModalAgregarCliente({{ room.id }}, '{{ room.numero }}', '{{ room.estado }}')"
+                        title="Clic para agregar cliente a habitación {{ room.numero }}">
+                        
+                        <div class="text-lg font-bold">{{ room.numero }}</div>
+                        <div class="text-xs text-center opacity-90">{{ room.descripcion[:15] }}...</div>
+                        
+                        {% if room.inquilino_principal %}
+                            <div class="text-xs text-center mt-1 opacity-90">
+                                {{ room.inquilino_principal[:12] }}...
+                            </div>
+                            {% if room.telefono %}
+                                <div class="text-xs opacity-75">{{ room.telefono }}</div>
+                            {% endif %}
+                        {% endif %}
+                        
+                        {% if room.num_personas_ocupadas > 0 %}
+                            <div class="absolute top-1 right-1 bg-white bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                                {{ room.num_personas_ocupadas }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
         <!-- Enhanced room grid with better visual hierarchy -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for room in rooms %}
@@ -135,8 +248,12 @@
                                             {% for persona in room.personas_list %}
                                                 <div class="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
                                                     <span>{{ persona.nombre }} - {{ persona.telefono or "Sin teléfono" }}</span>
-                                                    <a href="{{ url_for('editar_cliente', cliente_id=persona.id) }}" 
-                                                       class="text-blue-500 hover:text-blue-700">✏️</a>
+                                                    <!-- Asegurando que el enlace vaya específicamente a editar_cliente -->
+                                                    <a href="/editar_cliente/{{ persona.id }}" 
+                                                       class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                                                       title="Editar información del cliente {{ persona.nombre }}">
+                                                        👤 EDITAR CLIENTE
+                                                    </a>
                                                 </div>
                                             {% endfor %}
                                         </div>
@@ -154,11 +271,29 @@
                                 </a>
                             {% endif %}
                             
-                            {% if room.inquilino_principal %}
-                                <a href="{{ url_for('liberar', habitacion_id=room.id) }}" 
-                                   class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
-                                    ✅ Liberar
+                            <!-- Separando claramente los botones de editar habitación vs editar cliente -->
+                          
+                            
+                            <!-- Agregando enlace directo para editar el cliente principal si existe -->
+                            {% if room.cliente_id %}
+                                <a href="/editar_cliente/{{ room.cliente_id }}" 
+                                   class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                                   title="Editar datos del cliente principal">
+                                    👤 Editar Cliente Principal
                                 </a>
+                            {% endif %}
+                            
+                            <!-- Agregando botón para liberar habitación cuando está ocupada -->
+                            {% if room.estado == 'ocupada' %}
+                                <form action="{{ url_for('liberar', habitacion_id=room.id) }}" 
+                                      method="POST" class="inline"
+                                      onsubmit="return confirm('¿Estás seguro de liberar esta habitación? Se eliminarán todos los clientes.')">
+                                    <button type="submit" 
+                                         class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                                         title="liberar cliente-se va antes">
+                                        🔓 Liberar
+                                    </button>
+                                </form>
                             {% endif %}
                             
                             <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
@@ -189,5 +324,209 @@
             </div>
         {% endif %}
     </div>
+
+    <!-- Modal para agregar cliente -->
+    <div id="modalAgregarCliente" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitulo" class="text-xl font-bold"></h3>
+                <button onclick="cerrarModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div id="modalContenido">
+                <!-- El contenido del formulario se carga aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts para funcionalidad del tablero -->
+    <script>
+        let habitacionActual = null;
+
+        function abrirModalAgregarCliente(habitacionId, numero, estado) {
+            habitacionActual = habitacionId;
+            document.getElementById('modalTitulo').textContent = `Agregar Cliente - Habitación ${numero}`;
+            
+            // Generar formulario de agregar cliente
+            const contenido = generarFormularioAgregarCliente(habitacionId);
+            
+            document.getElementById('modalContenido').innerHTML = contenido;
+            document.getElementById('modalAgregarCliente').style.display = 'block';
+            
+            // Configurar fechas por defecto
+            configurarFechasPorDefecto();
+        }
+
+        function generarFormularioAgregarCliente(habitacionId) {
+            return `
+                <form onsubmit="guardarCliente(event, ${habitacionId})" class="space-y-6">
+                    <!-- Cliente Principal -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">👤 Cliente Principal</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                                <input type="text" name="nombre" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                                <select name="tipo_doc" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="C.c">Cédula de Ciudadanía</option>
+                                    <option value="T.i">Tarjeta de Identidad</option>
+                                    <option value="Pasaporte">Pasaporte</option>
+                                    <option value="C.e">Cédula de Extranjería</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                                <input type="text" name="numero_doc" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                <input type="tel" name="telefono"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                                <input type="text" name="procedencia"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="Ciudad o país de origen">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fechas y Valor -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">📅 Fechas y Valor</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Check-in *</label>
+                                <input type="datetime-local" name="check_in" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Check-out *</label>
+                                <input type="date" name="check_out_fecha" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
+                                <input type="number" name="valor" step="0.01" min="0"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                            <textarea name="observacion" rows="2"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                      placeholder="Observaciones adicionales..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="cerrarModal()"
+                               class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                            💾 Registrar Cliente
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function configurarFechasPorDefecto() {
+            const checkInInput = document.querySelector('input[name="check_in"]');
+            const checkOutInput = document.querySelector('input[name="check_out_fecha"]');
+            
+            if (checkInInput && !checkInInput.value) {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                checkInInput.value = now.toISOString().slice(0, 16);
+            }
+            
+            if (checkOutInput && !checkOutInput.value) {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                checkOutInput.value = tomorrow.toISOString().slice(0, 10);
+            }
+        }
+
+        function guardarCliente(event, habitacionId) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            
+            const data = {
+                habitacion_id: habitacionId,
+                nombre: formData.get('nombre'),
+                tipo_doc: formData.get('tipo_doc'),
+                numero_doc: formData.get('numero_doc'),
+                telefono: formData.get('telefono'),
+                procedencia: formData.get('procedencia'),
+                check_in: formData.get('check_in'),
+                check_out_fecha: formData.get('check_out_fecha'),
+                valor: formData.get('valor'),
+                observacion: formData.get('observacion')
+            };
+            
+            console.log('[v0] Enviando datos del cliente:', data);
+            
+            fetch('/guardar_nuevo_cliente', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                console.log('[v0] Respuesta del servidor:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('[v0] Resultado:', result);
+                if (result.success) {
+                    alert('Cliente registrado exitosamente');
+                    cerrarModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + (result.error || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('[v0] Error en la petición:', error);
+                alert('Error al registrar el cliente: ' + error.message);
+            });
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalAgregarCliente').style.display = 'none';
+        }
+
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function(event) {
+            const modal = document.getElementById('modalAgregarCliente');
+            if (event.target === modal) {
+                cerrarModal();
+            }
+        }
+    </script>
 </body>
 </html>
