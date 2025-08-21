@@ -9,7 +9,7 @@
         /* Estilos para el tablero tipo mapa */
         .room-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 10px;
             max-width: 100%;
         }
@@ -25,7 +25,8 @@
             cursor: pointer;
             transition: all 0.3s ease;
             position: relative;
-            min-height: 100px;
+            min-height: 120px;
+            padding: 8px;
         }
         
         .room-cell:hover {
@@ -33,11 +34,39 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         
+        /* Updated color system according to requirements */
         .room-libre { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
         .room-ocupada { background: linear-gradient(135deg, #ef4444, #f87171); color: white; }
-        .room-reservado { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
-        .room-llegado { background: linear-gradient(135deg, #059669, #10b981); color: white; }
+        .room-varias-noches { background: linear-gradient(135deg, #ec4899, #f472b6); color: white; }
+        .room-reservado { background: linear-gradient(135deg, #3b82f6, #60a5fa); color: white; }
+        .room-mensualidad { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
         .room-mantenimiento { background: linear-gradient(135deg, #6b7280, #9ca3af); color: white; }
+        
+        /* Added styles for guest information display */
+        .guest-info {
+            font-size: 10px;
+            text-align: center;
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+        
+        .days-counter {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            border-radius: 12px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .value-display {
+            font-size: 9px;
+            margin-top: 2px;
+            opacity: 0.9;
+        }
         
         .modal {
             display: none;
@@ -134,7 +163,8 @@
                             class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <option value="libre">🟢 Libre</option>
                         <option value="ocupada">🔴 Ocupada</option>
-                        <option value="reservado">🟡 Reservado</option>
+                        <option value="reservado">🔵 Reservado</option>
+                        <option value="mensualidad">🟡 Mensualidad</option>
                         <option value="mantenimiento">⚙️ Mantenimiento</option>
                     </select>
 
@@ -150,51 +180,72 @@
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-semibold text-gray-800">🗺️ Tablero de Habitaciones</h2>
-                <div class="flex gap-4 text-sm">
+                <!-- Updated legend with new color system -->
+                <div class="flex gap-4 text-sm flex-wrap">
                     <div class="flex items-center gap-2">
                         <div class="w-4 h-4 bg-green-500 rounded"></div>
                         <span>Libre</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-4 h-4 bg-yellow-500 rounded"></div>
-                        <span>Reservado</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="w-4 h-4 bg-red-500 rounded"></div>
                         <span>Ocupada</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <div class="w-4 h-4 bg-green-600 rounded"></div>
-                        <span>Cliente Llegado</span>
+                        <div class="w-4 h-4 bg-pink-500 rounded"></div>
+                        <span>Varias Noches</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-blue-500 rounded"></div>
+                        <span>Reserva</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-yellow-500 rounded"></div>
+                        <span>Mensualidad</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-gray-500 rounded"></div>
+                        <span>Mantenimiento</span>
                     </div>
                 </div>
             </div>
             
             <div class="room-grid">
                 {% for room in rooms %}
+                    <!-- Cleaned room cells - removed guest information from inside the boxes -->
                     <div class="room-cell 
                         {% if room.estado == 'libre' %}room-libre
-                        {% elif room.estado == 'ocupada' %}room-ocupada
+                        {% elif room.estado == 'ocupada' and room.dias_ocupada <= 1 %}room-ocupada
+                        {% elif room.estado == 'ocupada' and room.dias_ocupada > 1 %}room-varias-noches
                         {% elif room.estado == 'reservado' %}room-reservado
+                        {% elif room.estado == 'mensualidad' %}room-mensualidad
                         {% elif room.estado == 'mantenimiento' %}room-mantenimiento
                         {% endif %}"
-                        onclick="abrirModalAgregarCliente({{ room.id }}, '{{ room.numero }}', '{{ room.estado }}')"
-                        title="Clic para agregar cliente a habitación {{ room.numero }}">
+                        onclick="manejarClickHabitacion({{ room.id }}, '{{ room.numero }}', '{{ room.estado }}', {{ ('\"' + room.inquilino_principal|replace('\"', '\\\"') + '\"') if room.inquilino_principal else 'null' }}, {{ ('\"' + room.telefono|replace('\"', '\\\"') + '\"') if room.telefono else 'null' }}, {{ ('\"' + room.fecha_ingreso.strftime('%d/%m/%Y %H:%M')|replace('\"', '\\\"') + '\"') if room.fecha_ingreso else 'null' }}, {{ ('\"' + room.fecha_salida.strftime('%d/%m/%Y %H:%M')|replace('\"', '\\\"') + '\"') if room.fecha_salida else 'null' }}, {{ room.valor if room.valor else 0 }}, {{ ('\"' + room.observacion|replace('\"', '\\\"') + '\"') if room.observacion else 'null' }}, {{ room.dias_ocupada if room.dias_ocupada else 0 }}, {{ ('\"' + room.tipo_doc|replace('\"', '\\\"') + '\"') if room.tipo_doc else 'null' }}, {{ ('\"' + room.numero_doc|replace('\"', '\\\"') + '\"') if room.numero_doc else 'null' }}, {{ ('\"' + room.procedencia|replace('\"', '\\\"') + '\"') if room.procedencia else 'null' }})"
+                        title="{% if room.estado == 'libre' %}Clic para agregar cliente{% else %}Clic para ver información del cliente{% endif %}">
                         
-                        <div class="text-lg font-bold">{{ room.numero }}</div>
-                        <div class="text-xs text-center opacity-90">{{ room.descripcion[:15] }}...</div>
-                        
-                        {% if room.inquilino_principal %}
-                            <div class="text-xs text-center mt-1 opacity-90">
-                                {{ room.inquilino_principal[:12] }}...
-                            </div>
-                            {% if room.telefono %}
-                                <div class="text-xs opacity-75">{{ room.telefono }}</div>
-                            {% endif %}
+                        <!-- Added days counter for occupied rooms -->
+                        {% if room.estado == 'ocupada' and room.dias_ocupada %}
+                            <div class="days-counter">{{ room.dias_ocupada }}d</div>
                         {% endif %}
                         
-                        {% if room.num_personas_ocupadas > 0 %}
-                            <div class="absolute top-1 right-1 bg-white bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                        <div class="text-lg font-bold">{{ room.numero }}</div>
+                        <div class="text-xs text-center opacity-90">{{ room.descripcion[:12] }}...</div>
+                        
+                        <!-- Removed guest information display from room cells -->
+                        {% if room.estado != 'libre' %}
+                            <div class="text-xs text-center mt-2 opacity-75">
+                                {% if room.estado == 'ocupada' %}OCUPADA
+                                {% elif room.estado == 'reservado' %}RESERVADA
+                                {% elif room.estado == 'mensualidad' %}MENSUALIDAD
+                                {% elif room.estado == 'mantenimiento' %}MANTENIMIENTO
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="text-xs text-center mt-2 opacity-75">DISPONIBLE</div>
+                        {% endif %}
+                        
+                        {% if room.num_personas_ocupadas > 1 %}
+                            <div class="absolute top-1 left-1 bg-white bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
                                 {{ room.num_personas_ocupadas }}
                             </div>
                         {% endif %}
@@ -208,20 +259,32 @@
             {% for room in rooms %}
                 <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                     <!-- Room header with status -->
-                    <div class="p-4 {{ 'bg-green-50 border-l-4 border-green-500' if room.estado == 'libre' else 'bg-red-50 border-l-4 border-red-500' if room.estado == 'ocupada' else 'bg-yellow-50 border-l-4 border-yellow-500' if room.estado == 'reservado' else 'bg-gray-50 border-l-4 border-gray-500' }}">
+                    <div class="p-4 {{ 'bg-green-50 border-l-4 border-green-500' if room.estado == 'libre' else 'bg-red-50 border-l-4 border-red-500' if room.estado == 'ocupada' and room.dias_ocupada <= 1 else 'bg-pink-50 border-l-4 border-pink-500' if room.estado == 'ocupada' and room.dias_ocupada > 1 else 'bg-blue-50 border-l-4 border-blue-500' if room.estado == 'reservado' else 'bg-yellow-50 border-l-4 border-yellow-500' if room.estado == 'mensualidad' else 'bg-gray-50 border-l-4 border-gray-500' }}">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="text-xl font-bold text-gray-800">🏠 Habitación {{ room.numero }}</h3>
-                            <span class="text-sm font-semibold px-2 py-1 rounded {{ 'text-green-700 bg-green-100' if room.estado == 'libre' else 'text-red-700 bg-red-100' if room.estado == 'ocupada' else 'text-yellow-700 bg-yellow-100' if room.estado == 'reservado' else 'text-gray-700 bg-gray-100' }}">
-                                {% if room.estado == 'libre' %}
-                                    ✅ LIBRE
-                                {% elif room.estado == 'ocupada' %}
-                                    🔴 OCUPADA
-                                {% elif room.estado == 'reservado' %}
-                                    📅 RESERVADO
-                                {% elif room.estado == 'mantenimiento' %}
-                                    ⚙️ MANTENIMIENTO
+                            <div class="flex items-center gap-2">
+                                <!-- Added days counter in cards -->
+                                {% if room.estado == 'ocupada' and room.dias_ocupada %}
+                                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">
+                                        {{ room.dias_ocupada }} día{% if room.dias_ocupada != 1 %}s{% endif %}
+                                    </span>
                                 {% endif %}
-                            </span>
+                                <span class="text-sm font-semibold px-2 py-1 rounded {{ 'text-green-700 bg-green-100' if room.estado == 'libre' else 'text-red-700 bg-red-100' if room.estado == 'ocupada' and room.dias_ocupada <= 1 else 'text-pink-700 bg-pink-100' if room.estado == 'ocupada' and room.dias_ocupada > 1 else 'text-blue-700 bg-blue-100' if room.estado == 'reservado' else 'text-yellow-700 bg-yellow-100' if room.estado == 'mensualidad' else 'text-gray-700 bg-gray-100' }}">
+                                    {% if room.estado == 'libre' %}
+                                        ✅ LIBRE
+                                    {% elif room.estado == 'ocupada' and room.dias_ocupada <= 1 %}
+                                        🔴 OCUPADA
+                                    {% elif room.estado == 'ocupada' and room.dias_ocupada > 1 %}
+                                        💗 VARIAS NOCHES
+                                    {% elif room.estado == 'reservado' %}
+                                        🔵 RESERVADO
+                                    {% elif room.estado == 'mensualidad' %}
+                                        🟡 MENSUALIDAD
+                                    {% elif room.estado == 'mantenimiento' %}
+                                        ⚙️ MANTENIMIENTO
+                                    {% endif %}
+                                </span>
+                            </div>
                         </div>
                         <p class="text-gray-600">{{ room.descripcion }}</p>
                     </div>
@@ -234,11 +297,18 @@
                                 {% if room.telefono %}
                                     <p class="text-sm"><strong class="text-gray-700">Teléfono:</strong> {{ room.telefono }}</p>
                                 {% endif %}
-                                {% if room.observacion %}
-                                    <p class="text-sm"><strong class="text-gray-700">Observación:</strong> {{ room.observacion }}</p>
+                                <!-- Added more guest information display -->
+                                {% if room.fecha_ingreso %}
+                                    <p class="text-sm"><strong class="text-gray-700">Fecha de Ingreso:</strong> {{ room.fecha_ingreso.strftime('%d/%m/%Y %H:%M') }}</p>
                                 {% endif %}
                                 {% if room.fecha_salida %}
                                     <p class="text-sm"><strong class="text-gray-700">Fecha de Salida:</strong> {{ room.fecha_salida.strftime('%d/%m/%Y %H:%M') }}</p>
+                                {% endif %}
+                                {% if room.valor %}
+                                    <p class="text-sm"><strong class="text-gray-700">Valor:</strong> ${{ "{:,.0f}".format(room.valor) }}</p>
+                                {% endif %}
+                                {% if room.observacion %}
+                                    <p class="text-sm"><strong class="text-gray-700">Observación:</strong> {{ room.observacion }}</p>
                                 {% endif %}
                                 
                                 {% if room.personas_list and room.personas_list|length > 1 %}
@@ -273,7 +343,7 @@
                             
                             <!-- Separando claramente los botones de editar habitación vs editar cliente -->
                           
-                            
+  
                             <!-- Agregando enlace directo para editar el cliente principal si existe -->
                             {% if room.cliente_id %}
                                 <a href="/editar_cliente/{{ room.cliente_id }}" 
@@ -285,15 +355,11 @@
                             
                             <!-- Agregando botón para liberar habitación cuando está ocupada -->
                             {% if room.estado == 'ocupada' %}
-                                <form action="{{ url_for('liberar', habitacion_id=room.id) }}" 
-                                      method="POST" class="inline"
-                                      onsubmit="return confirm('¿Estás seguro de liberar esta habitación? Se eliminarán todos los clientes.')">
-                                    <button type="submit" 
-                                         class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                                         title="liberar cliente-se va antes">
-                                        🔓 Liberar
-                                    </button>
-                                </form>
+                                <button onclick="liberarHabitacion({{ room.id }})" 
+                                        class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                                        title="liberar cliente-se va antes">
+                                    🔓 Liberar
+                                </button>
                             {% endif %}
                             
                             <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
@@ -325,7 +391,7 @@
         {% endif %}
     </div>
 
-    <!-- Modal para agregar cliente -->
+    <!-- Modal para agregar cliente o mostrar información -->
     <div id="modalAgregarCliente" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
@@ -334,7 +400,7 @@
             </div>
             
             <div id="modalContenido">
-                <!-- El contenido del formulario se carga aquí -->
+                <!-- El contenido del formulario o información se carga aquí -->
             </div>
         </div>
     </div>
@@ -343,18 +409,260 @@
     <script>
         let habitacionActual = null;
 
-        function abrirModalAgregarCliente(habitacionId, numero, estado) {
-            habitacionActual = habitacionId;
-            document.getElementById('modalTitulo').textContent = `Agregar Cliente - Habitación ${numero}`;
+        function manejarClickHabitacion(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia) {
+            console.log('[v0] Click en habitación:', {
+                habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia
+            });
             
-            // Generar formulario de agregar cliente
-            const contenido = generarFormularioAgregarCliente(habitacionId);
+            habitacionActual = habitacionId;
+            
+            if (estado === 'libre') {
+                abrirModalAgregarCliente(habitacionId, numero, estado);
+            } else {
+                mostrarInformacionCliente(
+                    habitacionId, 
+                    numero, 
+                    estado, 
+                    clienteNombre || '', 
+                    telefono || '', 
+                    fechaIngreso || '', 
+                    fechaSalida || '', 
+                    valor || 0, 
+                    observacion || '', 
+                    dias || 0,
+                    tipoDoc || '',
+                    numeroDoc || '',
+                    procedencia || ''
+                );
+            }
+        }
+
+        function mostrarInformacionCliente(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia) {
+            console.log('[v0] Mostrando información del cliente para habitación:', habitacionId);
+            
+            document.getElementById('modalTitulo').textContent = `Información - Habitación ${numero}`;
+            
+            let estadoTexto = '';
+            let estadoColor = '';
+            
+            switch(estado) {
+                case 'ocupada':
+                    estadoTexto = (dias && dias > 1) ? 'OCUPADA - VARIAS NOCHES' : 'OCUPADA';
+                    estadoColor = (dias && dias > 1) ? 'bg-pink-100 text-pink-800' : 'bg-red-100 text-red-800';
+                    break;
+                case 'reservado':
+                    estadoTexto = 'RESERVADA';
+                    estadoColor = 'bg-blue-100 text-blue-800';
+                    break;
+                case 'mensualidad':
+                    estadoTexto = 'MENSUALIDAD';
+                    estadoColor = 'bg-yellow-100 text-yellow-800';
+                    break;
+                case 'mantenimiento':
+                    estadoTexto = 'MANTENIMIENTO';
+                    estadoColor = 'bg-gray-100 text-gray-800';
+                    break;
+            }
+            
+            fetch(`/obtener_huespedes/${habitacionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const huespedes = data.huespedes;
+                        let huespedesHtml = '';
+                        
+                        if (huespedes && huespedes.length > 0) {
+                            huespedesHtml = `
+                                <div class="border border-gray-200 rounded-lg p-4">
+                                    <h4 class="text-lg font-semibold text-gray-700 mb-4">👥 Todos los Huéspedes (${huespedes.length})</h4>
+                                    <div class="space-y-4">
+                            `;
+                            
+                            huespedes.forEach((huesped, index) => {
+                                huespedesHtml += `
+                                    <div class="border-l-4 ${index === 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'} p-3 rounded">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h5 class="font-semibold text-gray-800">
+                                                ${index === 0 ? '👤 Cliente Principal: ' : '👥 Acompañante: '}${huesped.nombre}
+                                            </h5>
+                                            <a href="/editar_cliente/${huesped.id}" 
+                                               class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600">
+                                                ✏️ Editar
+                                            </a>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                            ${huesped.tipo_doc ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Documento:</span>
+                                                <span class="text-gray-900">${huesped.tipo_doc} ${huesped.numero_doc || ''}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${huesped.telefono ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Teléfono:</span>
+                                                <span class="text-gray-900">${huesped.telefono}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${huesped.procedencia ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Procedencia:</span>
+                                                <span class="text-gray-900">${huesped.procedencia}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${index === 0 && huesped.check_in ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Check-in:</span>
+                                                <span class="text-gray-900">${new Date(huesped.check_in).toLocaleString()}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${index === 0 && huesped.check_out ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Check-out:</span>
+                                                <span class="text-gray-900">${new Date(huesped.check_out).toLocaleString()}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${index === 0 && huesped.valor ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Valor Total:</span>
+                                                <span class="text-gray-900 font-semibold">$${Number(huesped.valor).toLocaleString()}</span>
+                                            </div>
+                                            ` : ''}
+                                        </div>
+                                        
+                                        ${index === 0 && huesped.observacion ? `
+                                        <div class="mt-2">
+                                            <span class="font-medium text-gray-600">Observaciones:</span>
+                                            <p class="text-gray-900 bg-white p-2 rounded mt-1">${huesped.observacion}</p>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            });
+                            
+                            huespedesHtml += `
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        const contenido = `
+                            <div class="space-y-6">
+                                <!-- Estado de la habitación -->
+                                <div class="text-center">
+                                    <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold ${estadoColor}">
+                                        ${estadoTexto}
+                                    </span>
+                                    ${(dias && dias > 0) ? `<div class="text-sm text-gray-600 mt-2">${dias} día${dias !== 1 ? 's' : ''} de estadía</div>` : ''}
+                                </div>
+
+                                ${huespedesHtml || `
+                                <div class="text-center text-gray-500">
+                                    <p>Esta habitación está ${estadoTexto.toLowerCase()} pero no tiene información de huéspedes disponible.</p>
+                                </div>
+                                `}
+
+                                <!-- Botones de acción -->
+                                <div class="flex justify-center space-x-3 pt-4">
+                                    ${estado === 'ocupada' ? `
+                                    <a href="/agregar_cliente_habitacion/${habitacionId}" 
+                                       class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                                        👤+ Agregar Huésped
+                                    </a>
+                                    <button onclick="liberarHabitacion(${habitacionId})" 
+                                            class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+                                        🔓 Liberar Habitación
+                                    </button>
+                                    ` : ''}
+                                    
+                                    <button onclick="cerrarModal()"
+                                           class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.getElementById('modalContenido').innerHTML = contenido;
+                        document.getElementById('modalAgregarCliente').style.display = 'block';
+                    } else {
+                        console.error('[v0] Error al obtener huéspedes:', data.error);
+                        // Fallback to original display
+                        mostrarInformacionClienteOriginal(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia);
+                    }
+                })
+                .catch(error => {
+                    console.error('[v0] Error en petición de huéspedes:', error);
+                    // Fallback to original display
+                    mostrarInformacionClienteOriginal(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia);
+                });
+        }
+
+        function mostrarInformacionClienteOriginal(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia) {
+            let estadoTexto = '';
+            let estadoColor = '';
+            
+            switch(estado) {
+                case 'ocupada':
+                    estadoTexto = (dias && dias > 1) ? 'OCUPADA - VARIAS NOCHES' : 'OCUPADA';
+                    estadoColor = (dias && dias > 1) ? 'bg-pink-100 text-pink-800' : 'bg-red-100 text-red-800';
+                    break;
+                case 'reservado':
+                    estadoTexto = 'RESERVADA';
+                    estadoColor = 'bg-blue-100 text-blue-800';
+                    break;
+                case 'mensualidad':
+                    estadoTexto = 'MENSUALIDAD';
+                    estadoColor = 'bg-yellow-100 text-yellow-800';
+                    break;
+                case 'mantenimiento':
+                    estadoTexto = 'MANTENIMIENTO';
+                    estadoColor = 'bg-gray-100 text-gray-800';
+                    break;
+            }
+            
+            const contenido = `
+                <div class="space-y-6">
+                    <div class="text-center">
+                        <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold ${estadoColor}">
+                            ${estadoTexto}
+                        </span>
+                        ${(dias && dias > 0) ? `<div class="text-sm text-gray-600 mt-2">${dias} día${dias !== 1 ? 's' : ''} de estadía</div>` : ''}
+                    </div>
+
+                    ${clienteNombre ? `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-gray-700 mb-4">👤 Información del Cliente</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium text-gray-700">Nombre:</label><p class="text-gray-900">${clienteNombre}</p></div>
+                            ${telefono ? `<div><label class="block text-sm font-medium text-gray-700">Teléfono:</label><p class="text-gray-900">${telefono}</p></div>` : ''}
+                            ${tipoDoc ? `<div><label class="block text-sm font-medium text-gray-700">Documento:</label><p class="text-gray-900">${tipoDoc} ${numeroDoc || ''}</p></div>` : ''}
+                            ${procedencia ? `<div><label class="block text-sm font-medium text-gray-700">Procedencia:</label><p class="text-gray-900">${procedencia}</p></div>` : ''}
+                            ${fechaIngreso ? `<div><label class="block text-sm font-medium text-gray-700">Check-in:</label><p class="text-gray-900">${fechaIngreso}</p></div>` : ''}
+                            ${fechaSalida ? `<div><label class="block text-sm font-medium text-gray-700">Check-out:</label><p class="text-gray-900">${fechaSalida}</p></div>` : ''}
+                            ${(valor && valor > 0) ? `<div><label class="block text-sm font-medium text-gray-700">Valor:</label><p class="text-gray-900">$${Number(valor).toLocaleString()}</p></div>` : ''}
+                            ${observacion ? `<div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Observaciones:</label><p class="text-gray-900">${observacion}</p></div>` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div class="flex justify-center space-x-3 pt-4">
+                        ${estado === 'ocupada' ? `
+                        <a href="/agregar_cliente_habitacion/${habitacionId}" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">👤+ Agregar Huésped</a>
+                        <button onclick="liberarHabitacion(${habitacionId})" class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">🔓 Liberar</button>
+                        ` : ''}
+                        <button onclick="cerrarModal()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">Cerrar</button>
+                    </div>
+                </div>
+            `;
             
             document.getElementById('modalContenido').innerHTML = contenido;
             document.getElementById('modalAgregarCliente').style.display = 'block';
-            
-            // Configurar fechas por defecto
-            configurarFechasPorDefecto();
         }
 
         function generarFormularioAgregarCliente(habitacionId) {
@@ -403,6 +711,21 @@
                         </div>
                     </div>
 
+                    <!-- Added section for additional guests -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700">👥 Personas Adicionales</h3>
+                            <button type="button" onclick="agregarPersonaAdicional()" 
+                                    class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                                ➕ Agregar Persona
+                            </button>
+                        </div>
+                        
+                        <div id="personasAdicionales" class="space-y-4">
+                            <!-- Las personas adicionales se agregan aquí dinámicamente -->
+                        </div>
+                    </div>
+
                     <!-- Fechas y Valor -->
                     <div class="border border-gray-200 rounded-lg p-4">
                         <h3 class="text-lg font-semibold text-gray-700 mb-4">📅 Fechas y Valor</h3>
@@ -443,48 +766,122 @@
                         </button>
                         <button type="submit" 
                                 class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
-                            💾 Registrar Cliente
+                            💾 Registrar Cliente(s)
                         </button>
                     </div>
                 </form>
             `;
         }
 
-        function configurarFechasPorDefecto() {
-            const checkInInput = document.querySelector('input[name="check_in"]');
-            const checkOutInput = document.querySelector('input[name="check_out_fecha"]');
+        let contadorPersonas = 0;
+        
+        function agregarPersonaAdicional() {
+            contadorPersonas++;
+            const container = document.getElementById('personasAdicionales');
             
-            if (checkInInput && !checkInInput.value) {
-                const now = new Date();
-                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                checkInInput.value = now.toISOString().slice(0, 16);
-            }
+            const personaDiv = document.createElement('div');
+            personaDiv.className = 'border border-gray-300 rounded-lg p-3 bg-gray-50';
+            personaDiv.id = `persona-${contadorPersonas}`;
             
-            if (checkOutInput && !checkOutInput.value) {
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                checkOutInput.value = tomorrow.toISOString().slice(0, 10);
+            personaDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-medium text-gray-700">Persona Adicional ${contadorPersonas}</h4>
+                    <button type="button" onclick="eliminarPersona(${contadorPersonas})" 
+                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
+                        ❌ Eliminar
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][nombre]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                        <select name="personas_adicionales[${contadorPersonas}][tipo_doc]" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            <option value="C.c">Cédula de Ciudadanía</option>
+                            <option value="T.i">Tarjeta de Identidad</option>
+                            <option value="Pasaporte">Pasaporte</option>
+                            <option value="C.e">Cédula de Extranjería</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][numero_doc]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input type="tel" name="personas_adicionales[${contadorPersonas}][telefono]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][procedencia]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                               placeholder="Ciudad o país de origen">
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(personaDiv);
+        }
+        
+        function eliminarPersona(id) {
+            const personaDiv = document.getElementById(`persona-${id}`);
+            if (personaDiv) {
+                personaDiv.remove();
             }
         }
 
         function guardarCliente(event, habitacionId) {
             event.preventDefault();
+            
+            console.log('[v0] Guardando cliente(s) para habitación:', habitacionId);
+            
             const formData = new FormData(event.target);
             
             const data = {
                 habitacion_id: habitacionId,
-                nombre: formData.get('nombre'),
-                tipo_doc: formData.get('tipo_doc'),
-                numero_doc: formData.get('numero_doc'),
-                telefono: formData.get('telefono'),
-                procedencia: formData.get('procedencia'),
-                check_in: formData.get('check_in'),
-                check_out_fecha: formData.get('check_out_fecha'),
-                valor: formData.get('valor'),
-                observacion: formData.get('observacion')
+                nombre: formData.get('nombre') || '',
+                tipo_doc: formData.get('tipo_doc') || 'C.c',
+                numero_doc: formData.get('numero_doc') || '',
+                telefono: formData.get('telefono') || '',
+                procedencia: formData.get('procedencia') || '',
+                check_in: formData.get('check_in') || '',
+                check_out_fecha: formData.get('check_out_fecha') || '',
+                valor: formData.get('valor') || 0,
+                observacion: formData.get('observacion') || '',
+                personas_adicionales: []
             };
             
-            console.log('[v0] Enviando datos del cliente:', data);
+            // Collect additional persons data
+            for (let i = 1; i <= contadorPersonas; i++) {
+                const nombre = formData.get(`personas_adicionales[${i}][nombre]`);
+                if (nombre) {
+                    data.personas_adicionales.push({
+                        nombre: nombre,
+                        tipo_doc: formData.get(`personas_adicionales[${i}][tipo_doc]`) || 'C.c',
+                        numero_doc: formData.get(`personas_adicionales[${i}][numero_doc]`) || '',
+                        telefono: formData.get(`personas_adicionales[${i}][telefono]`) || '',
+                        procedencia: formData.get(`personas_adicionales[${i}][procedencia]`) || ''
+                    });
+                }
+            }
+            
+            if (!data.nombre || !data.numero_doc || !data.check_in || !data.check_out_fecha) {
+                alert('Por favor completa todos los campos obligatorios del cliente principal');
+                return;
+            }
+            
+            console.log('[v0] Enviando datos del cliente y personas adicionales:', data);
             
             fetch('/guardar_nuevo_cliente', {
                 method: 'POST',
@@ -503,7 +900,7 @@
             .then(result => {
                 console.log('[v0] Resultado:', result);
                 if (result.success) {
-                    alert('Cliente registrado exitosamente');
+                    alert(`Cliente${data.personas_adicionales.length > 0 ? 's' : ''} registrado${data.personas_adicionales.length > 0 ? 's' : ''} exitosamente`);
                     cerrarModal();
                     location.reload();
                 } else {
@@ -517,10 +914,10 @@
         }
 
         function cerrarModal() {
+            console.log('[v0] Cerrando modal');
             document.getElementById('modalAgregarCliente').style.display = 'none';
         }
 
-        // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {
             const modal = document.getElementById('modalAgregarCliente');
             if (event.target === modal) {

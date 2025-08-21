@@ -3,58 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agregar Cliente - Sistema Hotelero</title>
+    <title>Agregar Cliente - Habitación {{ habitacion[1] }}</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 font-sans">
-    <div class="container mx-auto p-4">
-        <!-- Header -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-800">👤 Agregar Cliente</h1>
-                    <p class="text-gray-600 mt-1">
-                        Habitación {{ habitacion[0] }} - {{ habitacion[1] }} | Hotel: {{ session.usuario }}
-                    </p>
-                </div>
-                <a href="{{ url_for('index') }}" 
-                   class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+    <div class="container mx-auto p-4 max-w-4xl">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">👤 Agregar Cliente - Habitación {{ habitacion[1] }}</h1>
+                <a href="{{ url_for('index') }}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
                     ← Volver al Panel
                 </a>
             </div>
-        </div>
 
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-                    {% for message in messages %}
-                        <p>{{ message }}</p>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+            <p class="text-gray-600 mb-6">{{ habitacion[0] }}</p>
 
-        <!-- Form -->
-        <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-xl font-semibold mb-6 text-gray-800">Registro de Cliente</h2>
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+                        {% for message in messages %}
+                            <p>{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
-            <form action="{{ url_for('guardar_nuevo_cliente') }}" method="POST" class="space-y-6">
-                <input type="hidden" name="habitacion_id" value="{{ habitacion_id }}">
-
+            <form action="{{ url_for('registrar_cliente', habitacion_id=habitacion_id) }}" method="POST" class="space-y-6">
                 <!-- Cliente Principal -->
                 <div class="border border-gray-200 rounded-lg p-4">
                     <h3 class="text-lg font-semibold text-gray-700 mb-4">👤 Cliente Principal</h3>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
-                            <input type="text" id="nombre" name="nombre" required
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                            <input type="text" name="nombre" required
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                         </div>
                         
                         <div>
-                            <label for="tipo_doc" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
-                            <select id="tipo_doc" name="tipo_doc" required
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                            <select name="tipo_doc" required
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                                 <option value="C.c">Cédula de Ciudadanía</option>
                                 <option value="T.i">Tarjeta de Identidad</option>
@@ -64,23 +52,38 @@
                         </div>
                         
                         <div>
-                            <label for="numero_doc" class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
-                            <input type="text" id="numero_doc" name="numero_doc" required
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                            <input type="text" name="numero_doc" required
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                         </div>
                         
                         <div>
-                            <label for="telefono" class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                            <input type="tel" id="telefono" name="telefono"
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                            <input type="tel" name="telefono"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                         </div>
                         
                         <div class="md:col-span-2">
-                            <label for="procedencia" class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
-                            <input type="text" id="procedencia" name="procedencia"
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                            <input type="text" name="procedencia"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
                                    placeholder="Ciudad o país de origen">
                         </div>
+                    </div>
+                </div>
+
+                <!-- Added section for additional guests in cards form -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-700">👥 Personas Adicionales</h3>
+                        <button type="button" onclick="agregarPersonaAdicional()" 
+                                class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                            ➕ Agregar Persona
+                        </button>
+                    </div>
+                    
+                    <div id="personasAdicionales" class="space-y-4">
+                        <!-- Las personas adicionales se agregan aquí dinámicamente -->
                     </div>
                 </div>
 
@@ -90,53 +93,35 @@
                     
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label for="check_in" class="block text-sm font-medium text-gray-700 mb-1">Check-in *</label>
-                            <input type="datetime-local" id="check_in" name="check_in" required
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                                   value="{{ datos_referencia[0].strftime('%Y-%m-%dT%H:%M') if datos_referencia and datos_referencia[0] else '' }}">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Check-in *</label>
+                            <input type="datetime-local" name="check_in" required id="checkin-input"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                         </div>
                         
                         <div>
-                            <label for="check_out_fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha Check-out *</label>
-                            <input type="date" id="check_out_fecha" name="check_out_fecha" required
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                                   value="{{ datos_referencia[1].strftime('%Y-%m-%d') if datos_referencia and datos_referencia[1] else '' }}">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Check-out *</label>
+                            <input type="datetime-local" name="check_out" required id="checkout-input"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                         </div>
                         
                         <div>
-                            <label for="valor" class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
-                            <input type="number" id="valor" name="valor" step="0.01" min="0"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                                   value="{{ datos_referencia[2] if datos_referencia and datos_referencia[2] else '' }}">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
+                            <input type="number" name="valor" step="0.01" min="0"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                         </div>
                     </div>
                     
                     <div class="mt-4">
-                        <label for="observacion" class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
-                        <textarea id="observacion" name="observacion" rows="2"
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                        <textarea name="observacion" rows="3"
                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                                  placeholder="Observaciones adicionales...">{{ datos_referencia[3] if datos_referencia and datos_referencia[3] else '' }}</textarea>
+                                  placeholder="Observaciones adicionales..."></textarea>
                     </div>
-                </div>
-
-                <!-- Personas Adicionales -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-4">👥 Personas Adicionales (Opcional)</h3>
-                    <p class="text-sm text-gray-600 mb-4">Máximo 3 personas adicionales (4 total por habitación)</p>
-                    
-                    <div id="personas-adicionales" class="space-y-4">
-                        <!-- Las personas adicionales se agregarán aquí dinámicamente -->
-                    </div>
-                    
-                    <button type="button" id="agregar-persona" 
-                            class="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                        ➕ Agregar Persona
-                    </button>
                 </div>
 
                 <!-- Botones -->
-                <div class="flex justify-end space-x-3 pt-6">
-                    <a href="{{ url_for('index') }}" 
+                <div class="flex justify-end space-x-3 pt-4">
+                    <a href="{{ url_for('index') }}"
                        class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
                         Cancelar
                     </a>
@@ -149,71 +134,92 @@
         </div>
     </div>
 
+    <!-- Added JavaScript for additional persons functionality -->
     <script>
-        let personaCounter = 0;
-        const maxPersonas = 3;
-
-        document.getElementById('agregar-persona').addEventListener('click', function() {
-            if (personaCounter >= maxPersonas) {
-                alert('Máximo 3 personas adicionales permitidas');
-                return;
-            }
-
-            personaCounter++;
-            const personasContainer = document.getElementById('personas-adicionales');
+        let contadorPersonas = 0;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const checkinInput = document.getElementById('checkin-input');
+            const checkoutInput = document.getElementById('checkout-input');
+            
+            // Set check-in to current date and time
+            const currentDateTime = now.toISOString().slice(0, 16);
+            checkinInput.value = currentDateTime;
+            
+            // Set check-out to tomorrow at 1 PM
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(13, 0, 0, 0);
+            const tomorrowDateTime = tomorrow.toISOString().slice(0, 16);
+            checkoutInput.value = tomorrowDateTime;
+        });
+        
+        function agregarPersonaAdicional() {
+            contadorPersonas++;
+            const container = document.getElementById('personasAdicionales');
             
             const personaDiv = document.createElement('div');
-            personaDiv.className = 'border border-gray-100 rounded p-3 bg-gray-50';
+            personaDiv.className = 'border border-gray-300 rounded-lg p-3 bg-gray-50';
+            personaDiv.id = `persona-${contadorPersonas}`;
+            
             personaDiv.innerHTML = `
-                <div class="flex justify-between items-center mb-2">
-                    <h4 class="font-medium text-gray-700">Persona ${personaCounter}</h4>
-                    <button type="button" onclick="eliminarPersona(this)" 
-                            class="text-red-500 hover:text-red-700 text-sm">
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-medium text-gray-700">Persona Adicional ${contadorPersonas}</h4>
+                    <button type="button" onclick="eliminarPersona(${contadorPersonas})" 
+                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
                         ❌ Eliminar
                     </button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <input type="text" name="persona_${personaCounter}_nombre" 
-                           placeholder="Nombre completo" required
-                           class="px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
-                    <input type="text" name="persona_${personaCounter}_cedula" 
-                           placeholder="Número de documento"
-                           class="px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
-                    <input type="tel" name="persona_${personaCounter}_telefono" 
-                           placeholder="Teléfono"
-                           class="px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][nombre]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                        <select name="personas_adicionales[${contadorPersonas}][tipo_doc]" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            <option value="C.c">Cédula de Ciudadanía</option>
+                            <option value="T.i">Tarjeta de Identidad</option>
+                            <option value="Pasaporte">Pasaporte</option>
+                            <option value="C.e">Cédula de Extranjería</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][numero_doc]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input type="tel" name="personas_adicionales[${contadorPersonas}][telefono]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][procedencia]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                               placeholder="Ciudad o país de origen">
+                    </div>
                 </div>
             `;
             
-            personasContainer.appendChild(personaDiv);
-            
-            if (personaCounter >= maxPersonas) {
-                document.getElementById('agregar-persona').style.display = 'none';
-            }
-        });
-
-        function eliminarPersona(button) {
-            button.closest('.border').remove();
-            personaCounter--;
-            document.getElementById('agregar-persona').style.display = 'block';
+            container.appendChild(personaDiv);
         }
-
-        // Set default check-in to now
-        document.addEventListener('DOMContentLoaded', function() {
-            const checkInInput = document.getElementById('check_in');
-            if (!checkInInput.value) {
-                const now = new Date();
-                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                checkInInput.value = now.toISOString().slice(0, 16);
+        
+        function eliminarPersona(id) {
+            const personaDiv = document.getElementById(`persona-${id}`);
+            if (personaDiv) {
+                personaDiv.remove();
             }
-            
-            const checkOutInput = document.getElementById('check_out_fecha');
-            if (!checkOutInput.value) {
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                checkOutInput.value = tomorrow.toISOString().slice(0, 10);
-            }
-        });
+        }
     </script>
 </body>
 </html>
