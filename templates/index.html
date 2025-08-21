@@ -291,13 +291,13 @@
 
                     <!-- Room content -->
                     <div class="p-4">
-                        {% if room.estado == 'ocupada' and room.inquilino_principal %}
+                      
+                        {% if (room.estado == 'ocupada' or room.estado == 'mensualidad') and room.inquilino_principal %}
                             <div class="space-y-2 mb-4">
                                 <p class="text-sm"><strong class="text-gray-700">Cliente Principal:</strong> {{ room.inquilino_principal }}</p>
                                 {% if room.telefono %}
                                     <p class="text-sm"><strong class="text-gray-700">Teléfono:</strong> {{ room.telefono }}</p>
                                 {% endif %}
-                                <!-- Added more guest information display -->
                                 {% if room.fecha_ingreso %}
                                     <p class="text-sm"><strong class="text-gray-700">Fecha de Ingreso:</strong> {{ room.fecha_ingreso.strftime('%d/%m/%Y %H:%M') }}</p>
                                 {% endif %}
@@ -310,7 +310,6 @@
                                 {% if room.observacion %}
                                     <p class="text-sm"><strong class="text-gray-700">Observación:</strong> {{ room.observacion }}</p>
                                 {% endif %}
-                                
                                 {% if room.personas_list and room.personas_list|length > 1 %}
                                     <div class="mt-3">
                                         <p class="text-sm font-semibold text-gray-700 mb-1">Todos los huéspedes ({{ room.personas_list|length }}):</p>
@@ -318,10 +317,9 @@
                                             {% for persona in room.personas_list %}
                                                 <div class="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
                                                     <span>{{ persona.nombre }} - {{ persona.telefono or "Sin teléfono" }}</span>
-                                                    <!-- Asegurando que el enlace vaya específicamente a editar_cliente -->
                                                     <a href="/editar_cliente/{{ persona.id }}" 
-                                                       class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
-                                                       title="Editar información del cliente {{ persona.nombre }}">
+                                                    class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                                                    title="Editar información del cliente {{ persona.nombre }}">
                                                         👤 EDITAR CLIENTE
                                                     </a>
                                                 </div>
@@ -354,14 +352,16 @@
                             {% endif %}
                             
                             <!-- Agregando botón para liberar habitación cuando está ocupada -->
-                            {% if room.estado == 'ocupada' %}
-                                <button onclick="liberarHabitacion({{ room.id }})" 
-                                        class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                                        title="liberar cliente-se va antes">
-                                    🔓 Liberar
-                                </button>
-                            {% endif %}
-                            
+                           
+                          {% if room.estado == 'ocupada' or room.estado == 'mensualidad' %}
+                            <a href="{{ url_for('liberar', habitacion_id=room.id) }}"
+                            class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                            title="liberar cliente-se va antes"
+                            onclick="return confirm('¿Seguro que deseas liberar esta habitación?');">
+                                🔓 Liberar
+                            </a>
+                        {% endif %}
+
                             <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
                                   method="POST" class="inline"
                                   onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
@@ -663,6 +663,12 @@
             
             document.getElementById('modalContenido').innerHTML = contenido;
             document.getElementById('modalAgregarCliente').style.display = 'block';
+        }
+        function abrirModalAgregarCliente(habitacionId, numero, estado) {
+            document.getElementById('modalTitulo').textContent = `Agregar Cliente - Habitación ${numero}`;
+            document.getElementById('modalContenido').innerHTML = generarFormularioAgregarCliente(habitacionId);
+            document.getElementById('modalAgregarCliente').style.display = 'block';
+            contadorPersonas = 0; // Reinicia el contador de personas adicionales
         }
 
         function generarFormularioAgregarCliente(habitacionId) {

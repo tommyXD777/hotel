@@ -564,7 +564,6 @@ def guardar_nuevo_cliente():
             cur.close()
         if 'conn' in locals():
             conn.close()
-
 @app.route('/liberar/<int:habitacion_id>')
 def liberar(habitacion_id):
     user_id = require_user_session()
@@ -585,13 +584,17 @@ def liberar(habitacion_id):
             flash('No tienes permisos para liberar esta habitación.', 'error')
             return redirect(url_for('index'))
         
+        # Intentar liberar clientes activos
         cur.execute("""UPDATE clientes SET check_out = NOW() WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
+        clientes_liberados = cur.rowcount
 
-        if cur.rowcount > 0:
-            cur.execute("UPDATE habitaciones SET estado = 'libre' WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        # Siempre liberar la habitación, tenga o no clientes
+        cur.execute("UPDATE habitaciones SET estado = 'libre' WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+
+        if clientes_liberados > 0:
             flash(f'Habitación {habitacion[0]} y sus ocupantes liberados.')
         else:
-            flash(f'No hay clientes activos para liberar en la habitación {habitacion[0]}', 'error')
+            flash(f'Habitación {habitacion[0]} liberada (no había clientes activos).', 'warning')
 
         conn.commit()
         return redirect(url_for('index'))
