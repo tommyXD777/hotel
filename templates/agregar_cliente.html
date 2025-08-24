@@ -99,8 +99,8 @@
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Check-out *</label>
-                            <input type="datetime-local" name="check_out" required id="checkout-input"
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Check-out * (Hora automática: 1:00 PM)</label>
+                            <input type="date" name="check_out" required id="checkout-input"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                         </div>
                         
@@ -143,16 +143,18 @@
             const checkinInput = document.getElementById('checkin-input');
             const checkoutInput = document.getElementById('checkout-input');
             
-            // Set check-in to current date and time
-            const currentDateTime = now.toISOString().slice(0, 16);
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const currentDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
             checkinInput.value = currentDateTime;
             
-            // Set check-out to tomorrow at 1 PM
             const tomorrow = new Date(now);
             tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow.setHours(13, 0, 0, 0);
-            const tomorrowDateTime = tomorrow.toISOString().slice(0, 16);
-            checkoutInput.value = tomorrowDateTime;
+            const tomorrowDate = tomorrow.toISOString().slice(0, 10); // Solo fecha YYYY-MM-DD
+            checkoutInput.value = tomorrowDate;
         });
         
         function agregarPersonaAdicional() {
