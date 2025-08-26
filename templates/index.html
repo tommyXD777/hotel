@@ -569,7 +569,7 @@
 
                                 <!-- Botones de acción -->
                                 <div class="flex justify-center space-x-3 pt-4">
-                                    ${estado === 'ocupada' ? `
+                                    ${estado === 'ocupada' || estado === 'mensualidad' ? `
                                     <a href="/agregar_cliente_habitacion/${habitacionId}" 
                                        class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
                                         👤+ Agregar Huésped
@@ -652,7 +652,7 @@
                     ` : ''}
 
                     <div class="flex justify-center space-x-3 pt-4">
-                        ${estado === 'ocupada' ? `
+                        ${estado === 'ocupada' || estado === 'mensualidad' ? `
                         <a href="/agregar_cliente_habitacion/${habitacionId}" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">👤+ Agregar Huésped</a>
                         <button onclick="liberarHabitacion(${habitacionId})" class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">🔓 Liberar</button>
                         ` : ''}
@@ -664,6 +664,7 @@
             document.getElementById('modalContenido').innerHTML = contenido;
             document.getElementById('modalAgregarCliente').style.display = 'block';
         }
+        
         function abrirModalAgregarCliente(habitacionId, numero, estado) {
             document.getElementById('modalTitulo').textContent = `Agregar Cliente - Habitación ${numero}`;
             document.getElementById('modalContenido').innerHTML = generarFormularioAgregarCliente(habitacionId);
@@ -920,9 +921,26 @@
             });
         }
 
+        function liberarHabitacion(habitacionId) {
+            console.log('[v0] Liberando habitación:', habitacionId);
+            
+            if (confirm('¿Estás seguro de que deseas liberar esta habitación? Esto marcará el check-out de todos los huéspedes.')) {
+                window.location.href = `/liberar/${habitacionId}`;
+            }
+        }
+
         function cerrarModal() {
             console.log('[v0] Cerrando modal');
-            document.getElementById('modalAgregarCliente').style.display = 'none';
+            const modal = document.getElementById('modalAgregarCliente');
+            if (modal) {
+                modal.style.display = 'none';
+                // Reset form data
+                const modalContent = document.getElementById('modalContenido');
+                if (modalContent) {
+                    modalContent.innerHTML = '';
+                }
+                contadorPersonas = 0;
+            }
         }
 
         window.onclick = function(event) {
@@ -931,6 +949,34 @@
                 cerrarModal();
             }
         }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modal = document.getElementById('modalAgregarCliente');
+                if (modal && modal.style.display === 'block') {
+                    cerrarModal();
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[v0] Página cargada, verificando datos de habitaciones');
+            
+            // Force refresh of room data display if needed
+            const roomCards = document.querySelectorAll('.bg-white.rounded-lg.shadow-md');
+            console.log('[v0] Encontradas', roomCards.length, 'cards de habitaciones');
+            
+            // Log room data for debugging
+            {% for room in rooms %}
+                console.log('[v0] Habitación {{ room.numero }}:', {
+                    id: {{ room.id }},
+                    estado: '{{ room.estado }}',
+                    inquilino: '{{ room.inquilino_principal or "Sin cliente" }}',
+                    telefono: '{{ room.telefono or "Sin teléfono" }}',
+                    personas: {{ room.num_personas_ocupadas or 0 }}
+                });
+            {% endfor %}
+        });
     </script>
 </body>
 </html>

@@ -166,21 +166,23 @@
                                             <option value="">
                                                 🔒 Mantener habitación actual ({{ cliente[11] }} - {{ cliente[12] }})
                                             </option>
-                                            {% for h in habitaciones_disponibles %}
-                                                {% if h[0] != cliente[10] %}
-                                                    <option value="{{ h[0] }}">
-                                                        🏠 Habitación {{ h[1] }} - {{ h[2] }} 
-                                                        <span class="badge bg-success">{{ h[3] }}</span>
-                                                    </option>
-                                                {% endif %}
-                                            {% endfor %}
+                                            {% if habitaciones_disponibles %}
+                                                {% for h in habitaciones_disponibles %}
+                                                    {% if h[0] != cliente[10] %}
+                                                        <option value="{{ h[0] }}">
+                                                            🏠 Habitación {{ h[1] }} - {{ h[2] }} 
+                                                            ({{ h[3]|title }})
+                                                        </option>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% endif %}
                                         </select>
                                         <div class="form-text">
                                             <i class="fas fa-info-circle text-info"></i>
                                             Solo se muestran habitaciones disponibles. El cambio será efectivo inmediatamente.
                                         </div>
                                         
-                                        {% if habitaciones_disponibles|length <= 1 %}
+                                        {% if not habitaciones_disponibles or habitaciones_disponibles|length <= 1 %}
                                             <div class="alert alert-warning mt-2 mb-0">
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 <strong>Aviso:</strong> No hay otras habitaciones disponibles para el cambio.
