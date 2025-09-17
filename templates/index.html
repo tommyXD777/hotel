@@ -147,26 +147,45 @@
             </div>
 
             <!-- Updated room state management with better UX -->
-            <div class="bg-gray-50 rounded-lg p-4">
-                <h3 class="text-lg font-medium mb-3 text-gray-700">🔄 Cambiar Estado de Habitación</h3>
-                <form action="{{ url_for('cambiar_color_general') }}" method="POST" 
-                      class="flex flex-wrap items-center gap-3">
-                    <select name="habitacion_id" 
-                            class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="">Seleccionar habitación...</option>
-                        {% for h in habitaciones %}
-                            <option value="{{ h[0] }}">Habitación {{ h[1] }} - {{ h[2] }}</option>
-                        {% endfor %}
-                    </select>
+     <!-- Cambiar Estado de Habitación (reemplaza el formulario existente) -->
+<div class="bg-gray-50 rounded-lg p-4">
+    <h3 class="text-lg font-medium mb-3 text-gray-700">🔄 Cambiar Estado de Habitación</h3>
+    <form id="formCambiarEstado" action="{{ url_for('cambiar_color_general') }}" method="POST" 
+          class="flex flex-wrap items-center gap-3">
+        <select name="habitacion_id" id="selectHabitacion"
+                class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            <option value="">Seleccionar habitación...</option>
+            {% for h in habitaciones %}
+                <option value="{{ h[0] }}">Habitación {{ h[1] }} - {{ h[2] }}</option>
+            {% endfor %}
+        </select>
 
-                    <select name="nuevo_estado" 
-                            class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="libre">🟢 Libre</option>
-                        <option value="ocupada">🔴 Ocupada</option>
-                        <option value="reservado">🔵 Reservado</option>
-                        <option value="mensualidad">🟡 Mensualidad</option>
-                        <option value="mantenimiento">⚙️ Mantenimiento</option>
-                    </select>
+        <select name="nuevo_estado" id="selectNuevoEstado"
+                class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            <option value="libre">🟢 Libre</option>
+            <option value="ocupada">🔴 Ocupada</option>
+            <option value="reservado">🔵 Reservado</option>
+            <option value="mensualidad">🟡 Mensualidad</option>
+            <option value="mantenimiento">⚙️ Mantenimiento</option>
+        </select>
+
+        <!-- campo nombre que aparece sólo cuando elegimos 'reservado' -->
+        <div id="nombreReservaDiv" style="display:none;" class="flex items-center gap-2">
+            <input type="text" name="nombre_cliente" id="nombre_cliente"
+                   placeholder="Nombre para la reserva (opcional)"
+                   class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            <button type="button" id="btnReutilizarUltimo" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm hover:bg-indigo-700">
+                🔁 Reutilizar último
+            </button>
+        </div>
+
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+            Cambiar estado
+        </button>
+    </form>
+</div>
+
+
 
                     <button type="submit" 
                             class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm shadow-sm">
@@ -377,6 +396,13 @@
                             </a>
                         {% endif %}
 
+
+                        <a href="#" onclick="reutilizarUltimo({{ room.id }})"
+                        class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
+                        ♻️ Reutilizar Último cliente
+                        </a>
+
+
                             <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
                                   method="POST" class="inline"
                                   onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
@@ -416,6 +442,20 @@
             
             <div id="modalContenido">
                 <!-- El contenido del formulario o información se carga aquí -->
+            </div>
+        </div>
+    </div>
+
+     <!-- Added renewal modal -->
+    <div id="modalRenovacion" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalRenovacionTitulo" class="text-xl font-bold"></h3>
+                <button onclick="cerrarModalRenovacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div id="modalRenovacionContenido">
+                 <!-- El contenido del formulario de renovación se carga aquí -->
             </div>
         </div>
     </div>
@@ -596,6 +636,10 @@
                                        class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
                                         👤+ Agregar Huésped
                                     </a>
+                                    <button onclick="abrirModalRenovacion(${habitacionId}, '${numero}', '${clienteNombre || 'Cliente'}')" 
+                                            class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                                        🔄 Renovar
+                                    </button>
                                     <button onclick="liberarHabitacion(${habitacionId})" 
                                             class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
                                         🔓 Liberar Habitación
@@ -676,6 +720,10 @@
                     <div class="flex justify-center space-x-3 pt-4">
                         ${estado === 'ocupada' || estado === 'mensualidad' ? `
                         <a href="/agregar_cliente_habitacion/${habitacionId}" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">👤+ Agregar Huésped</a>
+                        <button onclick="abrirModalRenovacion(${habitacionId}, '${numero}', '${clienteNombre || 'Cliente'}')" 
+                                            class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                                        🔄 Renovar
+                                    </button>
                         <button onclick="liberarHabitacion(${habitacionId})" class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">🔓 Liberar</button>
                         ` : ''}
                         <button onclick="cerrarModal()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">Cerrar</button>
@@ -914,6 +962,11 @@
             
             console.log('[v0] Enviando datos del cliente y personas adicionales:', data);
             
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = '💾 Guardando...';
+            submitButton.disabled = true;
+            
             fetch('/guardar_nuevo_cliente', {
                 method: 'POST',
                 headers: {
@@ -922,33 +975,218 @@
                 body: JSON.stringify(data)
             })
             .then(response => {
-                console.log('[v0] Respuesta del servidor:', response.status);
+                console.log('[v0] Respuesta del servidor:', response.status, response.statusText);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
             .then(result => {
-                console.log('[v0] Resultado:', result);
+                console.log('[v0] Resultado completo:', result);
                 if (result.success) {
                     alert(`Cliente${data.personas_adicionales.length > 0 ? 's' : ''} registrado${data.personas_adicionales.length > 0 ? 's' : ''} exitosamente`);
                     cerrarModal();
-                    location.reload();
+                    window.location.reload(true);
                 } else {
+                    console.error('[v0] Error del servidor:', result.error);
                     alert('Error: ' + (result.error || 'Error desconocido'));
+                    submitButton.textContent = originalText;
+                    submitButton.disabled = false;
                 }
             })
             .catch(error => {
                 console.error('[v0] Error en la petición:', error);
                 alert('Error al registrar el cliente: ' + error.message);
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
             });
         }
 
-        function liberarHabitacion(habitacionId) {
-            console.log('[v0] Liberando habitación:', habitacionId);
+        function abrirModalRenovacion(habitacionId, numero, clienteNombre) {
+            console.log('[v0] Opening renewal modal for room:', habitacionId);
+            document.getElementById('modalRenovacionTitulo').textContent = `🔄 Renovar Estadía - Habitación ${numero}`;
+            document.getElementById('modalRenovacionContenido').innerHTML = generarFormularioRenovacion(habitacionId, numero, clienteNombre);
+            document.getElementById('modalRenovacion').style.display = 'block';
+        }
+
+        function generarFormularioRenovacion(habitacionId, numero, clienteNombre) {
+            return `
+                <form onsubmit="procesarRenovacion(event, ${habitacionId})" class="space-y-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <h4 class="text-lg font-semibold text-blue-800 mb-2">👤 Cliente: ${clienteNombre}</h4>
+                        <p class="text-blue-600">🏠 Habitación ${numero}</p>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">🔄 Tipo de Renovación</h3>
+                        
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="radio" name="tipo_renovacion" value="dias" checked 
+                                       class="mr-2" onchange="toggleRenovacionTipo()">
+                                <span class="font-medium">Renovar por días adicionales</span>
+                            </label>
+                            
+                            <div id="opcionesDias" class="ml-6 space-y-2">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <button type="button" onclick="seleccionarDias(1)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">1 día</button>
+                                    <button type="button" onclick="seleccionarDias(2)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">2 días</button>
+                                    <button type="button" onclick="seleccionarDias(3)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">3 días</button>
+                                    <button type="button" onclick="seleccionarDias(7)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">1 semana</button>
+                                    <button type="button" onclick="seleccionarDias(15)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">15 días</button>
+                                    <button type="button" onclick="seleccionarDias(30)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">1 mes</button>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">O especifica días:</label>
+                                    <input type="number" name="dias_renovacion" id="diasRenovacion" min="1" max="365"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                           placeholder="Número de días">
+                                </div>
+                            </div>
+                            
+                            <label class="flex items-center">
+                                <input type="radio" name="tipo_renovacion" value="fecha" 
+                                       class="mr-2" onchange="toggleRenovacionTipo()">
+                                <span class="font-medium">Establecer nueva fecha de salida</span>
+                            </label>
+                            
+                            <div id="opcionesFecha" class="ml-6" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nueva fecha de salida:</label>
+                                <input type="date" name="nueva_fecha_salida" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">💰 Valor Adicional</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Valor adicional por la renovación:</label>
+                            <input type="number" name="valor_adicional" step="0.01" min="0"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                   placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">📝 Observaciones</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones de la renovación:</label>
+                            <textarea name="observacion_renovacion" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                      placeholder="Motivo de la renovación, condiciones especiales, etc."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="cerrarModalRenovacion()"
+                               class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                            🔄 Renovar Estadía
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function toggleRenovacionTipo() {
+            const tipoSeleccionado = document.querySelector('input[name="tipo_renovacion"]:checked').value;
+            const opcionesDias = document.getElementById('opcionesDias');
+            const opcionesFecha = document.getElementById('opcionesFecha');
             
-            if (confirm('¿Estás seguro de que deseas liberar esta habitación? Esto marcará el check-out de todos los huéspedes.')) {
-                window.location.href = `/liberar/${habitacionId}`;
+            if (tipoSeleccionado === 'dias') {
+                opcionesDias.style.display = 'block';
+                opcionesFecha.style.display = 'none';
+            } else {
+                opcionesDias.style.display = 'none';
+                opcionesFecha.style.display = 'block';
+            }
+        }
+
+        function seleccionarDias(dias) {
+            document.getElementById('diasRenovacion').value = dias;
+        }
+
+        function procesarRenovacion(event, habitacionId) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const tipoRenovacion = formData.get('tipo_renovacion');
+            
+            const data = {
+                habitacion_id: habitacionId,
+                tipo_renovacion: tipoRenovacion,
+                dias_renovacion: tipoRenovacion === 'dias' ? parseInt(formData.get('dias_renovacion')) || 0 : 0,
+                nueva_fecha_salida: tipoRenovacion === 'fecha' ? formData.get('nueva_fecha_salida') : '',
+                valor_adicional: parseFloat(formData.get('valor_adicional')) || 0,
+                observacion_renovacion: formData.get('observacion_renovacion') || ''
+            };
+            
+            if (tipoRenovacion === 'dias' && data.dias_renovacion <= 0) {
+                alert('Por favor selecciona o ingresa el número de días a renovar');
+                return;
+            }
+            
+            if (tipoRenovacion === 'fecha' && !data.nueva_fecha_salida) {
+                alert('Por favor selecciona la nueva fecha de salida');
+                return;
+            }
+            
+            console.log('[v0] Procesando renovación:', data);
+            
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = '🔄 Renovando...';
+            submitButton.disabled = true;
+            
+            fetch('/renovar_estadia', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                console.log('[v0] Respuesta de renovación:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('[v0] Resultado de renovación:', result);
+                if (result.success) {
+                    alert(result.message || 'Estadía renovada exitosamente');
+                    cerrarModalRenovacion();
+                    window.location.reload(true);
+                } else {
+                    alert('Error: ' + (result.error || 'Error desconocido'));
+                    submitButton.textContent = originalText;
+                    submitButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('[v0] Error en renovación:', error);
+                alert('Error al renovar estadía: ' + error.message);
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
+            });
+        }
+
+        function cerrarModalRenovacion() {
+            const modal = document.getElementById('modalRenovacion');
+            if (modal) {
+                modal.style.display = 'none';
             }
         }
 
@@ -1000,6 +1238,91 @@
                 });
             {% endfor %}
         });
+        
+        function reutilizarUltimo(habitacionId){
+            if(confirm('¿Reutilizar los datos del último cliente registrado?')){
+                fetch(`/ultimo_cliente/${habitacionId}`, {method:'POST'})
+                .then(r=>r.json())
+                .then(d=>{
+                    if(d.success){ location.reload(); }
+                    else { alert(d.error); }
+                })
+                .catch(err => alert('Error: ' + err));
+            }
+        }
+        // Mostrar/ocultar el campo nombre al elegir 'reservado'
+document.addEventListener('DOMContentLoaded', function() {
+    const selectEstado = document.getElementById('selectNuevoEstado');
+    const nombreDiv = document.getElementById('nombreReservaDiv');
+
+    function toggleNombreDiv() {
+        if (!selectEstado) return;
+        if (selectEstado.value === 'reservado') {
+            nombreDiv.style.display = 'flex';
+        } else {
+            nombreDiv.style.display = 'none';
+            // opcional: limpiar el input si se oculta
+            const input = document.getElementById('nombre_cliente');
+            if (input) input.value = '';
+        }
+    }
+
+    if (selectEstado) {
+        selectEstado.addEventListener('change', toggleNombreDiv);
+        toggleNombreDiv(); // estado inicial
+    }
+
+    // Reutilizar último cliente -> obtiene últimos datos y pregunta fecha, luego llama a /reutilizar_ultimo
+    const btnReutilizar = document.getElementById('btnReutilizarUltimo');
+    if (btnReutilizar) {
+        btnReutilizar.addEventListener('click', async () => {
+            const habitacionId = document.getElementById('selectHabitacion').value;
+            if (!habitacionId) {
+                alert('Selecciona primero la habitación donde quieres reutilizar el cliente.');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/ultimo_cliente');
+                const data = await resp.json();
+                if (!data.success) {
+                    alert(data.error || 'No se encontró último cliente.');
+                    return;
+                }
+
+                // Pre-llenar el nombre en el input
+                const cli = data.cliente;
+                if (cli && cli.nombre) {
+                    document.getElementById('nombre_cliente').value = cli.nombre;
+                }
+
+                // Pedimos la nueva fecha de ingreso (YYYY-MM-DD)
+                let fecha = prompt('Ingresa la fecha de ingreso para la reserva (YYYY-MM-DD):', new Date().toISOString().slice(0,10));
+                if (!fecha) return;
+
+                // Llamada para crear el nuevo cliente reutilizando datos
+                const r = await fetch('/reutilizar_ultimo', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ habitacion_id: habitacionId, nueva_fecha_ingreso: fecha })
+                });
+                const res = await r.json();
+                if (res.success) {
+                    alert(res.message || 'Cliente reutilizado y reservado correctamente.');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (res.error || 'No se pudo reutilizar'));
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert('Error al intentar reutilizar el último cliente.');
+            }
+        });
+    }
+});
+
+
     </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash, send_file
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import MySQLdb
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, PatternFill, Alignment, NamedStyle
@@ -208,17 +208,11 @@ def index():
         habitaciones_db = cur.fetchall()
 
         rooms = []
-    # ...existing code...
         for h in habitaciones_db:
             room_id, numero, descripcion, estado = h
 
             # Ordena: primero el cliente principal (valor > 0), luego acompañantes
-            cur.execute("""
-                SELECT nombre, telefono, observacion, check_out, id, check_in, valor, tipo_doc, numero_doc, procedencia
-                FROM clientes
-                WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())
-                ORDER BY (valor > 0) DESC, check_in DESC
-            """, (room_id,))
+            cur.execute("""SELECT nombre, telefono, observacion, check_out, id, check_in, valor, tipo_doc, numero_doc, procedencia FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW()) ORDER BY (valor > 0) DESC, check_in DESC""", (room_id,))
             clientes = cur.fetchall()
 
             inquilino_principal = clientes[0][0] if clientes else None
@@ -273,7 +267,6 @@ def index():
                 "numero_doc": numero_doc,
                 "procedencia": procedencia
             })
-# ...existing code...
 
         return render_template('index.html', habitaciones=habitaciones_db, rooms=rooms)
 
@@ -292,7 +285,7 @@ def registrar():
     flash("Reserva registrada con éxito")
     return redirect(url_for('index'))
 
-# ...existing code...
+# ----------------- GUARDAR CLIENTE -----------------
 @app.route('/guardar_cliente', methods=['POST'])
 def guardar_cliente():
     user_id = require_user_session()
@@ -330,10 +323,7 @@ def guardar_cliente():
             flash('La habitación ha alcanzado el límite máximo de 4 clientes.', 'error')
             return redirect(url_for('index'))
 
-        cur.execute("""
-            INSERT INTO clientes (habitacion_id, nombre, telefono, observacion, check_in, check_out, valor, tipo_doc, numero_doc, procedencia)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (habitacion_id, nombre, telefono, observacion, check_in, check_out, valor, tipo_doc, numero_doc, procedencia))
+        cur.execute("""INSERT INTO clientes (habitacion_id, nombre, telefono, observacion, check_in, check_out, valor, tipo_doc, numero_doc, procedencia) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (habitacion_id, nombre, telefono, observacion, check_in, check_out, valor, tipo_doc, numero_doc, procedencia))
 
         cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
 
@@ -348,7 +338,8 @@ def guardar_cliente():
         conn.close()
 
     return redirect(url_for('index'))
-# ...existing code...
+
+# ----------------- EDITAR CLIENTE -----------------
 @app.route('/editar_cliente/<int:cliente_id>')
 def editar_cliente(cliente_id):
     user_id = require_user_session()
@@ -381,6 +372,7 @@ def editar_cliente(cliente_id):
         cur.close()
         conn.close()
 
+# ----------------- ACTUALIZAR CLIENTE -----------------
 @app.route('/actualizar_cliente', methods=['POST'])
 def actualizar_cliente():
     user_id = require_user_session()
@@ -460,6 +452,7 @@ def actualizar_cliente():
 
     return redirect(url_for('index'))
 
+# ----------------- AGREGAR CLIENTE HABITACIÓN -----------------
 @app.route('/agregar_cliente_habitacion/<int:habitacion_id>')
 def agregar_cliente_habitacion(habitacion_id):
     user_id = require_user_session()
@@ -499,6 +492,7 @@ def agregar_cliente_habitacion(habitacion_id):
         cur.close()
         conn.close()
 
+# ----------------- GUARDAR NUEVO CLIENTE -----------------
 @app.route('/guardar_nuevo_cliente', methods=['POST'])
 def guardar_nuevo_cliente():
     user_id = require_user_session()
@@ -604,6 +598,7 @@ def guardar_nuevo_cliente():
         if 'conn' in locals():
             conn.close()
 
+# ----------------- REGISTRAR CLIENTE -----------------
 @app.route('/registrar_cliente/<int:habitacion_id>', methods=['POST'])
 def registrar_cliente(habitacion_id):
     user_id = require_user_session()
@@ -696,6 +691,7 @@ def registrar_cliente(habitacion_id):
         cur.close()
         conn.close()
 
+# ----------------- LIBERAR -----------------
 @app.route('/liberar/<int:habitacion_id>')
 def liberar(habitacion_id):
     user_id = require_user_session()
@@ -738,6 +734,7 @@ def liberar(habitacion_id):
         cur.close()
         conn.close()
 
+# ----------------- EXPORTAR EXCEL -----------------
 @app.route('/exportar_excel')
 def exportar_excel():
     user_id = require_user_session()
@@ -837,46 +834,115 @@ def exportar_excel():
         if 'conn' in locals():
             conn.close()
 
+
+# ----------------- CAMBIAR COLOR GENERAL -----------------
 @app.route('/cambiar_color_general', methods=['POST'])
 def cambiar_color_general():
     user_id = require_user_session()
     if not user_id:
         return redirect(url_for('login'))
-    
+
     habitacion_id_str = request.form.get('habitacion_id', '').strip()
     if not habitacion_id_str:
         flash("ID de habitación no válido", "error")
         return redirect(url_for('index'))
-    
+
     try:
         habitacion_id = int(habitacion_id_str)
     except ValueError:
         flash("ID de habitación no válido", "error")
         return redirect(url_for('index'))
-    
-    nuevo_estado = request.form.get('nuevo_estado')
+
+    nuevo_estado   = request.form.get('nuevo_estado')
+    nombre_cliente = request.form.get('nombre_cliente', '').strip()
 
     conn = get_db_connection()
     if not conn:
-        flash("Error de conexión a la base de datos")
+        flash("Error de conexión a la base de datos", "error")
         return redirect(url_for('index'))
 
     try:
         cur = conn.cursor()
-        cur.execute("UPDATE habitaciones SET estado = %s WHERE id = %s AND usuario_id = %s", (nuevo_estado, habitacion_id, user_id))
-        if cur.rowcount > 0:
-            conn.commit()
-            flash("Estado de habitación actualizado con éxito")
-        else:
+
+        # Verificar que la habitación pertenezca al usuario
+        cur.execute(
+            "SELECT numero FROM habitaciones WHERE id = %s AND usuario_id = %s",
+            (habitacion_id, user_id)
+        )
+        habit = cur.fetchone()
+        if not habit:
             flash("No tienes permisos para modificar esta habitación", "error")
+            return redirect(url_for('index'))
+
+        # Actualizar el estado de la habitación
+        cur.execute(
+            "UPDATE habitaciones SET estado = %s WHERE id = %s AND usuario_id = %s",
+            (nuevo_estado, habitacion_id, user_id)
+        )
+
+        # Si se marca como 'reservado' y se envía un nombre, insertamos un registro mínimo en clientes
+        if nuevo_estado == 'reservado' and nombre_cliente:
+            # Evitar duplicados: si ya existe un registro activo con ese nombre, no lo repetimos
+            cur.execute(
+                """SELECT id FROM clientes
+                   WHERE habitacion_id = %s AND nombre = %s
+                   AND (check_out IS NULL OR check_out > NOW())
+                   LIMIT 1""",
+                (habitacion_id, nombre_cliente)
+            )
+            if not cur.fetchone():
+                # Insertar con valores por defecto para todas las columnas NOT NULL
+                cur.execute(
+                    """INSERT INTO clientes
+                       (hora_ingreso,
+                        nombre,
+                        tipo_doc,
+                        numero_doc,
+                        telefono,
+                        procedencia,
+                        habitacion_id,
+                        check_in,
+                        check_out,
+                        valor,
+                        observacion)
+                       VALUES
+                       (NOW(),
+                        %s,
+                        %s,    -- tipo_doc por defecto
+                        %s,    -- numero_doc por defecto
+                        %s,    -- telefono por defecto
+                        %s,    -- procedencia por defecto
+                        %s,
+                        NOW(), -- check_in con fecha/hora actual para evitar NULL
+                        NULL,
+                        0,
+                        %s)""",
+                    (
+                        nombre_cliente,
+                        'RESERVA',   # tipo_doc
+                        '',          # numero_doc
+                        '',          # telefono
+                        '',          # procedencia
+                        habitacion_id,
+                        'Reserva creada desde panel'
+                    )
+                )
+
+        conn.commit()
+        flash("Estado de habitación actualizado con éxito", "success")
+
     except pymysql.MySQLError as e:
-        flash(f"Error en la base de datos: {str(e)}")
+        conn.rollback()
+        flash(f"Error en la base de datos: {e}", "error")
+
     finally:
         cur.close()
         conn.close()
 
     return redirect(url_for('index'))
 
+
+# ----------------- AGREGAR HABITACIÓN -----------------
 @app.route('/agregar_habitacion', methods=['GET', 'POST'])
 def agregar_habitacion():
     user_id = require_user_session()
@@ -914,6 +980,7 @@ def agregar_habitacion():
 
     return render_template('agregar_habitacion.html')
 
+# ----------------- ELIMINAR HABITACIÓN -----------------
 @app.route('/eliminar_habitacion/<int:habitacion_id>', methods=['POST'])
 def eliminar_habitacion(habitacion_id):
     user_id = require_user_session()
@@ -940,6 +1007,8 @@ def eliminar_habitacion(habitacion_id):
         conn.close()
     
     return redirect(url_for('index'))
+
+# ----------------- OBTENER HUESPEDES -----------------
 @app.route('/obtener_huespedes/<int:habitacion_id>')
 def obtener_huespedes(habitacion_id):
     user_id = require_user_session()
@@ -958,12 +1027,7 @@ def obtener_huespedes(habitacion_id):
             return jsonify({"success": False, "error": "No tienes permisos para acceder a esta habitación"})
         
         # Cambia el ORDER BY para que el cliente principal sea el primero
-        cur.execute("""
-            SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion
-            FROM clientes
-            WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())
-            ORDER BY (valor > 0) DESC, check_in DESC
-        """, (habitacion_id,))
+        cur.execute("""SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW()) ORDER BY (valor > 0) DESC, check_in DESC""", (habitacion_id,))
         
         huespedes_data = cur.fetchall()
         
@@ -994,13 +1058,163 @@ def obtener_huespedes(habitacion_id):
         if 'conn' in locals():
             conn.close()
 
+# ----------------- RENUEVAR ESTADÍA -----------------
+@app.route('/renovar_estadia', methods=['POST'])
+def renovar_estadia():
+    user_id = require_user_session()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    
+    try:
+        data = request.get_json()
+        habitacion_id = data.get('habitacion_id')
+        tipo_renovacion = data.get('tipo_renovacion')
+        dias_renovacion = data.get('dias_renovacion', 0)
+        nueva_fecha_salida = data.get('nueva_fecha_salida')
+        valor_adicional = data.get('valor_adicional', 0)
+        observacion_renovacion = data.get('observacion_renovacion', '')
+        
+        if not habitacion_id:
+            return jsonify({'success': False, 'error': 'ID de habitación requerido'}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        
+        try:
+            cur = conn.cursor()
+            
+            # Verify room belongs to user and get current client info
+            cur.execute("""
+                SELECT c.id, c.nombre, c.check_out, c.valor, c.observacion
+                FROM clientes c 
+                JOIN habitaciones h ON c.habitacion_id = h.id 
+                WHERE h.id = %s AND h.usuario_id = %s 
+                AND (c.check_out IS NULL OR c.check_out > NOW())
+                AND c.valor > 0
+                ORDER BY c.check_in DESC
+                LIMIT 1
+            """, (habitacion_id, user_id))
+            
+            cliente_info = cur.fetchone()
+            if not cliente_info:
+                return jsonify({'success': False, 'error': 'No se encontró cliente principal en esta habitación'}), 404
+            
+            cliente_id, nombre_cliente, fecha_salida_actual, valor_actual, observacion_actual = cliente_info
+            
+            # Calculate new checkout date
+            if tipo_renovacion == 'dias':
+                if fecha_salida_actual:
+                    nueva_fecha_checkout = fecha_salida_actual + timedelta(days=dias_renovacion)
+                else:
+                    nueva_fecha_checkout = datetime.now() + timedelta(days=dias_renovacion)
+                mensaje_renovacion = f"Cliente renovado por {dias_renovacion} día{'s' if dias_renovacion != 1 else ''}"
+            else:  # tipo_renovacion == 'fecha'
+                nueva_fecha_checkout = datetime.strptime(nueva_fecha_salida, '%Y-%m-%d')
+                if fecha_salida_actual:
+                    dias_diferencia = (nueva_fecha_checkout.date() - fecha_salida_actual.date()).days
+                    mensaje_renovacion = f"Cliente renovado hasta {nueva_fecha_checkout.strftime('%d/%m/%Y')} ({dias_diferencia} días adicionales)"
+                else:
+                    mensaje_renovacion = f"Cliente renovado hasta {nueva_fecha_checkout.strftime('%d/%m/%Y')}"
+            
+            # Update client information
+            nuevo_valor = valor_actual + valor_adicional if valor_adicional > 0 else valor_actual
+            
+            # Combine observations
+            observaciones_combinadas = []
+            if observacion_actual:
+                observaciones_combinadas.append(observacion_actual)
+            
+            observaciones_combinadas.append(mensaje_renovacion)
+            
+            if observacion_renovacion:
+                observaciones_combinadas.append(observacion_renovacion)
+            
+            nueva_observacion = " | ".join(observaciones_combinadas)
+            
+            # Update the client record
+            cur.execute("""
+                UPDATE clientes 
+                SET check_out = %s, valor = %s, observacion = %s
+                WHERE id = %s
+            """, (nueva_fecha_checkout, nuevo_valor, nueva_observacion, cliente_id))
+            
+            conn.commit()
+            
+            return jsonify({
+                'success': True, 
+                'message': f'Estadía renovada exitosamente. {mensaje_renovacion}',
+                'nueva_fecha_salida': nueva_fecha_checkout.strftime('%Y-%m-%d'),
+                'nuevo_valor': nuevo_valor
+            })
+            
+        except pymysql.MySQLError as e:
+            conn.rollback()
+            return jsonify({'success': False, 'error': f'Error en la base de datos: {str(e)}'}), 500
+        finally:
+            cur.close()
+            conn.close()
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
+    
+# ----------------- REUTILIZAR ÚLTIMO CLIENTE -----------------
+@app.route('/ultimo_cliente/<int:habitacion_id>', methods=['POST'])
+def ultimo_cliente(habitacion_id):
+    user_id = require_user_session()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"})
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
+
+    try:
+        cur = conn.cursor(pymysql.cursors.DictCursor)
+        # último cliente de este usuario (puede ser de cualquier habitación)
+        cur.execute("""
+            SELECT nombre,tipo_doc,numero_doc,telefono,procedencia,valor,observacion
+            FROM clientes c
+            JOIN habitaciones h ON c.habitacion_id = h.id
+            WHERE h.usuario_id=%s
+            ORDER BY c.id DESC LIMIT 1
+        """, (user_id,))
+        ultimo = cur.fetchone()
+        if not ultimo:
+            return jsonify({"success": False, "error": "No hay clientes previos"})
+
+        ahora = datetime.now()
+        checkout = datetime(ahora.year, ahora.month, ahora.day + 1, 13, 0)
+
+        cur.execute("""
+            INSERT INTO clientes
+            (habitacion_id,nombre,tipo_doc,numero_doc,telefono,procedencia,
+             check_in,check_out,valor,observacion,hora_ingreso)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (habitacion_id, ultimo['nombre'], ultimo['tipo_doc'], ultimo['numero_doc'],
+              ultimo['telefono'], ultimo['procedencia'],
+              ahora, checkout, ultimo['valor'], ultimo['observacion'], ahora.time()))
+
+        cur.execute("""UPDATE habitaciones
+                       SET estado='ocupada'
+                       WHERE id=%s AND usuario_id=%s""", (habitacion_id, user_id))
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)})
+    finally:
+        cur.close()
+        conn.close()
+
+
 if __name__ == '__main__':
     print("🚀 Iniciando servidor Flask...")
     print("📊 Probando conexión a base de datos...")
     
     try:
         import pymysql
-        print("✅ pymysql disponible")
+        print("✅ Módulo pymysql importado correctamente")
     except ImportError:
         print("❌ pymysql no está instalado")
         print("💡 Instala con: pip install pymysql")
