@@ -389,15 +389,12 @@
                             
                             <!-- Agregando botón para liberar habitación cuando está ocupada -->
                            
-                          {% if room.estado == 'ocupada' or room.estado == 'mensualidad' %}
-                            <a href="{{ url_for('liberar', habitacion_id=room.id) }}"
-                            class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                            title="liberar cliente-se va antes"
-                            onclick="return confirm('¿Seguro que deseas liberar esta habitación?');">
-                                🔓 Liberar
-                            </a>
-                        {% endif %}
-
+                       <a href="{{ url_for('liberar', habitacion_id=room.id) }}"
+                        class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                        title="liberar cliente-se va antes"
+                        onclick="return confirm('¿Seguro que deseas liberar esta habitación?');">
+                            🔓 Liberar
+                        </a>
 
                         <a href="#" onclick="reutilizarUltimo({{ room.id }})"
                         class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
@@ -1241,17 +1238,67 @@
             {% endfor %}
         });
         
-        function reutilizarUltimo(habitacionId){
-            if(confirm('¿Reutilizar los datos del último cliente registrado?')){
-                fetch(`/ultimo_cliente/${habitacionId}`, {method:'POST'})
-                .then(r=>r.json())
-                .then(d=>{
-                    if(d.success){ location.reload(); }
-                    else { alert(d.error); }
-                })
-                .catch(err => alert('Error: ' + err));
-            }
+      async function reutilizarUltimo(habitacionId) {
+    console.log('reutilizarUltimo -> habitacionId=', habitacionId);
+    if (!habitacionId) {
+        alert('Selecciona primero una habitación válida.');
+        return;
+    }
+
+    try {
+        const resp = await fetch(`/ultimo_cliente/${habitacionId}`);
+        console.log('HTTP', resp.status, resp.headers.get('content-type'));
+
+        if (!resp.ok) {
+            const text = await resp.text();
+            console.error('Error body:', text);
+            alert('Error al pedir último cliente: ' + resp.status + ' - ' + (text || resp.status));
+            return;
         }
+
+        const data = await resp.json();
+        console.log('ultimo_cliente response:', data);
+
+        if (!data.success) {
+            alert(data.error || 'No se encontró último cliente en esta habitación.');
+            // Si viene counts, muestra info útil
+            if (data.counts) {
+                console.log('Clients counts:', data.counts);
+            }
+            return;
+        }
+
+        // Prellenar el input nombre
+        if (data.cliente && data.cliente.nombre) {
+            document.getElementById('nombre_cliente').value = data.cliente.nombre;
+        } else {
+            document.getElementById('nombre_cliente').value = '';
+            alert('No se encontró nombre del último cliente en esta habitación (pero hay registros).');
+        }
+
+        // Opcional: pedir fecha de ingreso y crear la reutilización
+        let fecha = prompt('Ingresa la fecha de ingreso para la nueva reserva (YYYY-MM-DD):', new Date().toISOString().slice(0,10));
+        if (!fecha) return;
+
+        const r = await fetch('/reutilizar_ultimo', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ habitacion_id: habitacionId, nueva_fecha_ingreso: fecha })
+        });
+        const res = await r.json();
+        if (res.success) {
+            alert(res.message || 'Cliente reutilizado correctamente.');
+            window.location.reload();
+        } else {
+            alert('Error al reutilizar: ' + (res.error || 'sin detalle'));
+        }
+
+    } catch (err) {
+        console.error('Error en reutilizarUltimo:', err);
+        alert('Error de conexión o en el servidor al intentar obtener el último cliente.');
+    }
+}
+
         // Mostrar/ocultar el campo nombre al elegir 'reservado'
 document.addEventListener('DOMContentLoaded', function() {
     const selectEstado = document.getElementById('selectNuevoEstado');
@@ -1323,6 +1370,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+async function liberarHabitacion(habitacionId) {
+    if (!confirm("¿Seguro que deseas liberar esta habitación?")) return;
+
+    try {
+        const resp = await fetch(`/liberar/${habitacionId}`, {
+            method: 'GET'
+        });
+        if (!resp.ok) {
+            alert("Error al liberar: " + resp.status);
+            return;
+        }
+        // La ruta /liberar redirige a index, así que recargamos la página
+        location.reload();
+    } catch (err) {
+        console.error("Error al liberar habitación:", err);
+        alert("Ocurrió un error al intentar liberar la habitación.");
+    }
+}
 
 
     </script>

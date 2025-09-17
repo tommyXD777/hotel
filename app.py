@@ -7,6 +7,14 @@ from openpyxl.utils import get_column_letter
 from werkzeug.security import check_password_hash
 import pymysql
 
+def require_user_session_json():
+    """Versión para rutas que devuelven JSON."""
+    user_id = session.get('usuario_id')
+    if not user_id:
+        return None
+    return user_id
+
+
 app = Flask(__name__)
 app.secret_key = "una_clave_muy_secreta_y_larga"  # 🔑 obligatorio para sesión y flash
 
@@ -495,9 +503,10 @@ def agregar_cliente_habitacion(habitacion_id):
 # ----------------- GUARDAR NUEVO CLIENTE -----------------
 @app.route('/guardar_nuevo_cliente', methods=['POST'])
 def guardar_nuevo_cliente():
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({"success": False, "error": "Sesión expirada"})
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
     
     try:
         if request.is_json:
@@ -1011,59 +1020,67 @@ def eliminar_habitacion(habitacion_id):
 # ----------------- OBTENER HUESPEDES -----------------
 @app.route('/obtener_huespedes/<int:habitacion_id>')
 def obtener_huespedes(habitacion_id):
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({"success": False, "error": "Sesión expirada"})
-    
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
     conn = get_db_connection()
     if not conn:
-        return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
 
     try:
         cur = conn.cursor()
-        
-        cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        # Verificar que la habitación pertenece a este usuario
+        cur.execute(
+            "SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s",
+            (habitacion_id, user_id)
+        )
         if not cur.fetchone():
             return jsonify({"success": False, "error": "No tienes permisos para acceder a esta habitación"})
-        
-        # Cambia el ORDER BY para que el cliente principal sea el primero
-        cur.execute("""SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW()) ORDER BY (valor > 0) DESC, check_in DESC""", (habitacion_id,))
-        
-        huespedes_data = cur.fetchall()
-        
-        huespedes = []
-        for huesped in huespedes_data:
-            huespedes.append({
-                'id': huesped[0],
-                'nombre': huesped[1],
-                'tipo_doc': huesped[2],
-                'numero_doc': huesped[3],
-                'telefono': huesped[4],
-                'procedencia': huesped[5],
-                'check_in': huesped[6].isoformat() if huesped[6] else None,
-                'check_out': huesped[7].isoformat() if huesped[7] else None,
-                'valor': float(huesped[8]) if huesped[8] else 0,
-                'observacion': huesped[9]
-            })
-        
+
+        # Obtener huéspedes actuales
+        cur.execute("""
+            SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia,
+                   check_in, check_out, valor, observacion
+            FROM clientes
+            WHERE habitacion_id = %s
+              AND (check_out IS NULL OR check_out > NOW())
+            ORDER BY (valor > 0) DESC, check_in DESC
+        """, (habitacion_id,))
+        filas = cur.fetchall()
+
+        huespedes = [{
+            'id': f[0],
+            'nombre': f[1],
+            'tipo_doc': f[2],
+            'numero_doc': f[3],
+            'telefono': f[4],
+            'procedencia': f[5],
+            'check_in': f[6].isoformat() if f[6] else None,
+            'check_out': f[7].isoformat() if f[7] else None,
+            'valor': float(f[8]) if f[8] else 0,
+            'observacion': f[9]
+        } for f in filas]
+
         return jsonify({"success": True, "huespedes": huespedes})
 
-    except pymysql.MySQLError as e:
-        return jsonify({"success": False, "error": f"Error en la base de datos: {str(e)}"})
     except Exception as e:
-        return jsonify({"success": False, "error": f"Error al obtener huéspedes: {str(e)}"})
+        return jsonify({"success": False, "error": f"Error al obtener huéspedes: {e}"}), 500
     finally:
-        if 'cur' in locals():
+        try:
             cur.close()
-        if 'conn' in locals():
             conn.close()
+        except:
+            pass
+
 
 # ----------------- RENUEVAR ESTADÍA -----------------
 @app.route('/renovar_estadia', methods=['POST'])
 def renovar_estadia():
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
     
     try:
         data = request.get_json()
@@ -1159,50 +1176,175 @@ def renovar_estadia():
         return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
     
 # ----------------- REUTILIZAR ÚLTIMO CLIENTE -----------------
-@app.route('/ultimo_cliente/<int:habitacion_id>', methods=['POST'])
+from datetime import datetime, date   # Asegúrate de tener estos imports
+
+@app.route('/ultimo_cliente/<int:habitacion_id>', methods=['GET'])
 def ultimo_cliente(habitacion_id):
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({"success": False, "error": "Sesión expirada"})
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
 
     conn = get_db_connection()
     if not conn:
-        return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
 
     try:
         cur = conn.cursor(pymysql.cursors.DictCursor)
-        # último cliente de este usuario (puede ser de cualquier habitación)
+
+        # 1) Verificar que la habitación pertenece al usuario
+        cur.execute(
+            "SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s",
+            (habitacion_id, user_id)
+        )
+        if not cur.fetchone():
+            return jsonify({
+                "success": False,
+                "error": "No tienes permisos para esta habitación"
+            }), 403
+
+        # 2) Contadores (información extra)
+        cur.execute(
+            "SELECT COUNT(*) AS total FROM clientes WHERE habitacion_id = %s",
+            (habitacion_id,)
+        )
+        total_count = cur.fetchone()['total']
+
+        cur.execute(
+            "SELECT COUNT(*) AS activos FROM clientes "
+            "WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())",
+            (habitacion_id,)
+        )
+        activos_count = cur.fetchone()['activos']
+
+        # 3) Intentamos primero traer el último cliente ACTIVO
         cur.execute("""
-            SELECT nombre,tipo_doc,numero_doc,telefono,procedencia,valor,observacion
-            FROM clientes c
-            JOIN habitaciones h ON c.habitacion_id = h.id
-            WHERE h.usuario_id=%s
-            ORDER BY c.id DESC LIMIT 1
-        """, (user_id,))
+            SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia,
+                   check_in, check_out, valor, observacion, hora_ingreso
+            FROM clientes
+            WHERE habitacion_id = %s
+              AND (check_out IS NULL OR check_out > NOW())
+            ORDER BY check_in DESC, hora_ingreso DESC, id DESC
+            LIMIT 1
+        """, (habitacion_id,))
+        fila = cur.fetchone()
+        source = 'activo'
+
+        # 4) Si no hay activos, traemos el último histórico
+        if not fila:
+            cur.execute("""
+                SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia,
+                       check_in, check_out, valor, observacion, hora_ingreso
+                FROM clientes
+                WHERE habitacion_id = %s
+                ORDER BY check_in DESC, hora_ingreso DESC, id DESC
+                LIMIT 1
+            """, (habitacion_id,))
+            fila = cur.fetchone()
+            source = 'historico'
+
+        if not fila:
+            return jsonify({
+                "success": False,
+                "error": "No hay clientes registrados en esta habitación",
+                "counts": {"total": total_count, "activos": activos_count}
+            }), 404
+
+        # 5) Construir el objeto cliente, cuidando los tipos de fecha/hora
+        def to_iso_or_str(value):
+            if isinstance(value, (datetime, date)):
+                return value.isoformat()
+            if value is not None:
+                return str(value)
+            return None
+
+        cliente = {
+            "id": fila.get('id'),
+            "nombre": fila.get('nombre'),
+            "tipo_doc": fila.get('tipo_doc'),
+            "numero_doc": fila.get('numero_doc'),
+            "telefono": fila.get('telefono'),
+            "procedencia": fila.get('procedencia'),
+            "check_in": to_iso_or_str(fila.get('check_in')),
+            "check_out": to_iso_or_str(fila.get('check_out')),
+            "valor": float(fila['valor']) if fila.get('valor') is not None else 0,
+            "observacion": fila.get('observacion') or '',
+            # hora_ingreso suele ser TIME, lo convertimos a cadena
+            "hora_ingreso": to_iso_or_str(fila.get('hora_ingreso'))
+        }
+
+        return jsonify({
+            "success": True,
+            "cliente": cliente,
+            "source": source,
+            "counts": {"total": total_count, "activos": activos_count}
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Error al obtener cliente: {e}"
+        }), 500
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+@app.route('/reutilizar_ultimo', methods=['POST'])
+def reutilizar_ultimo():
+    user_id = require_user_session_json()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
+    data = request.get_json()
+    habitacion_id = data.get('habitacion_id')
+    nueva_fecha = data.get('nueva_fecha_ingreso')
+
+    if not habitacion_id or not nueva_fecha:
+        return jsonify({"success": False, "error": "Datos incompletos"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "error": "Error de conexión"}), 500
+
+    try:
+        cur = conn.cursor()
+        # Traer el último cliente de esa habitación
+        cur.execute("""
+            SELECT nombre, tipo_doc, numero_doc, telefono, procedencia, valor, observacion
+            FROM clientes
+            WHERE habitacion_id = %s
+            ORDER BY check_in DESC, hora_ingreso DESC
+            LIMIT 1
+        """, (habitacion_id,))
         ultimo = cur.fetchone()
         if not ultimo:
-            return jsonify({"success": False, "error": "No hay clientes previos"})
+            return jsonify({"success": False, "error": "No hay cliente para reutilizar"}), 404
 
-        ahora = datetime.now()
-        checkout = datetime(ahora.year, ahora.month, ahora.day + 1, 13, 0)
-
+        # Insertar un nuevo registro copiando datos
         cur.execute("""
             INSERT INTO clientes
-            (habitacion_id,nombre,tipo_doc,numero_doc,telefono,procedencia,
-             check_in,check_out,valor,observacion,hora_ingreso)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (habitacion_id, ultimo['nombre'], ultimo['tipo_doc'], ultimo['numero_doc'],
-              ultimo['telefono'], ultimo['procedencia'],
-              ahora, checkout, ultimo['valor'], ultimo['observacion'], ahora.time()))
-
-        cur.execute("""UPDATE habitaciones
-                       SET estado='ocupada'
-                       WHERE id=%s AND usuario_id=%s""", (habitacion_id, user_id))
+                (hora_ingreso, nombre, tipo_doc, numero_doc, telefono,
+                 procedencia, habitacion_id, check_in, valor, observacion)
+            VALUES
+                (NOW(), %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            ultimo[0],  # nombre
+            ultimo[1],  # tipo_doc
+            ultimo[2],  # numero_doc
+            ultimo[3],  # telefono
+            ultimo[4],  # procedencia
+            habitacion_id,
+            nueva_fecha,
+            ultimo[5],  # valor
+            ultimo[6]   # observacion
+        ))
         conn.commit()
-        return jsonify({"success": True})
+        return jsonify({"success": True, "message": "Cliente reutilizado"})
     except Exception as e:
         conn.rollback()
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({"success": False, "error": str(e)}), 500
     finally:
         cur.close()
         conn.close()
