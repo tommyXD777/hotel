@@ -6,6 +6,9 @@ from openpyxl.styles import Font, Border, Side, PatternFill, Alignment, NamedSty
 from openpyxl.utils import get_column_letter
 from werkzeug.security import check_password_hash
 import pymysql
+import threading
+import time
+from datetime import datetime, time
 
 app = Flask(__name__)
 app.secret_key = "una_clave_muy_secreta_y_larga"  # 🔑 obligatorio para sesión y flash
@@ -223,7 +226,7 @@ def index():
             fecha_ingreso = clientes[0][5] if clientes and clientes[0][5] else None
             valor = clientes[0][6] if clientes and clientes[0][6] else None
             tipo_doc = clientes[0][7] if clientes and clientes[0][7] else None
-            numero_doc = clientes[0][8] if clientes and clientes[0][8] else None
+            numero_doc = clientes[0][8] if clientes else None
             procedencia = clientes[0][9] if clientes and clientes[0][9] else None
 
             dias_ocupada = 0
@@ -233,6 +236,30 @@ def index():
                     dias_ocupada = 1
             elif fecha_ingreso:
                 dias_ocupada = (datetime.now() - fecha_ingreso).days + 1
+
+            current_time = datetime.now()
+            
+            # Check if reservation or occupied room has expired
+            if fecha_salida and fecha_salida <= current_time:
+                if estado in ['ocupada', 'reservado']:
+                    # Update room to libre (green) when checkout time has passed
+                    cur.execute("UPDATE habitaciones SET estado = 'libre' WHERE id = %s AND usuario_id = %s", (room_id, user_id))
+                    estado = 'libre'
+                    # Clear expired client data
+                    cur.execute("UPDATE clientes SET check_out = NOW() WHERE habitacion_id = %s AND check_out > NOW()", (room_id,))
+                    conn.commit()
+                    # Reset client data for display
+                    inquilino_principal = None
+                    telefono = None
+                    observacion = None
+                    fecha_salida = None
+                    cliente_id = None
+                    fecha_ingreso = None
+                    valor = None
+                    tipo_doc = None
+                    numero_doc = None
+                    procedencia = None
+                    dias_ocupada = 0
 
             if estado == 'ocupada' and dias_ocupada >= 30:
                 cur.execute("UPDATE habitaciones SET estado = 'mensualidad' WHERE id = %s AND usuario_id = %s", (room_id, user_id))
@@ -325,7 +352,7 @@ def guardar_cliente():
 
         cur.execute("""INSERT INTO clientes (habitacion_id, nombre, telefono, observacion, check_in, check_out, valor, tipo_doc, numero_doc, procedencia) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (habitacion_id, nombre, telefono, observacion, check_in, check_out, valor, tipo_doc, numero_doc, procedencia))
 
-        cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
+        cur.execute("UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
 
         conn.commit()
         flash('Cliente registrado y habitación marcada como ocupada.', 'success')
@@ -855,6 +882,12 @@ def cambiar_color_general():
 
     nuevo_estado   = request.form.get('nuevo_estado')
     nombre_cliente = request.form.get('nombre_cliente', '').strip()
+    precio_noche = request.form.get('precio_noche', '0')
+
+    try:
+        precio_noche = float(precio_noche) if precio_noche else 0
+    except ValueError:
+        precio_noche = 0
 
     conn = get_db_connection()
     if not conn:
@@ -880,7 +913,6 @@ def cambiar_color_general():
             (nuevo_estado, habitacion_id, user_id)
         )
 
-        # Si se marca como 'reservado' y se envía un nombre, insertamos un registro mínimo en clientes
         if nuevo_estado == 'reservado' and nombre_cliente:
             # Evitar duplicados: si ya existe un registro activo con ese nombre, no lo repetimos
             cur.execute(
@@ -915,7 +947,7 @@ def cambiar_color_general():
                         %s,
                         NOW(), -- check_in con fecha/hora actual para evitar NULL
                         NULL,
-                        0,
+                        %s,    -- precio por noche
                         %s)""",
                     (
                         nombre_cliente,
@@ -924,6 +956,7 @@ def cambiar_color_general():
                         '',          # telefono
                         '',          # procedencia
                         habitacion_id,
+                        precio_noche, # valor (precio por noche)
                         'Reserva creada desde panel'
                     )
                 )
@@ -941,6 +974,129 @@ def cambiar_color_general():
 
     return redirect(url_for('index'))
 
+@app.route('/obtener_datos_habitacion/<int:habitacion_id>')
+def obtener_datos_habitacion(habitacion_id):
+    user_id = require_user_session()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"})
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
+
+    try:
+        cur = conn.cursor()
+        # Get current client data if exists
+        cur.execute("""
+            SELECT c.nombre, c.tipo_doc, c.numero_doc, c.telefono, c.procedencia, 
+                   c.check_in, c.check_out, c.valor, c.observacion
+            FROM clientes c 
+            JOIN habitaciones h ON c.habitacion_id = h.id 
+            WHERE h.id = %s AND h.usuario_id = %s 
+            ORDER BY c.check_in DESC LIMIT 1
+        """, (habitacion_id, user_id))
+        
+        cliente = cur.fetchone()
+        
+        if cliente:
+            return jsonify({
+                "success": True,
+                "cliente": {
+                    "nombre": cliente[0],
+                    "tipo_doc": cliente[1],
+                    "numero_doc": cliente[2],
+                    "telefono": cliente[3],
+                    "procedencia": cliente[4],
+                    "check_in": cliente[5].strftime('%Y-%m-%dT%H:%M') if cliente[5] else '',
+                    "check_out": cliente[6].strftime('%Y-%m-%d') if cliente[6] else '',
+                    "valor": float(cliente[7]) if cliente[7] else 0,
+                    "observacion": cliente[8] or ''
+                }
+            })
+        else:
+            return jsonify({"success": True, "cliente": None})
+            
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error: {str(e)}"})
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route('/reutilizar_ultimo', methods=['POST'])
+def reutilizar_ultimo():
+    user_id = require_user_session()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"})
+    
+    try:
+        data = request.get_json()
+        habitacion_id = data.get('habitacion_id')
+        nueva_fecha_ingreso = data.get('nueva_fecha_ingreso')
+        nuevo_precio = data.get('precio_total', 0)
+        
+        if not habitacion_id or not nueva_fecha_ingreso:
+            return jsonify({"success": False, "error": "Datos incompletos"})
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
+        
+        cur = conn.cursor()
+        
+        # Get last client data
+        cur.execute("""
+            SELECT nombre, tipo_doc, numero_doc, telefono, procedencia, valor, observacion
+            FROM clientes c 
+            JOIN habitaciones h ON c.habitacion_id = h.id 
+            WHERE h.id = %s AND h.usuario_id = %s 
+            ORDER BY c.check_in DESC LIMIT 1
+        """, (habitacion_id, user_id))
+        
+        ultimo_cliente = cur.fetchone()
+        
+        if not ultimo_cliente:
+            return jsonify({"success": False, "error": "No hay cliente anterior para reutilizar"})
+        
+        try:
+            # Try datetime format first
+            nueva_fecha_dt = datetime.strptime(nueva_fecha_ingreso, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            try:
+                # If that fails, try date format and add default time
+                nueva_fecha_dt = datetime.strptime(nueva_fecha_ingreso, "%Y-%m-%d")
+                nueva_fecha_dt = nueva_fecha_dt.replace(hour=14, minute=0)  # Default 2 PM check-in
+            except ValueError:
+                return jsonify({"success": False, "error": "Formato de fecha inválido"})
+        
+        nueva_fecha_salida = nueva_fecha_dt + timedelta(days=1)
+        nueva_fecha_salida = nueva_fecha_salida.replace(hour=13, minute=0)  # 1 PM checkout
+        
+        # Extract time for hora_ingreso field
+        hora_ingreso_time = nueva_fecha_dt.time()
+        
+        precio_final = nuevo_precio if nuevo_precio > 0 else ultimo_cliente[5]
+        
+        observacion_original = ultimo_cliente[6] or ""
+        observacion_reutilizado = f"REUTILIZADO - {observacion_original}" if observacion_original else "REUTILIZADO"
+        
+        cur.execute("""
+            INSERT INTO clientes (hora_ingreso, habitacion_id, nombre, tipo_doc, numero_doc, telefono, 
+                                procedencia, check_in, check_out, valor, observacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (hora_ingreso_time, habitacion_id, ultimo_cliente[0], ultimo_cliente[1], ultimo_cliente[2], 
+              ultimo_cliente[3], ultimo_cliente[4], nueva_fecha_dt, nueva_fecha_salida,
+              precio_final, observacion_reutilizado))
+        
+        cur.execute("UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s", (habitacion_id,))
+        
+        conn.commit()
+        return jsonify({"success": True, "message": "Cliente reutilizado exitosamente"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error al reutilizar cliente: {str(e)}"})
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 # ----------------- AGREGAR HABITACIÓN -----------------
 @app.route('/agregar_habitacion', methods=['GET', 'POST'])
@@ -1158,8 +1314,9 @@ def renovar_estadia():
     except Exception as e:
         return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
     
-# ----------------- REUTILIZAR ÚLTIMO CLIENTE -----------------
-@app.route('/ultimo_cliente/<int:habitacion_id>', methods=['POST'])
+
+# ----------------- OBTENER ÚLTIMO CLIENTE DE UNA HABITACIÓN -----------------
+@app.route('/ultimo_cliente/<int:habitacion_id>')
 def ultimo_cliente(habitacion_id):
     user_id = require_user_session()
     if not user_id:
@@ -1170,43 +1327,75 @@ def ultimo_cliente(habitacion_id):
         return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
 
     try:
-        cur = conn.cursor(pymysql.cursors.DictCursor)
-        # último cliente de este usuario (puede ser de cualquier habitación)
+        cur = conn.cursor()
+        # Buscar SOLO el último cliente de esta habitación
         cur.execute("""
-            SELECT nombre,tipo_doc,numero_doc,telefono,procedencia,valor,observacion
+            SELECT c.nombre, c.tipo_doc, c.numero_doc, c.telefono,
+                   c.procedencia, c.valor, c.observacion
             FROM clientes c
             JOIN habitaciones h ON c.habitacion_id = h.id
-            WHERE h.usuario_id=%s
-            ORDER BY c.id DESC LIMIT 1
-        """, (user_id,))
-        ultimo = cur.fetchone()
-        if not ultimo:
-            return jsonify({"success": False, "error": "No hay clientes previos"})
+            WHERE h.usuario_id = %s
+              AND c.habitacion_id = %s
+            ORDER BY c.check_in DESC, c.hora_ingreso DESC
+            LIMIT 1
+        """, (user_id, habitacion_id))
+        fila = cur.fetchone()
+        if not fila:
+            return jsonify({"success": False, "error": "No hay clientes previos en esta habitación"})
 
-        ahora = datetime.now()
-        checkout = datetime(ahora.year, ahora.month, ahora.day + 1, 13, 0)
-
-        cur.execute("""
-            INSERT INTO clientes
-            (habitacion_id,nombre,tipo_doc,numero_doc,telefono,procedencia,
-             check_in,check_out,valor,observacion,hora_ingreso)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (habitacion_id, ultimo['nombre'], ultimo['tipo_doc'], ultimo['numero_doc'],
-              ultimo['telefono'], ultimo['procedencia'],
-              ahora, checkout, ultimo['valor'], ultimo['observacion'], ahora.time()))
-
-        cur.execute("""UPDATE habitaciones
-                       SET estado='ocupada'
-                       WHERE id=%s AND usuario_id=%s""", (habitacion_id, user_id))
-        conn.commit()
-        return jsonify({"success": True})
+        return jsonify({
+            "success": True,
+            "cliente": {
+                "nombre": fila[0],
+                "tipo_doc": fila[1],
+                "numero_doc": fila[2],
+                "telefono": fila[3],
+                "procedencia": fila[4],
+                "valor": float(fila[5]) if fila[5] else 0,
+                "observacion": fila[6] or ""
+            }
+        })
     except Exception as e:
-        conn.rollback()
         return jsonify({"success": False, "error": str(e)})
     finally:
         cur.close()
         conn.close()
 
+def liberar_habitaciones_automaticamente():
+    """Función que se ejecuta en hilo separado para liberar habitaciones a la 1 PM"""
+    while True:
+        try:
+            now = datetime.now()
+            if now.hour == 13 and now.minute == 0:  # 1:00 PM
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        # Liberar habitaciones cuyo checkout ya pasó
+                        cur.execute("""
+                            UPDATE habitaciones h 
+                            JOIN clientes c ON h.id = c.habitacion_id 
+                            SET h.estado = 'libre' 
+                            WHERE c.check_out <= NOW() 
+                            AND h.estado IN ('ocupada', 'mensualidad')
+                            AND NOT EXISTS (
+                                SELECT 1 FROM clientes c2 
+                                WHERE c2.habitacion_id = h.id 
+                                AND (c2.check_out IS NULL OR c2.check_out > NOW())
+                            )
+                        """)
+                        conn.commit()
+                        print(f"[{now}] Habitaciones liberadas automáticamente")
+                    except Exception as e:
+                        print(f"Error en liberación automática: {e}")
+                    finally:
+                        cur.close()
+                        conn.close()
+                        
+            time.sleep(60)  # Verificar cada minuto
+        except Exception as e:
+            print(f"Error en hilo de liberación: {e}")
+            time.sleep(60)
 
 if __name__ == '__main__':
     print("🚀 Iniciando servidor Flask...")
@@ -1226,5 +1415,9 @@ if __name__ == '__main__':
     else:
         print("❌ Error de conexión a base de datos")
         print("💡 Visita http://localhost:5000/test-db para más detalles")
+    
+    # Iniciar el hilo para la liberación automática de habitaciones
+    # liberation_thread = threading.Thread(target=liberar_habitaciones_automaticamente, daemon=True)
+    # liberation_thread.start()
     
     app.run(debug=True, host='0.0.0.0', port=5000)

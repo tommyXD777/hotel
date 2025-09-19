@@ -174,7 +174,11 @@
         <!-- campo nombre que aparece sólo cuando elegimos 'reservado' -->
         <div id="nombreReservaDiv" style="display:none;" class="flex items-center gap-2">
             <input type="text" name="nombre_cliente" id="nombre_cliente"
-                   placeholder="Nombre para la reserva (opcional)"
+                   placeholder="Nombre para la reserva"
+                   class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            <!-- Added price per night field for reservations -->
+            <input type="number" name="precio_noche" id="precio_noche" step="0.01" min="0"
+                   placeholder="Precio por noche"
                    class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
             <button type="button" id="btnReutilizarUltimo" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm hover:bg-indigo-700">
                 🔁 Reutilizar último
@@ -193,7 +197,7 @@
                             class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm shadow-sm">
                         Actualizar Estado
                     </button>
-                </form>
+                
             </div>
         </div>
 
@@ -271,7 +275,14 @@
                         {% if room.estado != 'libre' %}
                             <div class="text-xs text-center mt-2 opacity-75">
                                 {% if room.estado == 'ocupada' %}OCUPADA
-                                {% elif room.estado == 'reservado' %}RESERVADA
+                                {% elif room.estado == 'reservado' %}
+                                    RESERVADA
+                                    {% if room.inquilino_principal %}
+                                        <br><span class="font-semibold">{{ room.inquilino_principal[:10] }}...</span>
+                                    {% endif %}
+                                    {% if room.valor %}
+                                        <br>${{ "%.0f"|format(room.valor) }}/noche
+                                    {% endif %}
                                 {% elif room.estado == 'mensualidad' %}MENSUALIDAD
                                 {% elif room.estado == 'mantenimiento' %}MANTENIMIENTO
                                 {% endif %}
@@ -314,6 +325,13 @@
                                           VARIAS NOCHES
                                     {% elif room.estado == 'reservado' %}
                                         🔵 RESERVADO
+                                        <!-- Show reservation details in cards -->
+                                        {% if room.inquilino_principal %}
+                                            <br><small>Cliente: {{ room.inquilino_principal }}</small>
+                                        {% endif %}
+                                        {% if room.valor %}
+                                            <br><small>Precio: ${{ "{:,.0f}".format(room.valor) }}/noche</small>
+                                        {% endif %}
                                     {% elif room.estado == 'mensualidad' %}
                                         🟡 MENSUALIDAD
                                     {% elif room.estado == 'mantenimiento' %}
@@ -462,9 +480,337 @@
         </div>
     </div>
 
+    <!-- Added custom calendar picker modal for date selection -->
+    <!-- Updated calendar modal to remove minutes section -->
+    <div id="modalCalendario" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">📅 Seleccionar Fecha y Hora</h3>
+                <button onclick="cerrarModalCalendario()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Calendar Section -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <button type="button" onclick="cambiarMes(-1)" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                            ◀
+                        </button>
+                        <h4 id="mesAnio" class="text-lg font-semibold"></h4>
+                        <button type="button" onclick="cambiarMes(1)" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                            ▶
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-7 gap-1 text-center text-sm">
+                        <div class="font-semibold p-2">DO</div>
+                        <div class="font-semibold p-2">LU</div>
+                        <div class="font-semibold p-2">MA</div>
+                        <div class="font-semibold p-2">MI</div>
+                        <div class="font-semibold p-2">JU</div>
+                        <div class="font-semibold p-2">VI</div>
+                        <div class="font-semibold p-2">SA</div>
+                    </div>
+                    
+                    <div id="diasCalendario" class="grid grid-cols-7 gap-1 text-center text-sm">
+                        <!-- Days will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <!-- Time Section (12-hour format with AM/PM) -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-lg font-semibold mb-3">🕐 Seleccionar Hora</h4>
+                    
+                    <!-- Updated to 12-hour format with AM/PM toggle -->
+                    <div class="mb-3 flex justify-center space-x-2">
+                        <button type="button" id="amBtn" onclick="cambiarAmPm('AM')" class="ampm-btn bg-blue-500 text-white px-4 py-2 rounded text-sm">
+                            a.m.
+                        </button>
+                        <button type="button" id="pmBtn" onclick="cambiarAmPm('PM')" class="ampm-btn bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded text-sm">
+                            p.m.
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-6 gap-2">
+                        <button type="button" onclick="seleccionarHora12(12)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">12</button>
+                        <button type="button" onclick="seleccionarHora12(1)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">01</button>
+                        <button type="button" onclick="seleccionarHora12(2)" class="hora-btn bg-blue-500 text-white px-3 py-2 rounded text-sm">02</button>
+                        <button type="button" onclick="seleccionarHora12(3)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">03</button>
+                        <button type="button" onclick="seleccionarHora12(4)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">04</button>
+                        <button type="button" onclick="seleccionarHora12(5)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">05</button>
+                        <button type="button" onclick="seleccionarHora12(6)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">06</button>
+                        <button type="button" onclick="seleccionarHora12(7)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">07</button>
+                        <button type="button" onclick="seleccionarHora12(8)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">08</button>
+                        <button type="button" onclick="seleccionarHora12(9)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">09</button>
+                        <button type="button" onclick="seleccionarHora12(10)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">10</button>
+                        <button type="button" onclick="seleccionarHora12(11)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">11</button>
+                    </div>
+                </div>
+                
+                <!-- Added multiple nights pricing section -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-lg font-semibold mb-3">💰 Precio por Estadía</h4>
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <label class="text-sm font-medium">Noches:</label>
+                            <input type="number" id="numeroNoches" min="1" value="1" onchange="calcularPrecioTotal()" 
+                                   class="border border-gray-300 rounded px-3 py-1 w-20 text-center">
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <label class="text-sm font-medium">Precio por noche:</label>
+                            <input type="number" id="precioPorNoche" min="0" step="0.01" placeholder="0.00" onchange="calcularPrecioTotal()"
+                                   class="border border-gray-300 rounded px-3 py-1 w-24">
+                        </div>
+                        <div class="bg-green-50 p-3 rounded">
+                            <div class="flex justify-between items-center">
+                                <span class="font-semibold">Total:</span>
+                                <span id="precioTotal" class="text-lg font-bold text-green-600">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selected Date/Time Display -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="text-sm font-semibold text-gray-600 mb-2">Fecha y Hora Seleccionada:</h4>
+                    <p id="fechaHoraSeleccionada" class="text-lg font-medium text-gray-800">Selecciona fecha y hora</p>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex justify-between space-x-3">
+                    <div class="flex space-x-2">
+                        <button type="button" onclick="limpiarSeleccion()" class="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded text-sm">
+                            Limpiar
+                        </button>
+                        <button type="button" onclick="hoyFechaHora()" class="bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded text-sm">
+                            Hoy
+                        </button>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button type="button" onclick="cerrarModalCalendario()" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
+                            Cancelar
+                        </button>
+                        <button type="button" onclick="confirmarFechaHora()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                            Aceptar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts para funcionalidad del tablero -->
     <script>
         let habitacionActual = null;
+        let fechaSeleccionada = null;
+        let horaSeleccionada = 14; // Default 2 PM (24-hour format internally)
+        let hora12Seleccionada = 2; // Default 2 (12-hour format for display)
+        let amPmSeleccionado = 'PM'; // Default PM
+        let minutoSeleccionado = 0; // Default 0 minutes
+        let mesActual = new Date().getMonth();
+        let anioActual = new Date().getFullYear();
+        let callbackConfirmarFecha = null;
+
+        function abrirCalendario(callback) {
+            callbackConfirmarFecha = callback;
+            document.getElementById('modalCalendario').style.display = 'block';
+            generarCalendario();
+            actualizarFechaHoraDisplay();
+        }
+
+        function cerrarModalCalendario() {
+            document.getElementById('modalCalendario').style.display = 'none';
+            callbackConfirmarFecha = null;
+        }
+
+        function generarCalendario() {
+            const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            
+            document.getElementById('mesAnio').textContent = `${meses[mesActual]} ${anioActual}`;
+            
+            const primerDia = new Date(anioActual, mesActual, 1);
+            const ultimoDia = new Date(anioActual, mesActual + 1, 0);
+            const diasEnMes = ultimoDia.getDate();
+            const diaSemanaInicio = primerDia.getDay();
+            
+            const diasContainer = document.getElementById('diasCalendario');
+            diasContainer.innerHTML = '';
+            
+            // Add empty cells for days before the first day of the month
+            for (let i = 0; i < diaSemanaInicio; i++) {
+                const diaVacio = document.createElement('div');
+                diaVacio.className = 'p-2';
+                diasContainer.appendChild(diaVacio);
+            }
+            
+            // Add days of the month
+            for (let dia = 1; dia <= diasEnMes; dia++) {
+                const diaBtn = document.createElement('button');
+                diaBtn.type = 'button';
+                diaBtn.textContent = dia;
+                diaBtn.className = 'p-2 hover:bg-blue-100 rounded cursor-pointer';
+                
+                const fechaDia = new Date(anioActual, mesActual, dia);
+                const hoy = new Date();
+                
+                if (fechaDia.toDateString() === hoy.toDateString()) {
+                    diaBtn.className += ' bg-blue-500 text-white font-bold';
+                }
+                
+                if (fechaSeleccionada && fechaSeleccionada.getDate() === dia && 
+                    fechaSeleccionada.getMonth() === mesActual && 
+                    fechaSeleccionada.getFullYear() === anioActual) {
+                    diaBtn.className += ' bg-green-500 text-white font-bold';
+                }
+                
+                diaBtn.onclick = () => seleccionarDia(dia);
+                diasContainer.appendChild(diaBtn);
+            }
+        }
+
+        function cambiarMes(direccion) {
+            mesActual += direccion;
+            if (mesActual > 11) {
+                mesActual = 0;
+                anioActual++;
+            } else if (mesActual < 0) {
+                mesActual = 11;
+                anioActual--;
+            }
+            generarCalendario();
+        }
+
+        function seleccionarDia(dia) {
+            fechaSeleccionada = new Date(anioActual, mesActual, dia);
+            generarCalendario();
+            actualizarFechaHoraDisplay();
+        }
+
+        function cambiarAmPm(periodo) {
+            amPmSeleccionado = periodo;
+            
+            // Update button styles
+            document.getElementById('amBtn').className = periodo === 'AM' ? 
+                'ampm-btn bg-blue-500 text-white px-4 py-2 rounded text-sm' : 
+                'ampm-btn bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded text-sm';
+            document.getElementById('pmBtn').className = periodo === 'PM' ? 
+                'ampm-btn bg-blue-500 text-white px-4 py-2 rounded text-sm' : 
+                'ampm-btn bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded text-sm';
+            
+            // Convert to 24-hour format
+            convertirA24Horas();
+            actualizarFechaHoraDisplay();
+        }
+
+        function seleccionarHora12(hora) {
+            hora12Seleccionada = hora;
+            document.querySelectorAll('.hora-btn').forEach(btn => {
+                btn.className = btn.className.replace(' bg-blue-500 text-white', ' bg-blue-100 hover:bg-blue-200');
+            });
+            event.target.className = 'hora-btn bg-blue-500 text-white px-3 py-2 rounded text-sm';
+            
+            convertirA24Horas();
+            actualizarFechaHoraDisplay();
+        }
+
+        function convertirA24Horas() {
+            if (amPmSeleccionado === 'AM') {
+                horaSeleccionada = hora12Seleccionada === 12 ? 0 : hora12Seleccionada;
+            } else {
+                horaSeleccionada = hora12Seleccionada === 12 ? 12 : hora12Seleccionada + 12;
+            }
+        }
+
+        function calcularPrecioTotal() {
+            const noches = parseInt(document.getElementById('numeroNoches').value) || 1;
+            const precioPorNoche = parseFloat(document.getElementById('precioPorNoche').value) || 0;
+            const total = noches * precioPorNoche;
+            document.getElementById('precioTotal').textContent = `$${total.toFixed(2)}`;
+        }
+
+        function actualizarFechaHoraDisplay() {
+            if (fechaSeleccionada) {
+                const fechaFormateada = fechaSeleccionada.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                const horaFormateada = `${hora12Seleccionada.toString().padStart(2, '0')}:00 ${amPmSeleccionado.toLowerCase()}`;
+                document.getElementById('fechaHoraSeleccionada').textContent = `${fechaFormateada} - ${horaFormateada}`;
+            } else {
+                document.getElementById('fechaHoraSeleccionada').textContent = 'Selecciona fecha y hora';
+            }
+        }
+
+        function limpiarSeleccion() {
+            fechaSeleccionada = null;
+            horaSeleccionada = 14;
+            hora12Seleccionada = 2;
+            amPmSeleccionado = 'PM';
+            document.getElementById('numeroNoches').value = 1;
+            document.getElementById('precioPorNoche').value = '';
+            calcularPrecioTotal();
+            generarCalendario();
+            actualizarFechaHoraDisplay();
+        }
+
+        function hoyFechaHora() {
+            const ahora = new Date();
+            fechaSeleccionada = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+            
+            const hora24 = ahora.getHours();
+            if (hora24 === 0) {
+                hora12Seleccionada = 12;
+                amPmSeleccionado = 'AM';
+            } else if (hora24 < 12) {
+                hora12Seleccionada = hora24;
+                amPmSeleccionado = 'AM';
+            } else if (hora24 === 12) {
+                hora12Seleccionada = 12;
+                amPmSeleccionado = 'PM';
+            } else {
+                hora12Seleccionada = hora24 - 12;
+                amPmSeleccionado = 'PM';
+            }
+            
+            horaSeleccionada = hora24;
+            mesActual = ahora.getMonth();
+            anioActual = ahora.getFullYear();
+            
+            // Update AM/PM buttons
+            cambiarAmPm(amPmSeleccionado);
+            generarCalendario();
+            actualizarFechaHoraDisplay();
+        }
+
+        function confirmarFechaHora() {
+            if (!fechaSeleccionada) {
+                alert('Por favor selecciona una fecha');
+                return;
+            }
+            
+            const fechaHoraCompleta = new Date(
+                fechaSeleccionada.getFullYear(),
+                fechaSeleccionada.getMonth(),
+                fechaSeleccionada.getDate(),
+                horaSeleccionada,
+                0 // Always set minutes to 0
+            );
+            
+            const fechaISO = fechaHoraCompleta.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:MM
+            
+            const noches = parseInt(document.getElementById('numeroNoches').value) || 1;
+            const precioPorNoche = parseFloat(document.getElementById('precioPorNoche').value) || 0;
+            const precioTotal = noches * precioPorNoche;
+            
+            if (callbackConfirmarFecha) {
+                callbackConfirmarFecha(fechaISO, { noches, precioPorNoche, precioTotal });
+            }
+            
+            cerrarModalCalendario();
+        }
 
         function manejarClickHabitacion(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia) {
             console.log('[v0] Click en habitación:', {
@@ -1004,13 +1350,6 @@
             });
         }
 
-        function abrirModalRenovacion(habitacionId, numero, clienteNombre) {
-            console.log('[v0] Opening renewal modal for room:', habitacionId);
-            document.getElementById('modalRenovacionTitulo').textContent = `🔄 Renovar Estadía - Habitación ${numero}`;
-            document.getElementById('modalRenovacionContenido').innerHTML = generarFormularioRenovacion(habitacionId, numero, clienteNombre);
-            document.getElementById('modalRenovacion').style.display = 'block';
-        }
-
         function generarFormularioRenovacion(habitacionId, numero, clienteNombre) {
             return `
                 <form onsubmit="procesarRenovacion(event, ${habitacionId})" class="space-y-6">
@@ -1059,13 +1398,16 @@
                                 <span class="font-medium">Establecer nueva fecha de salida</span>
                             </label>
                             
+                            <!-- Added calendar input for date extension -->
                             <div id="opcionesFecha" class="ml-6" style="display: none;">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Nueva fecha de salida:</label>
                                 <input type="date" name="nueva_fecha_salida" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       min="${new Date().toISOString().split('T')[0]}">
                             </div>
                         </div>
                     </div>
+
 
                     <div class="border border-gray-200 rounded-lg p-4">
                         <h3 class="text-lg font-semibold text-gray-700 mb-4">💰 Valor Adicional</h3>
@@ -1241,17 +1583,7 @@
             {% endfor %}
         });
         
-        function reutilizarUltimo(habitacionId){
-            if(confirm('¿Reutilizar los datos del último cliente registrado?')){
-                fetch(`/ultimo_cliente/${habitacionId}`, {method:'POST'})
-                .then(r=>r.json())
-                .then(d=>{
-                    if(d.success){ location.reload(); }
-                    else { alert(d.error); }
-                })
-                .catch(err => alert('Error: ' + err));
-            }
-        }
+        // Keep only the modern calendar-based version
         // Mostrar/ocultar el campo nombre al elegir 'reservado'
 document.addEventListener('DOMContentLoaded', function() {
     const selectEstado = document.getElementById('selectNuevoEstado');
@@ -1285,7 +1617,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             try {
-                const resp = await fetch('/ultimo_cliente');
+                const resp = await fetch(`/ultimo_cliente/${habitacionId}`);
                 const data = await resp.json();
                 if (!data.success) {
                     alert(data.error || 'No se encontró último cliente.');
@@ -1298,23 +1630,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('nombre_cliente').value = cli.nombre;
                 }
 
-                // Pedimos la nueva fecha de ingreso (YYYY-MM-DD)
-                let fecha = prompt('Ingresa la fecha de ingreso para la reserva (YYYY-MM-DD):', new Date().toISOString().slice(0,10));
-                if (!fecha) return;
-
-                // Llamada para crear el nuevo cliente reutilizando datos
-                const r = await fetch('/reutilizar_ultimo', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ habitacion_id: habitacionId, nueva_fecha_ingreso: fecha })
+                abrirCalendario(async (fechaISO) => {
+                    try {
+                        const r = await fetch('/reutilizar_ultimo', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ habitacion_id: habitacionId, nueva_fecha_ingreso: fechaISO })
+                        });
+                        const res = await r.json();
+                        if (res.success) {
+                            alert(res.message || 'Cliente reutilizado y reservado correctamente.');
+                            window.location.reload();
+                        } else {
+                            alert('Error: ' + (res.error || 'No se pudo reutilizar'));
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert('Error al intentar reutilizar el último cliente.');
+                    }
                 });
-                const res = await r.json();
-                if (res.success) {
-                    alert(res.message || 'Cliente reutilizado y reservado correctamente.');
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + (res.error || 'No se pudo reutilizar'));
-                }
 
             } catch (err) {
                 console.error(err);
@@ -1324,6 +1658,288 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function reutilizarUltimo(habitacionId) {
+    console.log('[v0] Reutilizando último cliente para habitación:', habitacionId);
+    
+    fetch(`/ultimo_cliente/${habitacionId}`)
+        .then(resp => resp.json())
+        .then(data => {
+            if (!data.success) {
+                alert(data.error || 'No se encontró último cliente.');
+                return;
+            }
+
+            // Pre-llenar el nombre en el input si existe
+            const cli = data.cliente;
+            if (cli && cli.nombre) {
+                const nombreInput = document.getElementById('nombre_cliente');
+                if (nombreInput) {
+                    nombreInput.value = cli.nombre;
+                }
+            }
+
+            abrirCalendario(async (fechaISO, precioInfo) => {
+                try {
+                    const requestData = { 
+                        habitacion_id: habitacionId, 
+                        nueva_fecha_ingreso: fechaISO
+                    };
+                    
+                    // Add price information if provided
+                    if (precioInfo && precioInfo.precioTotal > 0) {
+                        requestData.precio_total = precioInfo.precioTotal;
+                        requestData.noches = precioInfo.noches;
+                        requestData.precio_por_noche = precioInfo.precioPorNoche;
+                    }
+                    
+                    const r = await fetch('/reutilizar_ultimo', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(requestData)
+                    });
+                    const res = await r.json();
+                    if (res.success) {
+                        alert(res.message || 'Cliente reutilizado y reservado correctamente.');
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (res.error || 'No se pudo reutilizar'));
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Error al intentar reutilizar el último cliente.');
+                }
+            });
+        })
+        .catch(err => {
+            console.error('Error al obtener último cliente:', err);
+            alert('Error al obtener información del último cliente.');
+        });
+}
+
+        function mostrarModalCambiarEstado(habitacionId, numeroHabitacion, estadoActual) {
+            console.log('[v0] Abriendo modal cambiar estado para habitación:', habitacionId);
+            
+            document.getElementById('modalCambiarEstadoTitulo').textContent = `Cambiar Estado - Habitación ${numeroHabitacion}`;
+            document.getElementById('modalCambiarEstadoContenido').innerHTML = generarFormularioCambiarEstado(habitacionId, estadoActual);
+            document.getElementById('modalCambiarEstado').style.display = 'block';
+        }
+
+        function generarFormularioCambiarEstado(habitacionId, estadoActual) {
+            return `
+                <form onsubmit="procesarCambioEstado(event, ${habitacionId})" class="space-y-6">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">🏠 Cambiar Estado de Habitación</h3>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Estado actual: <span class="font-bold text-blue-600">${estadoActual.toUpperCase()}</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nuevo estado:</label>
+                            <select name="estado" id="selectNuevoEstado" required onchange="toggleCamposReserva()"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                                <option value="">Seleccionar estado...</option>
+                                <option value="libre">🟢 Libre</option>
+                                <option value="ocupada">🔴 Ocupada</option>
+                                <option value="reservado">🔵 Reservado</option>
+                                <option value="mensualidad">🟡 Mensualidad</option>
+                                <option value="mantenimiento">⚫ Mantenimiento</option>
+                            </select>
+                        </div>
+
+                        <!-- Enhanced reservation fields with existing data display -->
+                        <div id="camposReserva" style="display: none;" class="space-y-4 border-t pt-4">
+                            <div id="datosExistentes" style="display: none;" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                                <h4 class="font-semibold text-yellow-800 mb-2">📋 Datos del cliente actual:</h4>
+                                <div id="infoClienteExistente" class="text-sm text-yellow-700"></div>
+                                <button type="button" onclick="mantenerDatosExistentes()" 
+                                        class="mt-2 bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600">
+                                    Mantener estos datos
+                                </button>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del cliente:</label>
+                                <input type="text" name="nombre_cliente" id="nombre_cliente"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="Nombre completo del cliente">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Precio de la reserva:</label>
+                                <input type="number" name="precio_reserva" step="0.01" min="0"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="cerrarModalCambiarEstado()"
+                               class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                            💾 Cambiar Estado
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function toggleCamposReserva() {
+            const select = document.getElementById('selectNuevoEstado');
+            const campos = document.getElementById('camposReserva');
+            
+            if (select && campos) {
+                if (select.value === 'reservado') {
+                    campos.style.display = 'block';
+                    document.getElementById('nombre_cliente').required = true;
+                    checkExistingClientData();
+                } else {
+                    campos.style.display = 'none';
+                    document.getElementById('nombre_cliente').required = false;
+                    document.getElementById('nombre_cliente').value = '';
+                    document.querySelector('input[name="precio_reserva"]').value = '';
+                    document.getElementById('datosExistentes').style.display = 'none';
+                }
+            }
+        }
+
+        async function checkExistingClientData() {
+            const habitacionId = currentHabitacionId; // This should be set when opening the modal
+            
+            try {
+                const response = await fetch(`/cambiar_estado_habitacion`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        habitacion_id: habitacionId,
+                        estado: 'reservado',
+                        nombre_cliente: '', // Empty to trigger data check
+                        precio_reserva: 0
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.show_existing_data && data.client_data) {
+                    const clientData = data.client_data;
+                    document.getElementById('infoClienteExistente').innerHTML = `
+                        <strong>Nombre:</strong> ${clientData.nombre}<br>
+                        <strong>Teléfono:</strong> ${clientData.telefono}<br>
+                        <strong>Valor:</strong> $${clientData.valor}<br>
+                        <strong>Observación:</strong> ${clientData.observacion}
+                    `;
+                    document.getElementById('datosExistentes').style.display = 'block';
+                    
+                    // Store data for later use
+                    window.existingClientData = clientData;
+                }
+            } catch (error) {
+                console.error('Error checking existing client data:', error);
+            }
+        }
+
+        function mantenerDatosExistentes() {
+            if (window.existingClientData) {
+                const data = window.existingClientData;
+                document.getElementById('nombre_cliente').value = data.nombre;
+                document.querySelector('input[name="precio_reserva"]').value = data.valor;
+                document.getElementById('datosExistentes').style.display = 'none';
+            }
+        }
+
+        function procesarCambioEstado(event, habitacionId) {
+            event.preventDefault();
+            
+            window.currentHabitacionId = habitacionId;
+            
+            const formData = new FormData(event.target);
+            const estado = formData.get('estado');
+            const nombreCliente = formData.get('nombre_cliente') || '';
+            const precioReserva = parseFloat(formData.get('precio_reserva')) || 0;
+            
+            if (estado === 'reservado' && !nombreCliente.trim()) {
+                alert('Por favor ingresa el nombre del cliente para la reserva');
+                return;
+            }
+            
+            const data = {
+                habitacion_id: habitacionId,
+                estado: estado,
+                nombre_cliente: nombreCliente,
+                precio_reserva: precioReserva
+            };
+            
+            console.log('[v0] Changing room status:', data);
+            
+            fetch('/cambiar_estado_habitacion', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert(result.message);
+                    cerrarModalCambiarEstado();
+                    location.reload();
+                } else if (result.show_existing_data) {
+                    // This case is now handled in checkExistingClientData
+                    alert(result.message);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cambiar estado de habitación');
+            });
+        }
+
+        function cerrarModalCambiarEstado() {
+            document.getElementById('modalCambiarEstado').style.display = 'none';
+        }
+
+        function liberarHabitacion(habitacionId) {
+            if (confirm('¿Estás seguro de que deseas liberar esta habitación?')) {
+                window.location.href = `/liberar/${habitacionId}`;
+            }
+        }
+
+        // This function was causing the text input dialog to appear
+        
+
+        const modalCambiarEstadoHTML = `
+            <div id="modalCambiarEstado" class="modal">
+                <div class="modal-content">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 id="modalCambiarEstadoTitulo" class="text-xl font-bold text-gray-800"></h2>
+                        <button onclick="cerrarModalCambiarEstado()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    </div>
+                    <div id="modalCambiarEstadoContenido"></div>
+                </div>
+            </div>
+        `;
+
+        // Agregar el modal al DOM cuando se carga la página
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.insertAdjacentHTML('beforeend', modalCambiarEstadoHTML);
+            
+            function verificarLiberacionAutomatica() {
+                const ahora = new Date();
+                if (ahora.getHours() === 13 && ahora.getMinutes() === 0) {
+                    console.log('[v0] Verificando liberación automática de habitaciones...');
+                    // Recargar la página para mostrar cambios
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+            }
+            
+            // Verificar cada minuto
+            setInterval(verificarLiberacionAutomatica, 60000);
+        });
 
     </script>
 </body>
