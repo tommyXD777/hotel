@@ -1507,6 +1507,7 @@ def checkin(cliente_id, habitacion_id, conexion):
             print(f"✅ Check-in exitoso: Cliente {cliente_id} en habitación {habitacion_id} a las {hora_ingreso}")
     except Exception as e:
         print(f"❌ Error en check-in: {e}")
+
 if __name__ == '__main__':
     print("🚀 Iniciando servidor Flask...")
     print("📊 Probando conexión a base de datos...")
@@ -1526,8 +1527,8 @@ if __name__ == '__main__':
         print("❌ Error de conexión a base de datos")
         print("💡 Visita http://localhost:5000/test-db para más detalles")
     
-    # Leer puerto de la variable de entorno
-    import os
-    port = int(os.environ.get("PORT", 5000))
+    # Iniciar el hilo para la liberación automática de habitaciones
+    # liberation_thread = threading.Thread(target=liberar_habitaciones_automaticamente, daemon=True)
+    # liberation_thread.start()
     
-    app.run(debug=False, host='0.0.0.0', port=port)
+    app.run(debug=True, host='0.0.0.0', port=5000)
