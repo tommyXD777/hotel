@@ -407,15 +407,12 @@
                             
                             <!-- Agregando botón para liberar habitación cuando está ocupada -->
                            
-                          {% if room.estado == 'ocupada' or room.estado == 'mensualidad' %}
-                            <a href="{{ url_for('liberar', habitacion_id=room.id) }}"
-                            class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                            title="liberar cliente-se va antes"
-                            onclick="return confirm('¿Seguro que deseas liberar esta habitación?');">
-                                🔓 Liberar
-                            </a>
-                        {% endif %}
-
+                       <a href="{{ url_for('liberar', habitacion_id=room.id) }}"
+                        class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                        title="liberar cliente-se va antes"
+                        onclick="return confirm('¿Seguro que deseas liberar esta habitación?');">
+                            🔓 Liberar
+                        </a>
 
                         <a href="#" onclick="reutilizarUltimo({{ room.id }})"
                         class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
@@ -799,7 +796,14 @@
                 0 // Always set minutes to 0
             );
             
-            const fechaISO = fechaHoraCompleta.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:MM
+            // ✅ Mantener hora local en formato ISO sin convertir a UTC
+            const year = fechaHoraCompleta.getFullYear();
+            const month = String(fechaHoraCompleta.getMonth() + 1).padStart(2, '0');
+            const day = String(fechaHoraCompleta.getDate()).padStart(2, '0');
+            const hours = String(fechaHoraCompleta.getHours()).padStart(2, '0');
+            const minutes = String(fechaHoraCompleta.getMinutes()).padStart(2, '0');
+            
+            const fechaISO = `${year}-${month}-${day}T${hours}:${minutes}`;
             
             const noches = parseInt(document.getElementById('numeroNoches').value) || 1;
             const precioPorNoche = parseFloat(document.getElementById('precioPorNoche').value) || 0;
@@ -811,6 +815,7 @@
             
             cerrarModalCalendario();
         }
+
 
         function manejarClickHabitacion(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia) {
             console.log('[v0] Click en habitación:', {
@@ -1583,81 +1588,6 @@
             {% endfor %}
         });
         
-        // Keep only the modern calendar-based version
-        // Mostrar/ocultar el campo nombre al elegir 'reservado'
-document.addEventListener('DOMContentLoaded', function() {
-    const selectEstado = document.getElementById('selectNuevoEstado');
-    const nombreDiv = document.getElementById('nombreReservaDiv');
-
-    function toggleNombreDiv() {
-        if (!selectEstado) return;
-        if (selectEstado.value === 'reservado') {
-            nombreDiv.style.display = 'flex';
-        } else {
-            nombreDiv.style.display = 'none';
-            // opcional: limpiar el input si se oculta
-            const input = document.getElementById('nombre_cliente');
-            if (input) input.value = '';
-        }
-    }
-
-    if (selectEstado) {
-        selectEstado.addEventListener('change', toggleNombreDiv);
-        toggleNombreDiv(); // estado inicial
-    }
-
-    // Reutilizar último cliente -> obtiene últimos datos y pregunta fecha, luego llama a /reutilizar_ultimo
-    const btnReutilizar = document.getElementById('btnReutilizarUltimo');
-    if (btnReutilizar) {
-        btnReutilizar.addEventListener('click', async () => {
-            const habitacionId = document.getElementById('selectHabitacion').value;
-            if (!habitacionId) {
-                alert('Selecciona primero la habitación donde quieres reutilizar el cliente.');
-                return;
-            }
-
-            try {
-                const resp = await fetch(`/ultimo_cliente/${habitacionId}`);
-                const data = await resp.json();
-                if (!data.success) {
-                    alert(data.error || 'No se encontró último cliente.');
-                    return;
-                }
-
-                // Pre-llenar el nombre en el input
-                const cli = data.cliente;
-                if (cli && cli.nombre) {
-                    document.getElementById('nombre_cliente').value = cli.nombre;
-                }
-
-                abrirCalendario(async (fechaISO) => {
-                    try {
-                        const r = await fetch('/reutilizar_ultimo', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ habitacion_id: habitacionId, nueva_fecha_ingreso: fechaISO })
-                        });
-                        const res = await r.json();
-                        if (res.success) {
-                            alert(res.message || 'Cliente reutilizado y reservado correctamente.');
-                            window.location.reload();
-                        } else {
-                            alert('Error: ' + (res.error || 'No se pudo reutilizar'));
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        alert('Error al intentar reutilizar el último cliente.');
-                    }
-                });
-
-            } catch (err) {
-                console.error(err);
-                alert('Error al intentar reutilizar el último cliente.');
-            }
-        });
-    }
-});
-
 function reutilizarUltimo(habitacionId) {
     console.log('[v0] Reutilizando último cliente para habitación:', habitacionId);
     
@@ -1680,9 +1610,24 @@ function reutilizarUltimo(habitacionId) {
 
             abrirCalendario(async (fechaISO, precioInfo) => {
                 try {
+                    let fechaParaEnviar = fechaISO;
+                    
+                    // If it's just a date (YYYY-MM-DD), keep it as is
+                    // If it includes time, make sure we're using local time
+                    if (fechaISO.includes('T')) {
+                        const fecha = new Date(fechaISO);
+                        // Format as local datetime string
+                        const year = fecha.getFullYear();
+                        const month = String(fecha.getMonth() + 1).padStart(2, '0');
+                        const day = String(fecha.getDate()).padStart(2, '0');
+                        const hours = String(fecha.getHours()).padStart(2, '0');
+                        const minutes = String(fecha.getMinutes()).padStart(2, '0');
+                        fechaParaEnviar = `${year}-${month}-${day}T${hours}:${minutes}`;
+                    }
+                    
                     const requestData = { 
                         habitacion_id: habitacionId, 
-                        nueva_fecha_ingreso: fechaISO
+                        nueva_fecha_ingreso: fechaParaEnviar
                     };
                     
                     // Add price information if provided
@@ -1940,7 +1885,6 @@ function reutilizarUltimo(habitacionId) {
             // Verificar cada minuto
             setInterval(verificarLiberacionAutomatica, 60000);
         });
-
     </script>
 </body>
 </html>

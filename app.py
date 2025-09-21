@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash, send_file
-from datetime import datetime, time, timedelta
-import MySQLdb
+from datetime import datetime, time, timedelta, date
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, PatternFill, Alignment, NamedStyle
 from openpyxl.utils import get_column_letter
@@ -9,6 +8,27 @@ import pymysql
 import threading
 import time
 from datetime import datetime, time
+from flask import request, jsonify
+from datetime import datetime
+import pymysql
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from flask import jsonify, request
+from datetime import datetime
+import pytz
+from datetime import datetime, timezone, timedelta 
+bogota = pytz.timezone("America/Bogota")
+now = datetime.now(bogota)
+
+print("Bogotá:", now)
+
+def require_user_session_json():
+    """Versión para rutas que devuelven JSON."""
+    user_id = session.get('usuario_id')
+    if not user_id:
+        return None
+    return user_id
+
 
 app = Flask(__name__)
 app.secret_key = "una_clave_muy_secreta_y_larga"  # 🔑 obligatorio para sesión y flash
@@ -225,7 +245,7 @@ def index():
             cliente_id = clientes[0][4] if clientes else None
             fecha_ingreso = clientes[0][5] if clientes and clientes[0][5] else None
             valor = clientes[0][6] if clientes and clientes[0][6] else None
-            tipo_doc = clientes[0][7] if clientes and clientes[0][7] else None
+            tipo_doc = clientes[0][7] if clientes else None
             numero_doc = clientes[0][8] if clientes else None
             procedencia = clientes[0][9] if clientes and clientes[0][9] else None
 
@@ -380,7 +400,7 @@ def editar_cliente(cliente_id):
 
     try:
         cur = conn.cursor()
-        cur.execute("""SELECT c.id, c.nombre, c.tipo_doc, c.numero_doc, c.telefono, c.procedencia, c.check_in, c.check_out, c.valor, c.observacion, c.habitacion_id, h.numero AS habitacion_numero, h.descripcion AS habitacion_descripcion FROM clientes c JOIN habitaciones h ON c.habitacion_id = h.id WHERE c.id = %s AND h.usuario_id = %s""", (cliente_id, user_id))
+        cur.execute("""SELECT c.id, c.nombre, c.tipo_doc, c.numero_doc, c.telefono, c.procedencia, c.check_in, c.check_out, c.valor, c.observacion, c.habitacion_id FROM clientes c JOIN habitaciones h ON c.habitacion_id = h.id WHERE c.id = %s AND h.usuario_id = %s""", (cliente_id, user_id))
         cliente = cur.fetchone()
 
         if not cliente:
@@ -522,9 +542,10 @@ def agregar_cliente_habitacion(habitacion_id):
 # ----------------- GUARDAR NUEVO CLIENTE -----------------
 @app.route('/guardar_nuevo_cliente', methods=['POST'])
 def guardar_nuevo_cliente():
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({"success": False, "error": "Sesión expirada"})
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
     
     try:
         if request.is_json:
@@ -1024,80 +1045,78 @@ def obtener_datos_habitacion(habitacion_id):
 
 @app.route('/reutilizar_ultimo', methods=['POST'])
 def reutilizar_ultimo():
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({"success": False, "error": "Sesión expirada"})
-    
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
+    data = request.get_json()
+    habitacion_id = data.get('habitacion_id')
+    noches = data.get('noches', 1)
+    precio_total = data.get('precio_total')
+    nueva_fecha = data.get('nueva_fecha_ingreso')
+
+    if not habitacion_id or not nueva_fecha:
+        return jsonify({"success": False, "error": "Datos incompletos"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
+
     try:
-        data = request.get_json()
-        habitacion_id = data.get('habitacion_id')
-        nueva_fecha_ingreso = data.get('nueva_fecha_ingreso')
-        nuevo_precio = data.get('precio_total', 0)
-        
-        if not habitacion_id or not nueva_fecha_ingreso:
-            return jsonify({"success": False, "error": "Datos incompletos"})
-        
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
-        
         cur = conn.cursor()
-        
-        # Get last client data
+        cur.execute("SET time_zone = '-05:00'")
+
         cur.execute("""
             SELECT nombre, tipo_doc, numero_doc, telefono, procedencia, valor, observacion
-            FROM clientes c 
-            JOIN habitaciones h ON c.habitacion_id = h.id 
-            WHERE h.id = %s AND h.usuario_id = %s 
-            ORDER BY c.check_in DESC LIMIT 1
-        """, (habitacion_id, user_id))
-        
-        ultimo_cliente = cur.fetchone()
-        
-        if not ultimo_cliente:
-            return jsonify({"success": False, "error": "No hay cliente anterior para reutilizar"})
-        
-        try:
-            # Try datetime format first
-            nueva_fecha_dt = datetime.strptime(nueva_fecha_ingreso, "%Y-%m-%dT%H:%M")
-        except ValueError:
-            try:
-                # If that fails, try date format and add default time
-                nueva_fecha_dt = datetime.strptime(nueva_fecha_ingreso, "%Y-%m-%d")
-                nueva_fecha_dt = nueva_fecha_dt.replace(hour=14, minute=0)  # Default 2 PM check-in
-            except ValueError:
-                return jsonify({"success": False, "error": "Formato de fecha inválido"})
-        
-        nueva_fecha_salida = nueva_fecha_dt + timedelta(days=1)
-        nueva_fecha_salida = nueva_fecha_salida.replace(hour=13, minute=0)  # 1 PM checkout
-        
-        # Extract time for hora_ingreso field
-        hora_ingreso_time = nueva_fecha_dt.time()
-        
-        precio_final = nuevo_precio if nuevo_precio > 0 else ultimo_cliente[5]
-        
-        observacion_original = ultimo_cliente[6] or ""
-        observacion_reutilizado = f"REUTILIZADO - {observacion_original}" if observacion_original else "REUTILIZADO"
-        
-        cur.execute("""
-            INSERT INTO clientes (hora_ingreso, habitacion_id, nombre, tipo_doc, numero_doc, telefono, 
-                                procedencia, check_in, check_out, valor, observacion)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (hora_ingreso_time, habitacion_id, ultimo_cliente[0], ultimo_cliente[1], ultimo_cliente[2], 
-              ultimo_cliente[3], ultimo_cliente[4], nueva_fecha_dt, nueva_fecha_salida,
-              precio_final, observacion_reutilizado))
-        
-        cur.execute("UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s", (habitacion_id,))
-        
-        conn.commit()
-        return jsonify({"success": True, "message": "Cliente reutilizado exitosamente"})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Error al reutilizar cliente: {str(e)}"})
-    finally:
-        if 'conn' in locals():
-            conn.close()
+            FROM clientes
+            WHERE habitacion_id = %s
+            ORDER BY check_in DESC, hora_ingreso DESC
+            LIMIT 1
+        """, (habitacion_id,))
+        ultimo = cur.fetchone()
 
+        if not ultimo:
+            return jsonify({"success": False, "error": "No hay cliente para reutilizar"}), 404
+
+        # Fecha nueva
+        try:
+            if 'T' in nueva_fecha:
+                nueva_fecha_dt = datetime.strptime(nueva_fecha, "%Y-%m-%dT%H:%M")
+            else:
+                fecha_input = datetime.strptime(nueva_fecha, "%Y-%m-%d")
+                now = datetime.now(ZoneInfo("America/Bogota"))
+                nueva_fecha_dt = datetime.combine(fecha_input.date(), now.time())
+        except ValueError:
+            return jsonify({"success": False, "error": "Formato de fecha inválido"}), 400
+
+        nueva_fecha_salida = nueva_fecha_dt.replace(hour=13, minute=0, second=0, microsecond=0) + timedelta(days=int(noches))
+        hora_ingreso_time = nueva_fecha_dt
+        valor_final = precio_total if precio_total else ultimo[5]
+
+        observaciones_existentes = ultimo[6] if ultimo[6] else ""
+        nueva_observacion = f"{observaciones_existentes} | REUTILIZADO" if observaciones_existentes else "REUTILIZADO"
+
+        cur.execute("""
+        INSERT INTO clientes (hora_ingreso, habitacion_id, nombre, tipo_doc, numero_doc, telefono, 
+                            procedencia, check_in, check_out, valor, observacion)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (hora_ingreso_time, habitacion_id, ultimo[0], ultimo[1], ultimo[2], 
+        ultimo[3], ultimo[4], nueva_fecha_dt, nueva_fecha_salida, 
+        valor_final, nueva_observacion))
+
+
+        conn.commit()
+
+        cur.execute("UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s", (habitacion_id,))
+        conn.commit()
+
+        return jsonify({"success": True, "message": "Cliente reutilizado exitosamente"})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        conn.close()
 # ----------------- AGREGAR HABITACIÓN -----------------
 @app.route('/agregar_habitacion', methods=['GET', 'POST'])
 def agregar_habitacion():
@@ -1167,59 +1186,67 @@ def eliminar_habitacion(habitacion_id):
 # ----------------- OBTENER HUESPEDES -----------------
 @app.route('/obtener_huespedes/<int:habitacion_id>')
 def obtener_huespedes(habitacion_id):
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({"success": False, "error": "Sesión expirada"})
-    
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
     conn = get_db_connection()
     if not conn:
-        return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
 
     try:
         cur = conn.cursor()
-        
-        cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        # Verificar que la habitación pertenece a este usuario
+        cur.execute(
+            "SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s",
+            (habitacion_id, user_id)
+        )
         if not cur.fetchone():
             return jsonify({"success": False, "error": "No tienes permisos para acceder a esta habitación"})
-        
-        # Cambia el ORDER BY para que el cliente principal sea el primero
-        cur.execute("""SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW()) ORDER BY (valor > 0) DESC, check_in DESC""", (habitacion_id,))
-        
-        huespedes_data = cur.fetchall()
-        
-        huespedes = []
-        for huesped in huespedes_data:
-            huespedes.append({
-                'id': huesped[0],
-                'nombre': huesped[1],
-                'tipo_doc': huesped[2],
-                'numero_doc': huesped[3],
-                'telefono': huesped[4],
-                'procedencia': huesped[5],
-                'check_in': huesped[6].isoformat() if huesped[6] else None,
-                'check_out': huesped[7].isoformat() if huesped[7] else None,
-                'valor': float(huesped[8]) if huesped[8] else 0,
-                'observacion': huesped[9]
-            })
-        
+
+        # Obtener huéspedes actuales
+        cur.execute("""
+            SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia,
+                   check_in, check_out, valor, observacion
+            FROM clientes
+            WHERE habitacion_id = %s
+              AND (check_out IS NULL OR check_out > NOW())
+            ORDER BY (valor > 0) DESC, check_in DESC
+        """, (habitacion_id,))
+        filas = cur.fetchall()
+
+        huespedes = [{
+            'id': f[0],
+            'nombre': f[1],
+            'tipo_doc': f[2],
+            'numero_doc': f[3],
+            'telefono': f[4],
+            'procedencia': f[5],
+            'check_in': f[6].isoformat() if f[6] else None,
+            'check_out': f[7].isoformat() if f[7] else None,
+            'valor': float(f[8]) if f[8] else 0,
+            'observacion': f[9]
+        } for f in filas]
+
         return jsonify({"success": True, "huespedes": huespedes})
 
-    except pymysql.MySQLError as e:
-        return jsonify({"success": False, "error": f"Error en la base de datos: {str(e)}"})
     except Exception as e:
-        return jsonify({"success": False, "error": f"Error al obtener huéspedes: {str(e)}"})
+        return jsonify({"success": False, "error": f"Error al obtener huéspedes: {e}"}), 500
     finally:
-        if 'cur' in locals():
+        try:
             cur.close()
-        if 'conn' in locals():
             conn.close()
+        except:
+            pass
+
 
 # ----------------- RENUEVAR ESTADÍA -----------------
 @app.route('/renovar_estadia', methods=['POST'])
 def renovar_estadia():
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
     
     try:
         data = request.get_json()
@@ -1316,49 +1343,59 @@ def renovar_estadia():
     
 
 # ----------------- OBTENER ÚLTIMO CLIENTE DE UNA HABITACIÓN -----------------
-@app.route('/ultimo_cliente/<int:habitacion_id>')
+@app.route('/ultimo_cliente/<int:habitacion_id>', methods=['GET'])
 def ultimo_cliente(habitacion_id):
-    user_id = require_user_session()
+    user_id = require_user_session_json()
     if not user_id:
-        return jsonify({"success": False, "error": "Sesión expirada"})
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
 
     conn = get_db_connection()
     if not conn:
-        return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
 
     try:
-        cur = conn.cursor()
-        # Buscar SOLO el último cliente de esta habitación
-        cur.execute("""
-            SELECT c.nombre, c.tipo_doc, c.numero_doc, c.telefono,
-                   c.procedencia, c.valor, c.observacion
-            FROM clientes c
-            JOIN habitaciones h ON c.habitacion_id = h.id
-            WHERE h.usuario_id = %s
-              AND c.habitacion_id = %s
-            ORDER BY c.check_in DESC, c.hora_ingreso DESC
-            LIMIT 1
-        """, (user_id, habitacion_id))
-        fila = cur.fetchone()
-        if not fila:
-            return jsonify({"success": False, "error": "No hay clientes previos en esta habitación"})
+        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur.execute("SET time_zone = '-05:00'")
 
-        return jsonify({
-            "success": True,
-            "cliente": {
-                "nombre": fila[0],
-                "tipo_doc": fila[1],
-                "numero_doc": fila[2],
-                "telefono": fila[3],
-                "procedencia": fila[4],
-                "valor": float(fila[5]) if fila[5] else 0,
-                "observacion": fila[6] or ""
-            }
-        })
+        cur.execute("""
+            SELECT id, nombre, tipo_doc, numero_doc, telefono, procedencia,
+                   check_in, check_out, valor, observacion, hora_ingreso
+            FROM clientes
+            WHERE habitacion_id = %s
+            ORDER BY check_in DESC, hora_ingreso DESC, id DESC
+            LIMIT 1
+        """, (habitacion_id,))
+        fila = cur.fetchone()
+
+        if not fila:
+            return jsonify({"success": False, "error": "No hay clientes registrados"}), 404
+
+        def to_iso_or_str(value):
+            if isinstance(value, (datetime, date)):
+                return value.isoformat()
+            if value is not None:
+                return str(value)
+            return None
+
+        cliente = {
+            "id": fila.get('id'),
+            "nombre": fila.get('nombre'),
+            "tipo_doc": fila.get('tipo_doc'),
+            "numero_doc": fila.get('numero_doc'),
+            "telefono": fila.get('telefono'),
+            "procedencia": fila.get('procedencia'),
+            "check_in": to_iso_or_str(fila.get('check_in')),
+            "check_out": to_iso_or_str(fila.get('check_out')),
+            "valor": float(fila['valor']) if fila.get('valor') is not None else 0,
+            "observacion": fila.get('observacion') or '',
+            "hora_ingreso": to_iso_or_str(fila.get('hora_ingreso'))
+        }
+
+        return jsonify({"success": True, "cliente": cliente})
+
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({"success": False, "error": str(e)}), 500
     finally:
-        cur.close()
         conn.close()
 
 def liberar_habitaciones_automaticamente():
@@ -1396,6 +1433,80 @@ def liberar_habitaciones_automaticamente():
         except Exception as e:
             print(f"Error en hilo de liberación: {e}")
             time.sleep(60)
+
+@app.route('/checkin', methods=['POST'])
+def checkin():
+    user_id = require_user_session_json()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
+    data = request.get_json()
+    habitacion_id = data.get('habitacion_id')
+    noches = data.get('noches', 1)
+    precio_total = data.get('precio_total')
+
+    if not habitacion_id:
+        return jsonify({"success": False, "error": "Datos incompletos"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
+
+    try:
+        cur = conn.cursor()
+        cur.execute("SET time_zone = '-05:00'")  # Forzar TZ MySQL
+
+        # Hora actual Bogotá
+        now = datetime.now(ZoneInfo("America/Bogota"))
+
+        check_in = now
+        hora_ingreso = now.time()
+        check_out = check_in.replace(hour=13, minute=0, second=0, microsecond=0) + timedelta(days=int(noches))
+
+        cur.execute("""
+            INSERT INTO clientes (hora_ingreso, habitacion_id, nombre, tipo_doc, numero_doc, telefono,
+                                  procedencia, check_in, check_out, valor, observacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (hora_ingreso, habitacion_id, data.get('nombre'), data.get('tipo_doc'),
+              data.get('numero_doc'), data.get('telefono'), data.get('procedencia'),
+              check_in, check_out, precio_total, data.get('observacion')))
+
+        conn.commit()
+
+        cur.execute("UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s", (habitacion_id,))
+        conn.commit()
+
+        return jsonify({"success": True, "message": "Check-in registrado exitosamente"})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+def get_hora_bogota():
+    bogota_tz = timezone(timedelta(hours=-5))
+    return datetime.now(bogota_tz).strftime("%Y-%m-%d %H:%M:%S")
+
+def checkin(cliente_id, habitacion_id, conexion):
+    try:
+        with conexion.cursor() as cursor:
+            # Obtener la hora de Bogotá
+            hora_ingreso = get_hora_bogota()
+
+            # Actualizar la habitación como ocupada y guardar datos del check-in
+            sql = """
+                UPDATE habitaciones
+                SET estado = 'ocupada',
+                    cliente_id = %s,
+                    hora_ingreso = %s
+                WHERE id = %s
+            """
+            cursor.execute(sql, (cliente_id, hora_ingreso, habitacion_id))
+            conexion.commit()
+            print(f"✅ Check-in exitoso: Cliente {cliente_id} en habitación {habitacion_id} a las {hora_ingreso}")
+    except Exception as e:
+        print(f"❌ Error en check-in: {e}")
 
 if __name__ == '__main__':
     print("🚀 Iniciando servidor Flask...")
