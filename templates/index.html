@@ -131,7 +131,7 @@
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4 text-gray-800">🏠 Gestión de Habitaciones</h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <a href="{{ url_for('agregar_habitacion') }}" 
                    class="bg-green-500 text-white px-4 py-3 rounded hover:bg-green-600 text-center font-medium">
                     ➕ Agregar Nueva Habitación
@@ -140,6 +140,12 @@
                 <a href="{{ url_for('exportar_excel') }}" 
                    class="bg-blue-500 text-white px-4 py-3 rounded hover:bg-blue-600 text-center font-medium">
                     📊 Exportar Datos a Excel
+                </a>
+                
+                <!-- Actualizando el botón del calendario para que apunte a la nueva ruta -->
+                <a href="{{ url_for('calendario') }}" 
+                   class="bg-purple-500 text-white px-4 py-3 rounded hover:bg-purple-600 text-center font-medium">
+                    📅 Calendario de Reservas
                 </a>
                 
                 <div class="bg-gray-50 border border-gray-200 rounded p-3 text-center">
