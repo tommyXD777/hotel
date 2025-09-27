@@ -44,7 +44,7 @@ def get_db_connection():
         print(f"   Base de datos: bd_hostal")
         
         conn = pymysql.connect(
-            host='isladigital.xyz',  # Asegurándonos que sea localhost
+            host='cool.isladigital.xyz',  # Asegurándonos que sea localhost
             user='nelson',
             password='3011551141.Arias',
             database='bd_hostal',
