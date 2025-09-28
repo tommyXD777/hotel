@@ -131,10 +131,16 @@
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4 text-gray-800">🏠 Gestión de Habitaciones</h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
                 <a href="{{ url_for('agregar_habitacion') }}" 
                    class="bg-green-500 text-white px-4 py-3 rounded hover:bg-green-600 text-center font-medium">
                     ➕ Agregar Nueva Habitación
+                </a>
+                
+                <!-- Added edit profile button -->
+                <a href="{{ url_for('editar_perfil') }}" 
+                   class="bg-purple-500 text-white px-4 py-3 rounded hover:bg-purple-600 text-center font-medium">
+                    👤 Editar Perfil
                 </a>
                 
                 <a href="{{ url_for('exportar_excel') }}" 
@@ -154,56 +160,48 @@
                 </div>
             </div>
 
-            <!-- Updated room state management with better UX -->
-     <!-- Cambiar Estado de Habitación (reemplaza el formulario existente) -->
-<div class="bg-gray-50 rounded-lg p-4">
-    <h3 class="text-lg font-medium mb-3 text-gray-700">🔄 Cambiar Estado de Habitación</h3>
-    <form id="formCambiarEstado" action="{{ url_for('cambiar_color_general') }}" method="POST" 
-          class="flex flex-wrap items-center gap-3">
-        <select name="habitacion_id" id="selectHabitacion"
-                class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            <option value="">Seleccionar habitación...</option>
-            {% for h in habitaciones %}
-                <option value="{{ h[0] }}">Habitación {{ h[1] }} - {{ h[2] }}</option>
-            {% endfor %}
-        </select>
+            <!-- Enhanced room state management with name and price fields -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="text-lg font-medium mb-3 text-gray-700">🔄 Cambiar Estado de Habitación</h3>
+                <form id="formCambiarEstado" action="{{ url_for('cambiar_color_general') }}" method="POST" 
+                      class="flex flex-wrap items-center gap-3">
+                    <select name="habitacion_id" id="selectHabitacion"
+                            class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Seleccionar habitación...</option>
+                        {% for h in habitaciones %}
+                            <option value="{{ h[0] }}">Habitación {{ h[1] }} - {{ h[2] }}</option>
+                        {% endfor %}
+                    </select>
 
-        <select name="nuevo_estado" id="selectNuevoEstado"
-                class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            <option value="libre">🟢 Libre</option>
-            <option value="ocupada">🔴 Ocupada</option>
-            <option value="reservado">🔵 Reservado</option>
-            <option value="mensualidad">🟡 Mensualidad</option>
-            <option value="mantenimiento">⚙️ Mantenimiento</option>
-        </select>
+                    <select name="nuevo_estado" id="selectNuevoEstado"
+                            class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            onchange="toggleReservationFields()">
+                        <option value="libre">🟢 Libre</option>
+                        <option value="ocupada">🔴 Ocupada</option>
+                        <option value="reservado">🔵 Reservado</option>
+                        <option value="mensualidad">🟡 Mensualidad</option>
+                        <option value="mantenimiento">⚙️ Mantenimiento</option>
+                    </select>
 
-        <!-- campo nombre que aparece sólo cuando elegimos 'reservado' -->
-        <div id="nombreReservaDiv" style="display:none;" class="flex items-center gap-2">
-            <input type="text" name="nombre_cliente" id="nombre_cliente"
-                   placeholder="Nombre para la reserva"
-                   class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            <!-- Added price per night field for reservations -->
-            <input type="number" name="precio_noche" id="precio_noche" step="0.01" min="0"
-                   placeholder="Precio por noche"
-                   class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            <button type="button" id="btnReutilizarUltimo" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm hover:bg-indigo-700">
-                🔁 Reutilizar último
-            </button>
-        </div>
+                    <!-- Fixed reservation fields to always show when reservado is selected -->
+                    <div id="reservationFields" style="display:none;" class="flex items-center gap-2">
+                        <input type="text" name="nombre_cliente" id="nombre_cliente"
+                               placeholder="Nombre del cliente *"
+                               class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                               required>
+                        <input type="number" name="precio_noche" id="precio_noche" step="0.01" min="0"
+                               placeholder="Precio por noche *"
+                               class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                               required>
+                        <button type="button" id="btnReutilizarUltimo" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm hover:bg-indigo-700">
+                            🔁 Reutilizar último
+                        </button>
+                    </div>
 
-        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-            Cambiar estado
-        </button>
-    </form>
-</div>
-
-
-
-                    <button type="submit" 
-                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm shadow-sm">
-                        Actualizar Estado
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Cambiar estado
                     </button>
-                
+                </form>
             </div>
         </div>
 
@@ -598,6 +596,19 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Added modal for reservation details -->
+    <div id="modalReservacion" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="modalReservacionTitulo" class="text-xl font-bold text-gray-800"></h2>
+                <button onclick="cerrarModalReservacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="modalReservacionContenido">
+                <!-- Formulario de reserva se carga aquí -->
             </div>
         </div>
     </div>
@@ -1856,6 +1867,111 @@ function reutilizarUltimo(habitacionId) {
             if (confirm('¿Estás seguro de que deseas liberar esta habitación?')) {
                 window.location.href = `/liberar/${habitacionId}`;
             }
+        }
+
+        function toggleReservationFields() {
+            const estadoSelect = document.getElementById('selectNuevoEstado');
+            const reservationFields = document.getElementById('reservationFields');
+            
+            if (estadoSelect.value === 'reservado') {
+                // Show modal instead of inline fields
+                abrirModalReservacion();
+                // Reset the select to prevent form submission
+                estadoSelect.value = '';
+            } else {
+                reservationFields.style.display = 'none';
+            }
+        }
+
+        function abrirModalReservacion() {
+            const habitacionSelect = document.getElementById('selectHabitacion');
+            if (!habitacionSelect.value) {
+                alert('Por favor selecciona una habitación primero');
+                return;
+            }
+            
+            const habitacionTexto = habitacionSelect.options[habitacionSelect.selectedIndex].text;
+            
+            document.getElementById('modalReservacionTitulo').textContent = `Crear Reserva - ${habitacionTexto}`;
+            document.getElementById('modalReservacionContenido').innerHTML = generarFormularioReservacion(habitacionSelect.value);
+            document.getElementById('modalReservacion').style.display = 'block';
+        }
+
+        function generarFormularioReservacion(habitacionId) {
+            return `
+                <form onsubmit="procesarReservacion(event, ${habitacionId})" class="space-y-6">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">👤 Información del Cliente</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Cliente *</label>
+                                <input type="text" name="nombre_cliente" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="Nombre completo del cliente">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Valor de la Habitación *</label>
+                                <input type="number" name="valor_habitacion" step="0.01" min="0" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="cerrarModalReservacion()"
+                               class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                            💾 Crear Reserva
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function procesarReservacion(event, habitacionId) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const nombreCliente = formData.get('nombre_cliente');
+            const valorHabitacion = formData.get('valor_habitacion');
+            
+            if (!nombreCliente || !valorHabitacion) {
+                alert('Por favor completa todos los campos obligatorios');
+                return;
+            }
+            
+            // Create a form and submit it to the existing endpoint
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("cambiar_color_general") }}';
+            
+            const inputs = [
+                { name: 'habitacion_id', value: habitacionId },
+                { name: 'nuevo_estado', value: 'reservado' },
+                { name: 'nombre_cliente', value: nombreCliente },
+                { name: 'precio_noche', value: valorHabitacion }
+            ];
+            
+            inputs.forEach(input => {
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = input.name;
+                hiddenInput.value = input.value;
+                form.appendChild(hiddenInput);
+            });
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function cerrarModalReservacion() {
+            document.getElementById('modalReservacion').style.display = 'none';
         }
 
         // This function was causing the text input dialog to appear

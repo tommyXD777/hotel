@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Perfil - Sistema Hotelero</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .form-section {
+            background: #f8f9fa;
+            border-left: 4px solid #0d6efd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+        .section-title {
+            color: #0d6efd;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .required-field {
+            border-left: 3px solid #dc3545;
+        }
+        .btn-action {
+            min-width: 120px;
+        }
+        .alert-info {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border: none;
+            border-left: 4px solid #2196f3;
+        }
+        /* Updated styles for single password visibility toggle */
+        .password-container {
+            position: relative;
+        }
+        .password-toggle-all {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6c757d;
+            font-size: 18px;
+            z-index: 10;
+        }
+        .password-toggle-all:hover {
+            color: #0d6efd;
+        }
+        .password-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .toggle-all-passwords {
+            background: #0d6efd;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .toggle-all-passwords:hover {
+            background: #0b5ed7;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-1">👤 Editar Perfil de Usuario</h3>
+                                <p class="mb-0 opacity-75">
+                                    <i class="fas fa-user"></i> Actualiza tu información personal
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Información:</strong> Puedes actualizar tu nombre de usuario y cambiar tu contraseña.
+                            Los campos marcados con <span class="text-danger">*</span> son obligatorios.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <form action="{{ url_for('editar_perfil') }}" method="POST" id="editarPerfilForm">
+                            
+                            <!-- Sección: Información de Usuario -->
+                            <div class="form-section">
+                                <h5 class="section-title">👤 Información de Usuario</h5>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="username" class="form-label">
+                                            <i class="fas fa-user"></i> Nombre de Usuario <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control required-field" 
+                                               id="username" 
+                                               name="username" 
+                                               value="{{ session.usuario }}" 
+                                               required
+                                               placeholder="Ingrese su nombre de usuario">
+                                        <div class="form-text">Este será tu nombre de acceso al sistema</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Enhanced password section with checkbox toggle for all three fields -->
+                            <div class="form-section">
+                                <div class="password-section-header">
+                                    <h5 class="section-title mb-0">🔒 Cambiar Contraseña</h5>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="togglePasswordsCheckbox" onchange="toggleAllPasswords()">
+                                        <label class="form-check-label" for="togglePasswordsCheckbox">
+                                            <i class="fas fa-eye" id="toggle-all-icon"></i> Mostrar contraseñas
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="password_actual" class="form-label">
+                                            <i class="fas fa-lock"></i> Contraseña Actual
+                                        </label>
+                                        <input type="password" 
+                                               class="form-control password-field" 
+                                               id="password_actual" 
+                                               name="password_actual"
+                                               placeholder="Ingresa tu contraseña actual">
+                                        <div class="form-text">Necesaria para confirmar los cambios</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="nueva_password" class="form-label">
+                                            <i class="fas fa-key"></i> Nueva Contraseña
+                                        </label>
+                                        <input type="password" 
+                                               class="form-control password-field" 
+                                               id="nueva_password" 
+                                               name="nueva_password"
+                                               placeholder="Ingresa tu nueva contraseña (mínimo 6 caracteres)">
+                                        <div class="form-text">Mínimo 6 caracteres</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="confirmar_password" class="form-label">
+                                            <i class="fas fa-check"></i> Confirmar Nueva Contraseña
+                                        </label>
+                                        <input type="password" 
+                                               class="form-control password-field" 
+                                               id="confirmar_password" 
+                                               name="confirmar_password"
+                                               placeholder="Confirma tu nueva contraseña">
+                                        <div class="form-text">Debe coincidir con la nueva contraseña</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                                <div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock"></i> 
+                                        Última actualización: <span id="timestamp"></span>
+                                    </small>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="{{ url_for('index') }}" 
+                                       class="btn btn-outline-secondary btn-action">
+                                        <i class="fas fa-arrow-left"></i> Cancelar
+                                    </a>
+                                    <button type="submit" 
+                                            class="btn btn-primary btn-action"
+                                            id="guardarBtn">
+                                        <i class="fas fa-save"></i> Guardar Cambios
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
+    <script>
+        // Mostrar timestamp actual
+        document.getElementById('timestamp').textContent = new Date().toLocaleString('es-CO');
+        
+        function toggleAllPasswords() {
+            const passwordFields = document.querySelectorAll('.password-field');
+            const toggleIcon = document.getElementById('toggle-all-icon');
+            const checkbox = document.getElementById('togglePasswordsCheckbox');
+            
+            const passwordsVisible = checkbox.checked;
+            
+            passwordFields.forEach(field => {
+                field.type = passwordsVisible ? 'text' : 'password';
+            });
+            
+            // Update icon based on checkbox state
+            if (passwordsVisible) {
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+        
+        // Validación del formulario
+        document.getElementById('editarPerfilForm').addEventListener('submit', function(e) {
+            const username = document.getElementById('username').value.trim();
+            const passwordActual = document.getElementById('password_actual').value;
+            const nuevaPassword = document.getElementById('nueva_password').value;
+            const confirmarPassword = document.getElementById('confirmar_password').value;
+            
+            if (!username) {
+                e.preventDefault();
+                alert('Por favor, ingresa un nombre de usuario');
+                return false;
+            }
+            
+            // Si se está intentando cambiar la contraseña
+            if (nuevaPassword || confirmarPassword || passwordActual) {
+                if (!passwordActual) {
+                    e.preventDefault();
+                    alert('Debes ingresar tu contraseña actual para cambiarla');
+                    return false;
+                }
+                
+                if (!nuevaPassword) {
+                    e.preventDefault();
+                    alert('Debes ingresar una nueva contraseña');
+                    return false;
+                }
+                
+                if (nuevaPassword !== confirmarPassword) {
+                    e.preventDefault();
+                    alert('Las contraseñas nuevas no coinciden');
+                    return false;
+                }
+                
+                if (nuevaPassword.length < 6) {
+                    e.preventDefault();
+                    alert('La nueva contraseña debe tener al menos 6 caracteres');
+                    return false;
+                }
+            }
+            
+            // Mostrar indicador de carga
+            const btn = document.getElementById('guardarBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            btn.disabled = true;
+        });
+        
+        // Validación en tiempo real para contraseñas
+        document.getElementById('nueva_password').addEventListener('input', function() {
+            const confirmarField = document.getElementById('confirmar_password');
+            if (this.value && confirmarField.value) {
+                if (this.value !== confirmarField.value) {
+                    confirmarField.setCustomValidity('Las contraseñas no coinciden');
+                } else {
+                    confirmarField.setCustomValidity('');
+                }
+            }
+        });
+        
+        document.getElementById('confirmar_password').addEventListener('input', function() {
+            const nuevaPassword = document.getElementById('nueva_password').value;
+            if (nuevaPassword && this.value) {
+                if (nuevaPassword !== this.value) {
+                    this.setCustomValidity('Las contraseñas no coinciden');
+                } else {
+                    this.setCustomValidity('');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

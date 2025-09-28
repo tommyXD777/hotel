@@ -1083,14 +1083,27 @@ def cambiar_color_general():
         flash("ID de habitación no válido", "error")
         return redirect(url_for('index'))
 
-    nuevo_estado   = request.form.get('nuevo_estado')
+    nuevo_estado = request.form.get('nuevo_estado')
     nombre_cliente = request.form.get('nombre_cliente', '').strip()
     precio_noche = request.form.get('precio_noche', '0')
-
-    try:
-        precio_noche = float(precio_noche) if precio_noche else 0
-    except ValueError:
-        precio_noche = 0
+    
+    if not nuevo_estado:
+        flash('Datos incompletos para cambiar el estado.', 'error')
+        return redirect(url_for('index'))
+    
+    if nuevo_estado == 'reservado':
+        if not nombre_cliente:
+            flash('El nombre del cliente es requerido para reservas.', 'error')
+            return redirect(url_for('index'))
+        
+        try:
+            precio_valor = float(precio_noche) if precio_noche else 0
+        except ValueError:
+            precio_valor = 0
+            
+        if precio_valor <= 0:
+            flash('El precio por noche es requerido para reservas.', 'error')
+            return redirect(url_for('index'))
 
     conn = get_db_connection()
     if not conn:
@@ -1117,6 +1130,11 @@ def cambiar_color_general():
         )
 
         if nuevo_estado == 'reservado' and nombre_cliente:
+            try:
+                precio_valor = float(precio_noche) if precio_noche else 0
+            except ValueError:
+                precio_valor = 0
+                
             # Evitar duplicados: si ya existe un registro activo con ese nombre, no lo repetimos
             cur.execute(
                 """SELECT id FROM clientes
@@ -1159,13 +1177,13 @@ def cambiar_color_general():
                         '',          # telefono
                         '',          # procedencia
                         habitacion_id,
-                        precio_noche, # valor (precio por noche)
-                        'Reserva creada desde panel'
+                        precio_valor, # valor (precio por noche)
+                        f'Reserva creada desde panel - Precio: ${precio_valor}/noche'
                     )
                 )
 
         conn.commit()
-        flash("Estado de habitación actualizado con éxito", "success")
+        flash(f"Estado de la habitación {habit[0]} cambiado a {nuevo_estado.upper()}", "success")
 
     except pymysql.MySQLError as e:
         conn.rollback()
@@ -1287,7 +1305,7 @@ def reutilizar_ultimo():
 
             cur.execute("""
             INSERT INTO clientes (hora_ingreso, habitacion_id, nombre, tipo_doc, numero_doc, telefono, 
-                                procedencia, check_in, check_out, valor, observacion)
+                                  procedencia, check_in, check_out, valor, observacion)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (hora_ingreso_time, habitacion_id, huesped[0], huesped[1], huesped[2], 
                 huesped[3], huesped[4], nueva_fecha_dt, nueva_fecha_salida, 
@@ -1759,7 +1777,9 @@ def guardar_reserva_calendario():
         fecha_inicio = data.get('fecha_inicio')
         fecha_fin = data.get('fecha_fin')
         precio_total = data.get('precio_total', 0)
-
+        
+        observacion = data.get('observacion', '') or f"Reserva desde calendario - {(datetime.strptime(fecha_fin, '%Y-%m-%d') - datetime.strptime(fecha_inicio, '%Y-%m-%d')).days} días"
+        
         if not all([habitacion_id, nombre_cliente, fecha_inicio, fecha_fin]):
             return jsonify({"success": False, "error": "Todos los campos son requeridos"})
 
@@ -1825,7 +1845,7 @@ def guardar_reserva_calendario():
         """, (
             habitacion_id, user_id, nombre_cliente,
             fecha_inicio_dt, fecha_fin_dt, precio_total,
-            f"Reserva desde calendario - {(fecha_fin_dt - fecha_inicio_dt).days} días",
+            observacion,
             "pendiente"
         ))
 
@@ -2032,10 +2052,9 @@ def obtener_reservas_calendario():
 
     try:
         cur = conn.cursor()
-        # Mostrar reservas FUTURAS o activas que aún no han terminado
         cur.execute("""
             SELECT r.id, r.nombre_cliente, r.fecha_inicio, r.fecha_fin, r.precio_total, 
-                   r.estado, h.numero, h.id
+                   r.estado, h.numero, h.id, r.observacion
             FROM reservas r
             JOIN habitaciones h ON r.habitacion_id = h.id
             WHERE h.usuario_id = %s
@@ -2048,13 +2067,15 @@ def obtener_reservas_calendario():
         for row in cur.fetchall():
             reservas.append({
                 'reserva_id': row[0],
+                'id': row[0],  # Added id field for consistency
                 'nombre': row[1],
                 'fecha_inicio': row[2].strftime('%Y-%m-%d %H:%M') if row[2] else '',
                 'fecha_fin': row[3].strftime('%Y-%m-%d %H:%M') if row[3] else '',
                 'valor': float(row[4]) if row[4] else 0,
                 'estado': row[5],
                 'habitacion': row[6],
-                'habitacion_id': row[7]
+                'habitacion_id': row[7],
+                'observacion': row[8] if row[8] else ''
             })
         
         return jsonify({"success": True, "reservas": reservas})
@@ -2119,6 +2140,110 @@ def estadisticas_habitaciones():
             cur.close()
         if conn:
             conn.close()
+
+# ----------------- EDITAR PERFIL -----------------
+@app.route('/editar_perfil', methods=['GET', 'POST'])
+def editar_perfil():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
+    if request.method == 'GET':
+        conn = get_db_connection()
+        if not conn:
+            flash("Error de conexión a la base de datos", "error")
+            return redirect(url_for('index'))
+        
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT username FROM usuarios WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+            
+            if not user:
+                flash("Usuario no encontrado", "error")
+                return redirect(url_for('index'))
+            
+            return render_template('editar_perfil.html', username=user[0])
+        except Exception as e:
+            flash(f"Error al cargar perfil: {e}", "error")
+            return redirect(url_for('index'))
+        finally:
+            cur.close()
+            conn.close()
+    
+    # POST request - update profile
+    username = request.form.get('username', '').strip()
+    password_actual = request.form.get('password_actual', '')
+    nueva_password = request.form.get('nueva_password', '')
+    confirmar_password = request.form.get('confirmar_password', '')
+    
+    if not username:
+        flash("El nombre de usuario es requerido", "error")
+        return redirect(url_for('editar_perfil'))
+    
+    # If user wants to change password, validate current password and new password match
+    if nueva_password or confirmar_password or password_actual:
+        if not password_actual:
+            flash("Debes ingresar tu contraseña actual para cambiarla", "error")
+            return redirect(url_for('editar_perfil'))
+        
+        if not nueva_password:
+            flash("Debes ingresar una nueva contraseña", "error")
+            return redirect(url_for('editar_perfil'))
+        
+        if nueva_password != confirmar_password:
+            flash("Las contraseñas nuevas no coinciden", "error")
+            return redirect(url_for('editar_perfil'))
+        
+        if len(nueva_password) < 6:
+            flash("La nueva contraseña debe tener al menos 6 caracteres", "error")
+            return redirect(url_for('editar_perfil'))
+    
+    conn = get_db_connection()
+    if not conn:
+        flash("Error de conexión a la base de datos", "error")
+        return redirect(url_for('editar_perfil'))
+    
+    try:
+        cur = conn.cursor()
+        
+        # Check if username is already taken by another user
+        cur.execute("SELECT id FROM usuarios WHERE username = %s AND id != %s", (username, user_id))
+        if cur.fetchone():
+            flash("El nombre de usuario ya está en uso", "error")
+            return redirect(url_for('editar_perfil'))
+        
+        # If changing password, verify current password
+        if nueva_password:
+            cur.execute("SELECT password FROM usuarios WHERE id = %s", (user_id,))
+            current_user = cur.fetchone()
+            if not current_user or not check_password_hash(current_user[0], password_actual):
+                flash("La contraseña actual es incorrecta", "error")
+                return redirect(url_for('editar_perfil'))
+        
+        # Update profile
+        if nueva_password:
+            from werkzeug.security import generate_password_hash
+            hashed_password = generate_password_hash(nueva_password)
+            cur.execute("UPDATE usuarios SET username = %s, password = %s WHERE id = %s", 
+                       (username, hashed_password, user_id))
+            flash("Perfil y contraseña actualizados exitosamente", "success")
+        else:
+            cur.execute("UPDATE usuarios SET username = %s WHERE id = %s", (username, user_id))
+            flash("Perfil actualizado exitosamente", "success")
+        
+        # Update session username
+        session['usuario'] = username
+        
+        conn.commit()
+        return redirect(url_for('index'))
+        
+    except Exception as e:
+        flash(f"Error al actualizar perfil: {e}", "error")
+        return redirect(url_for('editar_perfil'))
+    finally:
+        cur.close()
+        conn.close()
 
 if __name__ == '__main__':
     print("🚀 Iniciando servidor Flask...")

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cambiar Contraseña - Sistema Hotelero</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .password-container {
+            position: relative;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #6c757d;
+            z-index: 10;
+        }
+        .password-toggle:hover {
+            color: #495057;
+        }
+        .form-control {
+            padding-right: 40px;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card shadow">
+                    <div class="card-header text-white text-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-lock"></i> Cambiar Contraseña
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="cambiarContrasenaForm" method="POST">
+                            <!-- Contraseña Actual -->
+                            <div class="mb-3">
+                                <label for="contrasena_actual" class="form-label">Contraseña Actual</label>
+                                <div class="password-container">
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="contrasena_actual" 
+                                           name="contrasena_actual" 
+                                           placeholder="Ingresa tu contraseña actual"
+                                           required>
+                                    <i class="fas fa-eye password-toggle" onclick="toggleAllPasswords()"></i>
+                                </div>
+                                <div class="form-text">Necesaria para confirmar los cambios</div>
+                            </div>
+
+                            <!-- Nueva Contraseña -->
+                            <div class="mb-3">
+                                <label for="nueva_contrasena" class="form-label">Nueva Contraseña</label>
+                                <div class="password-container">
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="nueva_contrasena" 
+                                           name="nueva_contrasena" 
+                                           placeholder="Ingresa tu nueva contraseña (mínimo 6 caracteres)"
+                                           required
+                                           minlength="6">
+                                </div>
+                                <div class="form-text">Mínimo 6 caracteres</div>
+                            </div>
+
+                            <!-- Confirmar Nueva Contraseña -->
+                            <div class="mb-4">
+                                <label for="confirmar_contrasena" class="form-label">Confirmar Nueva Contraseña</label>
+                                <div class="password-container">
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="confirmar_contrasena" 
+                                           name="confirmar_contrasena" 
+                                           placeholder="Confirma tu nueva contraseña"
+                                           required>
+                                </div>
+                                <div class="form-text">Debe coincidir con la nueva contraseña</div>
+                            </div>
+
+                            <!-- Botones -->
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left"></i> Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Cambiar Contraseña
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let passwordsVisible = false;
+
+        function toggleAllPasswords() {
+            const passwords = [
+                document.getElementById('contrasena_actual'),
+                document.getElementById('nueva_contrasena'),
+                document.getElementById('confirmar_contrasena')
+            ];
+            
+            const eyeIcon = document.querySelector('.password-toggle');
+            
+            passwordsVisible = !passwordsVisible;
+            
+            passwords.forEach(password => {
+                password.type = passwordsVisible ? 'text' : 'password';
+            });
+            
+            // Change eye icon
+            eyeIcon.className = passwordsVisible ? 'fas fa-eye-slash password-toggle' : 'fas fa-eye password-toggle';
+        }
+
+        // Form validation
+        document.getElementById('cambiarContrasenaForm').addEventListener('submit', function(e) {
+            const nuevaContrasena = document.getElementById('nueva_contrasena').value;
+            const confirmarContrasena = document.getElementById('confirmar_contrasena').value;
+            
+            if (nuevaContrasena !== confirmarContrasena) {
+                e.preventDefault();
+                alert('Las contraseñas no coinciden. Por favor verifica e intenta nuevamente.');
+                return false;
+            }
+            
+            if (nuevaContrasena.length < 6) {
+                e.preventDefault();
+                alert('La nueva contraseña debe tener al menos 6 caracteres.');
+                return false;
+            }
+        });
+
+        // Real-time password match validation
+        document.getElementById('confirmar_contrasena').addEventListener('input', function() {
+            const nuevaContrasena = document.getElementById('nueva_contrasena').value;
+            const confirmarContrasena = this.value;
+            
+            if (confirmarContrasena && nuevaContrasena !== confirmarContrasena) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+    </script>
+</body>
+</html>
