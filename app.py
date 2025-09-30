@@ -586,7 +586,6 @@ def guardar_nuevo_cliente():
     if not user_id:
         return jsonify({"success": False, "error": "Sesión expirada"}), 401
 
-    
     try:
         if request.is_json:
             data = request.get_json()
@@ -645,30 +644,70 @@ def guardar_nuevo_cliente():
             flash('No tienes permisos para modificar esta habitación.', 'error')
             return redirect(url_for('index'))
         
-        cur.execute("""SELECT COUNT(*) FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
-        clientes_actuales = cur.fetchone()[0]
+        reserva_existente = verificar_reserva_existente(habitacion_id, user_id)
         
-        total_personas = 1 + len(personas_adicionales)
-        if clientes_actuales + total_personas > 4:
-            if request.is_json:
-                return jsonify({"success": False, "error": f"La habitación excedería el límite máximo de 4 clientes (actuales: {clientes_actuales}, intentando agregar: {total_personas})"})
-            flash('La habitación excedería el límite máximo de 4 clientes.', 'error')
-            return redirect(url_for('agregar_cliente_habitacion', habitacion_id=habitacion_id))
-
-        cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, habitacion_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (hora_ingreso_time, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in_dt, check_out_dt, valor, observacion, habitacion_id))
-
-        for persona in personas_adicionales:
-            cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, habitacion_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (hora_ingreso_time, persona['nombre'], persona['tipo_doc'], persona['numero_doc'], persona['telefono'], persona['procedencia'], check_in_dt, check_out_dt, 0, '', habitacion_id))
-
-        cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
-
-        conn.commit()
-        
-        if request.is_json:
-            return jsonify({"success": True, "message": f"Cliente principal y {len(personas_adicionales)} persona(s) adicional(es) registrado(s) exitosamente"})
+        if reserva_existente:
+            datos_cliente = {
+                'nombre': nombre,
+                'tipo_doc': tipo_doc,
+                'numero_doc': numero_doc,
+                'telefono': telefono,
+                'procedencia': procedencia,
+                'check_in': check_in_dt,
+                'check_out': check_out_dt,
+                'valor': valor,
+                'observacion': observacion
+            }
+            
+            if actualizar_reserva_existente(reserva_existente[0], datos_cliente):
+                # Add additional persons if any
+                for persona in personas_adicionales:
+                    if persona.get('nombre'):
+                        cur.execute("""
+                            INSERT INTO clientes (habitacion_id, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, hora_ingreso) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (habitacion_id, persona['nombre'], persona.get('tipo_doc', 'C.c'), persona.get('numero_doc', ''), 
+                              persona.get('telefono', ''), persona.get('procedencia', ''), check_in_dt, check_out_dt, 0, '', hora_ingreso_time))
+                
+                cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
+                conn.commit()
+                
+                if request.is_json:
+                    return jsonify({"success": True, "message": "Reserva completada exitosamente. La habitación ahora está ocupada."})
+                else:
+                    flash('Reserva actualizada exitosamente.', 'success')
+                    return redirect(url_for('index'))
+            else:
+                if request.is_json:
+                    return jsonify({"success": False, "error": "Error al actualizar la reserva existente"})
+                flash('Error al actualizar la reserva.', 'error')
+                return redirect(url_for('index'))
         else:
-            flash('Cliente(s) registrado(s) exitosamente.', 'success')
-            return redirect(url_for('index'))
+            # Create new reservation if none exists
+            cur.execute("""SELECT COUNT(*) FROM clientes WHERE habitacion_id = %s AND (check_out IS NULL OR check_out > NOW())""", (habitacion_id,))
+            clientes_actuales = cur.fetchone()[0]
+            
+            total_personas = 1 + len(personas_adicionales)
+            if clientes_actuales + total_personas > 4:
+                if request.is_json:
+                    return jsonify({"success": False, "error": f"La habitación excedería el límite máximo de 4 clientes (actuales: {clientes_actuales}, intentando agregar: {total_personas})"})
+                flash('La habitación excedería el límite máximo de 4 clientes.', 'error')
+                return redirect(url_for('agregar_cliente_habitacion', habitacion_id=habitacion_id))
+
+            cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, habitacion_id, check_in, check_out, valor, observacion) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (hora_ingreso_time, nombre, tipo_doc, numero_doc, telefono, procedencia, habitacion_id, check_in_dt, check_out_dt, valor, observacion))
+
+            for persona in personas_adicionales:
+                if persona.get('nombre'):
+                    cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, habitacion_id, check_in, check_out, valor, observacion) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (hora_ingreso_time, persona['nombre'], persona.get('tipo_doc', 'C.c'), persona.get('numero_doc', ''), persona.get('telefono', ''), persona.get('procedencia', ''), habitacion_id, check_in_dt, check_out_dt, 0, ''))
+
+            cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
+            conn.commit()
+            
+            if request.is_json:
+                return jsonify({"success": True, "message": f"Cliente principal y {len(personas_adicionales)} persona(s) adicional(es) registrado(s) exitosamente"})
+            else:
+                flash('Cliente(s) registrado(s) exitosamente.', 'success')
+                return redirect(url_for('index'))
 
     except pymysql.MySQLError as e:
         if request.is_json:
@@ -1123,6 +1162,30 @@ def cambiar_color_general():
             flash("No tienes permisos para modificar esta habitación", "error")
             return redirect(url_for('index'))
 
+        if nuevo_estado == 'libre':
+            # Liberar todos los clientes activos de la habitación
+            cur.execute("""
+                UPDATE clientes 
+                SET check_out = NOW() 
+                WHERE habitacion_id = %s 
+                AND (check_out IS NULL OR check_out > NOW())
+            """, (habitacion_id,))
+            clientes_liberados = cur.rowcount
+            
+            # Actualizar el estado de la habitación a libre
+            cur.execute(
+                "UPDATE habitaciones SET estado = %s WHERE id = %s AND usuario_id = %s",
+                (nuevo_estado, habitacion_id, user_id)
+            )
+            
+            if clientes_liberados > 0:
+                flash(f"Habitación {habit[0]} liberada y {clientes_liberados} cliente(s) dado(s) de baja", "success")
+            else:
+                flash(f"Habitación {habit[0]} liberada (no había clientes activos)", "success")
+            
+            conn.commit()
+            return redirect(url_for('index'))
+
         # Actualizar el estado de la habitación
         cur.execute(
             "UPDATE habitaciones SET estado = %s WHERE id = %s AND usuario_id = %s",
@@ -1135,16 +1198,27 @@ def cambiar_color_general():
             except ValueError:
                 precio_valor = 0
                 
-            # Evitar duplicados: si ya existe un registro activo con ese nombre, no lo repetimos
-            cur.execute(
-                """SELECT id FROM clientes
-                   WHERE habitacion_id = %s AND nombre = %s
-                   AND (check_out IS NULL OR check_out > NOW())
-                   LIMIT 1""",
-                (habitacion_id, nombre_cliente)
-            )
-            if not cur.fetchone():
-                # Insertar con valores por defecto para todas las columnas NOT NULL
+            reserva_existente = verificar_reserva_existente(habitacion_id, user_id)
+            
+            if reserva_existente:
+                datos_cliente = {
+                    'nombre': nombre_cliente,
+                    'tipo_doc': 'RESERVA',
+                    'numero_doc': '',
+                    'telefono': '',
+                    'procedencia': '',
+                    'check_in': datetime.now(),
+                    'check_out': None,
+                    'valor': precio_valor,
+                    'observacion': f'Reserva actualizada desde panel - Precio: ${precio_valor}/noche'
+                }
+                
+                if actualizar_reserva_existente(reserva_existente[0], datos_cliente):
+                    flash(f"Reserva existente actualizada para habitación {habit[0]}", "success")
+                else:
+                    flash("Error al actualizar la reserva existente", "error")
+            else:
+                # Create new reservation if none exists
                 cur.execute(
                     """INSERT INTO clientes (
                         hora_ingreso,
@@ -1181,9 +1255,11 @@ def cambiar_color_general():
                         f'Reserva creada desde panel - Precio: ${precio_valor}/noche'
                     )
                 )
+                flash(f"Nueva reserva creada para habitación {habit[0]}", "success")
+        else:
+            flash(f"Estado de la habitación {habit[0]} cambiado a {nuevo_estado.upper()}", "success")
 
         conn.commit()
-        flash(f"Estado de la habitación {habit[0]} cambiado a {nuevo_estado.upper()}", "success")
 
     except pymysql.MySQLError as e:
         conn.rollback()
@@ -1195,6 +1271,7 @@ def cambiar_color_general():
 
     return redirect(url_for('index'))
 
+# ----------------- OBTENER DATOS HABITACION -----------------
 @app.route('/obtener_datos_habitacion/<int:habitacion_id>')
 def obtener_datos_habitacion(habitacion_id):
     user_id = require_user_session()
@@ -1887,7 +1964,6 @@ def eliminar_reserva_calendario():
     try:
         data = request.get_json()
         print(f"DEBUG: Datos JSON recibidos: {data}")
-        
         reserva_id = data.get('reserva_id')
         
         if not reserva_id:
@@ -2244,6 +2320,69 @@ def editar_perfil():
     finally:
         cur.close()
         conn.close()
+
+def verificar_reserva_existente(habitacion_id, user_id):
+    """Verifica si ya existe una reserva activa para la habitación"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, nombre, telefono, observacion, check_in, check_out, valor, tipo_doc, numero_doc, procedencia 
+            FROM clientes 
+            WHERE habitacion_id = %s 
+            AND (check_out IS NULL OR check_out > NOW()) 
+            ORDER BY check_in DESC 
+            LIMIT 1
+        """, (habitacion_id,))
+        
+        reserva = cur.fetchone()
+        return reserva
+    except Exception as e:
+        print(f"Error verificando reserva existente: {e}")
+        return None
+    finally:
+        cur.close()
+        conn.close()
+
+def actualizar_reserva_existente(cliente_id, datos_cliente):
+    """Actualiza una reserva existente con los datos completos del cliente"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE clientes 
+            SET nombre = %s, tipo_doc = %s, numero_doc = %s, telefono = %s, 
+                procedencia = %s, check_in = %s, check_out = %s, valor = %s, observacion = %s
+            WHERE id = %s
+        """, (
+            datos_cliente['nombre'],
+            datos_cliente['tipo_doc'],
+            datos_cliente['numero_doc'],
+            datos_cliente['telefono'],
+            datos_cliente['procedencia'],
+            datos_cliente['check_in'],
+            datos_cliente['check_out'],
+            datos_cliente['valor'],
+            datos_cliente['observacion'],
+            cliente_id
+        ))
+        
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error actualizando reserva: {e}")
+        conn.rollback()
+        return False
+    finally:
+        cur.close()
+        conn.close()
+
 
 if __name__ == '__main__':
     print("🚀 Iniciando servidor Flask...")

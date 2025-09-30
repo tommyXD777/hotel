@@ -187,12 +187,10 @@
                     <div id="reservationFields" style="display:none;" class="flex items-center gap-2">
                         <input type="text" name="nombre_cliente" id="nombre_cliente"
                                placeholder="Nombre del cliente *"
-                               class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                               required>
+                               class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <input type="number" name="precio_noche" id="precio_noche" step="0.01" min="0"
                                placeholder="Precio por noche *"
-                               class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                               required>
+                               class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <button type="button" id="btnReutilizarUltimo" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm hover:bg-indigo-700">
                             🔁 Reutilizar último
                         </button>
@@ -624,6 +622,31 @@
         let mesActual = new Date().getMonth();
         let anioActual = new Date().getFullYear();
         let callbackConfirmarFecha = null;
+        let currentHabitacionId = null; // To store the current room ID for modal context
+
+        function toggleReservationFields() {
+            const select = document.getElementById('selectNuevoEstado');
+            const fields = document.getElementById('reservationFields');
+            const nombreInput = document.getElementById('nombre_cliente');
+            const precioInput = document.getElementById('precio_noche');
+            
+            if (select && fields) {
+                if (select.value === 'reservado') {
+                    fields.style.display = 'flex';
+                    // Add required attribute when visible
+                    nombreInput.setAttribute('required', 'required');
+                    precioInput.setAttribute('required', 'required');
+                } else {
+                    fields.style.display = 'none';
+                    // Remove required attribute when hidden to prevent validation error
+                    nombreInput.removeAttribute('required');
+                    precioInput.removeAttribute('required');
+                    // Clear values
+                    nombreInput.value = '';
+                    precioInput.value = '';
+                }
+            }
+        }
 
         function abrirCalendario(callback) {
             callbackConfirmarFecha = callback;
@@ -840,9 +863,12 @@
             });
             
             habitacionActual = habitacionId;
+            currentHabitacionId = habitacionId; // Set for modal context
             
             if (estado === 'libre') {
                 abrirModalAgregarCliente(habitacionId, numero, estado);
+            } else if (estado === 'reservado' && clienteNombre && clienteNombre !== 'null') {
+                abrirModalCompletarReserva(habitacionId, numero, clienteNombre, valor);
             } else {
                 mostrarInformacionCliente(
                     habitacionId, 
@@ -859,6 +885,273 @@
                     numeroDoc || '',
                     procedencia || ''
                 );
+            }
+        }
+        
+        function abrirModalCompletarReserva(habitacionId, numero, nombreExistente, valorExistente) {
+            console.log('[v0] Opening complete reservation modal for room:', habitacionId);
+            document.getElementById('modalTitulo').textContent = `Completar Reserva - Habitación ${numero}`;
+            document.getElementById('modalContenido').innerHTML = generarFormularioCompletarReserva(habitacionId, nombreExistente, valorExistente);
+            document.getElementById('modalAgregarCliente').style.display = 'block';
+            contadorPersonasCompletarReserva = 0; // Reset for potential additional guests
+        }
+        
+        function generarFormularioCompletarReserva(habitacionId, nombreExistente, valorExistente) {
+            return `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-center">
+                        <div class="text-yellow-600 mr-3">⚠️</div>
+                        <div>
+                            <h4 class="text-yellow-800 font-semibold">Reserva Existente</h4>
+                            <p class="text-yellow-700 text-sm">Esta habitación ya tiene una reserva básica. Complete los datos del cliente para activarla.</p>
+                            <p class="text-yellow-700 text-sm mt-1"><strong>Cliente:</strong> ${nombreExistente} | <strong>Valor:</strong> $${valorExistente || 0}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form onsubmit="completarReserva(event, ${habitacionId})" class="space-y-6">
+                     <!-- Cliente Principal -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">👤 Datos Completos del Cliente</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                                <input type="text" name="nombre" required value="${nombreExistente || ''}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                                <select name="tipo_doc" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="C.c">Cédula de Ciudadanía</option>
+                                    <option value="T.i">Tarjeta de Identidad</option>
+                                    <option value="Pasaporte">Pasaporte</option>
+                                    <option value="C.e">Cédula de Extranjería</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                                <input type="text" name="numero_doc" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                <input type="tel" name="telefono"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                                <input type="text" name="procedencia"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="Ciudad o país de origen">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Added section for additional guests in complete reservation form -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700">👥 Personas Adicionales</h3>
+                            <button type="button" onclick="agregarPersonaAdicionalCompletarReserva()" 
+                                    class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                                ➕ Agregar Persona
+                            </button>
+                        </div>
+                        
+                        <div id="personasAdicionalesCompletarReserva" class="space-y-4">
+                            <!-- Las personas adicionales se agregan aquí dinámicamente -->
+                        </div>
+                    </div>
+
+                     <!-- Fechas y Valor -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">📅 Fechas y Valor</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Check-in *</label>
+                                <input type="datetime-local" name="check_in" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Check-out *</label>
+                                <input type="date" name="check_out_fecha" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
+                                <input type="number" name="valor" step="0.01" min="0" value="${valorExistente || ''}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                            <textarea name="observacion" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                      placeholder="Notas adicionales sobre la reserva..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="cerrarModal()" 
+                                class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                            Completar Reserva
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+        
+        function completarReserva(event, habitacionId) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            
+            // Collect additional guests data
+            const personasAdicionales = [];
+            const personasContainer = document.getElementById('personasAdicionalesCompletarReserva');
+            if (personasContainer) {
+                const personaDivs = personasContainer.querySelectorAll('[id^="persona-completar-"]');
+                personaDivs.forEach((div) => {
+                    const index = div.id.split('-')[2];
+                    const nombre = formData.get(`personas_adicionales_completar[${index}][nombre]`);
+                    if (nombre) {
+                        personasAdicionales.push({
+                            nombre: nombre,
+                            tipo_doc: formData.get(`personas_adicionales_completar[${index}][tipo_doc]`) || 'C.c',
+                            numero_doc: formData.get(`personas_adicionales_completar[${index}][numero_doc]`) || '',
+                            telefono: formData.get(`personas_adicionales_completar[${index}][telefono]`) || '',
+                            procedencia: formData.get(`personas_adicionales_completar[${index}][procedencia]`) || ''
+                        });
+                    }
+                });
+            }
+            
+            const data = {
+                habitacion_id: habitacionId,
+                nombre: formData.get('nombre'),
+                tipo_doc: formData.get('tipo_doc'),
+                numero_doc: formData.get('numero_doc'),
+                telefono: formData.get('telefono'),
+                procedencia: formData.get('procedencia'),
+                check_in: formData.get('check_in'),
+                check_out_fecha: formData.get('check_out_fecha'),
+                valor: formData.get('valor'),
+                observacion: formData.get('observacion'),
+                personas_adicionales: personasAdicionales
+            };
+            
+            console.log('[v0] Completing reservation:', data);
+            
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = 'Completando...';
+            submitButton.disabled = true;
+            
+            fetch('/guardar_nuevo_cliente', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert(result.message);
+                    cerrarModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                    submitButton.textContent = originalText;
+                    submitButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al completar la reserva');
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
+            });
+        }
+
+        let contadorPersonasCompletarReserva = 0;
+        
+        function agregarPersonaAdicionalCompletarReserva() {
+            contadorPersonasCompletarReserva++;
+            const container = document.getElementById('personasAdicionalesCompletarReserva');
+            
+            const personaDiv = document.createElement('div');
+            personaDiv.className = 'border border-gray-300 rounded-lg p-3 bg-gray-50';
+            personaDiv.id = `persona-completar-${contadorPersonasCompletarReserva}`;
+            
+            personaDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-medium text-gray-700">Persona Adicional ${contadorPersonasCompletarReserva}</h4>
+                    <button type="button" onclick="eliminarPersonaCompletarReserva(${contadorPersonasCompletarReserva})" 
+                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
+                        ❌ Eliminar
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                        <input type="text" name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][nombre]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                        <select name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][tipo_doc]" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            <option value="C.c">Cédula de Ciudadanía</option>
+                            <option value="T.i">Tarjeta de Identidad</option>
+                            <option value="Pasaporte">Pasaporte</option>
+                            <option value="C.e">Cédula de Extranjería</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                        <input type="text" name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][numero_doc]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input type="tel" name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][telefono]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                        <input type="text" name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][procedencia]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                               placeholder="Ciudad o país de origen">
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(personaDiv);
+        }
+        
+        function eliminarPersonaCompletarReserva(index) {
+            const personaDiv = document.getElementById(`persona-completar-${index}`);
+            if (personaDiv) {
+                personaDiv.remove();
             }
         }
 
@@ -1195,7 +1488,8 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
                                 <input type="number" name="valor" step="0.01" min="0"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="0.00">
                             </div>
                         </div>
                         
@@ -1567,6 +1861,7 @@
                     modalContent.innerHTML = '';
                 }
                 contadorPersonas = 0;
+                contadorPersonasCompletarReserva = 0; // Also reset for the other modal
             }
         }
 
@@ -1603,6 +1898,53 @@
                     personas: {{ room.num_personas_ocupadas or 0 }}
                 });
             {% endfor %}
+
+            const btnReutilizarUltimo = document.getElementById('btnReutilizarUltimo');
+            if (btnReutilizarUltimo) {
+                btnReutilizarUltimo.addEventListener('click', function() {
+                    const habitacionSelect = document.getElementById('selectHabitacion');
+                    if (!habitacionSelect.value) {
+                        alert('Por favor selecciona una habitación primero');
+                        return;
+                    }
+                    
+                    const habitacionId = habitacionSelect.value;
+                    
+                    fetch(`/ultimo_cliente/${habitacionId}`)
+                        .then(resp => resp.json())
+                        .then(data => {
+                            if (!data.success) {
+                                alert(data.error || 'No se encontró último cliente.');
+                                return;
+                            }
+
+                            const clientes = data.clientes;
+                            if (clientes && clientes.length > 0) {
+                                const cliente = clientes[0]; // Get the main client
+                                
+                                // Fill the form fields
+                                const nombreInput = document.getElementById('nombre_cliente');
+                                const precioInput = document.getElementById('precio_noche');
+                                
+                                if (nombreInput && cliente.nombre) {
+                                    nombreInput.value = cliente.nombre;
+                                }
+                                
+                                if (precioInput && cliente.valor) {
+                                    precioInput.value = cliente.valor;
+                                }
+                                
+                                alert(`Datos del último cliente cargados: ${cliente.nombre}`);
+                            } else {
+                                alert('No se encontraron datos del último cliente');
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Error al obtener último cliente:', err);
+                            alert('Error al obtener información del último cliente.');
+                        });
+                });
+            }
         });
         
 function reutilizarUltimo(habitacionId) {
@@ -1814,7 +2156,7 @@ function reutilizarUltimo(habitacionId) {
         function procesarCambioEstado(event, habitacionId) {
             event.preventDefault();
             
-            window.currentHabitacionId = habitacionId;
+            currentHabitacionId = habitacionId; // Ensure currentHabitacionId is set
             
             const formData = new FormData(event.target);
             const estado = formData.get('estado');
@@ -1867,111 +2209,6 @@ function reutilizarUltimo(habitacionId) {
             if (confirm('¿Estás seguro de que deseas liberar esta habitación?')) {
                 window.location.href = `/liberar/${habitacionId}`;
             }
-        }
-
-        function toggleReservationFields() {
-            const estadoSelect = document.getElementById('selectNuevoEstado');
-            const reservationFields = document.getElementById('reservationFields');
-            
-            if (estadoSelect.value === 'reservado') {
-                // Show modal instead of inline fields
-                abrirModalReservacion();
-                // Reset the select to prevent form submission
-                estadoSelect.value = '';
-            } else {
-                reservationFields.style.display = 'none';
-            }
-        }
-
-        function abrirModalReservacion() {
-            const habitacionSelect = document.getElementById('selectHabitacion');
-            if (!habitacionSelect.value) {
-                alert('Por favor selecciona una habitación primero');
-                return;
-            }
-            
-            const habitacionTexto = habitacionSelect.options[habitacionSelect.selectedIndex].text;
-            
-            document.getElementById('modalReservacionTitulo').textContent = `Crear Reserva - ${habitacionTexto}`;
-            document.getElementById('modalReservacionContenido').innerHTML = generarFormularioReservacion(habitacionSelect.value);
-            document.getElementById('modalReservacion').style.display = 'block';
-        }
-
-        function generarFormularioReservacion(habitacionId) {
-            return `
-                <form onsubmit="procesarReservacion(event, ${habitacionId})" class="space-y-6">
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-700 mb-4">👤 Información del Cliente</h3>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Cliente *</label>
-                                <input type="text" name="nombre_cliente" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                                       placeholder="Nombre completo del cliente">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Valor de la Habitación *</label>
-                                <input type="number" name="valor_habitacion" step="0.01" min="0" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                                       placeholder="0.00">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end space-x-3 pt-4">
-                        <button type="button" onclick="cerrarModalReservacion()"
-                               class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
-                            Cancelar
-                        </button>
-                        <button type="submit" 
-                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
-                            💾 Crear Reserva
-                        </button>
-                    </div>
-                </form>
-            `;
-        }
-
-        function procesarReservacion(event, habitacionId) {
-            event.preventDefault();
-            
-            const formData = new FormData(event.target);
-            const nombreCliente = formData.get('nombre_cliente');
-            const valorHabitacion = formData.get('valor_habitacion');
-            
-            if (!nombreCliente || !valorHabitacion) {
-                alert('Por favor completa todos los campos obligatorios');
-                return;
-            }
-            
-            // Create a form and submit it to the existing endpoint
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '{{ url_for("cambiar_color_general") }}';
-            
-            const inputs = [
-                { name: 'habitacion_id', value: habitacionId },
-                { name: 'nuevo_estado', value: 'reservado' },
-                { name: 'nombre_cliente', value: nombreCliente },
-                { name: 'precio_noche', value: valorHabitacion }
-            ];
-            
-            inputs.forEach(input => {
-                const hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.name = input.name;
-                hiddenInput.value = input.value;
-                form.appendChild(hiddenInput);
-            });
-            
-            document.body.appendChild(form);
-            form.submit();
-        }
-
-        function cerrarModalReservacion() {
-            document.getElementById('modalReservacion').style.display = 'none';
         }
 
         // This function was causing the text input dialog to appear
