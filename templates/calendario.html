@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendario de Reservas y Numero de Habitaciones - Sistema Hotelero</title>
+    <title>Calendario de Reservas - Sistema Hotelero</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
      <link rel="icon" href="{{ url_for('static', filename='img/logo.png') }}" type="image/png">
     <style>
@@ -53,22 +53,16 @@
             max-height: 80vh;
             overflow-y: auto;
         }
-        .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-        }
     </style>
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto p-4">
-        <!-- Header -->
+         
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex justify-between items-center">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">📅 Calendario de Reservas y Numero de Habitaciones</h1>
+                     
+                    <h1 class="text-3xl font-bold text-gray-800">📅 Calendario de Reservas</h1>
                     <p class="text-gray-600 mt-2">Gestiona reservas de larga duración</p>
                 </div>
                 <div class="flex gap-3">
@@ -84,31 +78,9 @@
             </div>
         </div>
 
-        <!-- Estadísticas -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div class="stats-card bg-green-500">
-                <div class="text-2xl font-bold" id="stat-libres">0</div>
-                <div class="text-sm opacity-90">Libres</div>
-            </div>
-            <div class="stats-card bg-red-500">
-                <div class="text-2xl font-bold" id="stat-ocupadas">0</div>
-                <div class="text-sm opacity-90">Ocupadas</div>
-            </div>
-            <div class="stats-card bg-yellow-500">
-                <div class="text-2xl font-bold" id="stat-mensualidad">0</div>
-                <div class="text-sm opacity-90">Mensualidad</div>
-            </div>
-            <div class="stats-card bg-purple-500">
-                <div class="text-2xl font-bold" id="stat-no-disponibles">0</div>
-                <div class="text-sm opacity-90">No Disponibles</div>
-            </div>
-            <div class="stats-card bg-gray-600">
-                <div class="text-2xl font-bold" id="stat-total">0</div>
-                <div class="text-sm opacity-90">Total</div>
-            </div>
-        </div>
+         
 
-        <!-- Calendario -->
+         Calendario 
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex justify-between items-center mb-4">
                 <button onclick="cambiarMes(-1)" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded">
@@ -120,7 +92,7 @@
                 </button>
             </div>
 
-            <!-- Días de la semana -->
+             Días de la semana 
             <div class="grid grid-cols-7 gap-1 mb-2">
                 <div class="text-center font-semibold p-2 bg-gray-100">Dom</div>
                 <div class="text-center font-semibold p-2 bg-gray-100">Lun</div>
@@ -131,22 +103,22 @@
                 <div class="text-center font-semibold p-2 bg-gray-100">Sáb</div>
             </div>
 
-            <!-- Días del calendario -->
+             Días del calendario 
             <div id="calendarioDias" class="grid grid-cols-7 gap-1">
-                <!-- Los días se generan con JavaScript -->
+                 Los días se generan con JavaScript 
             </div>
         </div>
 
-        <!-- Lista de reservas -->
+         Lista de reservas 
         <div class="bg-white rounded-lg shadow-md p-6 mt-6">
             <h3 class="text-xl font-semibold mb-4">📋 Reservas Actuales</h3>
             <div id="listaReservas" class="space-y-3">
-                <!-- Las reservas se cargan con JavaScript -->
+                 Las reservas se cargan con JavaScript 
             </div>
         </div>
     </div>
 
-    <!-- Modal para nueva reserva -->
+     Modal para nueva reserva 
     <div id="modalReserva" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
@@ -192,7 +164,7 @@
                            placeholder="0.00">
                 </div>
 
-                <!-- Added observation field -->
+                 Added observation field 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
                     <textarea id="observacionReserva" rows="3"
@@ -228,7 +200,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             generarCalendario();
             cargarReservas();
-            cargarEstadisticas();
             
             // Event listeners para el formulario
             document.getElementById('fechaInicio').addEventListener('change', calcularResumen);
@@ -578,31 +549,6 @@
                     </div>
                 `;
             }).join('');
-        }
-
-        function cargarEstadisticas() {
-            fetch('/estadisticas_habitaciones')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    const stats = data.estadisticas;
-                    document.getElementById('stat-libres').textContent = stats.libres;
-                    document.getElementById('stat-ocupadas').textContent = stats.ocupadas;
-                    document.getElementById('stat-mensualidad').textContent = stats.mensualidad;
-                    document.getElementById('stat-no-disponibles').textContent = stats.no_disponibles;
-                    document.getElementById('stat-total').textContent = stats.total;
-                } else {
-                    console.error('Error al cargar estadísticas:', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error al cargar estadísticas:', error);
-            });
         }
 
         function mostrarReservasEnCalendario() {

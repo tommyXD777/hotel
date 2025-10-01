@@ -1,22 +1,15 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash, send_file
-from datetime import datetime, time, timedelta, date
+from datetime import datetime, timedelta, date
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, PatternFill, Alignment, NamedStyle
 from openpyxl.utils import get_column_letter
 from werkzeug.security import check_password_hash
 import pymysql
 import threading
-import time
-from datetime import datetime, time
-from flask import request, jsonify
-from datetime import datetime
-import pymysql
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-from flask import jsonify, request
-from datetime import datetime
+import time  # Este es el módulo correcto para usar time.sleep
 import pytz
-from datetime import datetime, timezone, timedelta 
+from zoneinfo import ZoneInfo # Added for timezone handling
+
 bogota = pytz.timezone("America/Bogota")
 now = datetime.now(bogota)
 
@@ -172,9 +165,11 @@ def logout():
 # ----------------- PROTECCIÓN DE RUTAS -----------------
 @app.before_request
 def require_login():
-    rutas_libres = {'login', 'static'}
+    rutas_libres = {'login', 'static', 'test_db'} # Added test_db to free routes
     if request.endpoint not in rutas_libres and 'usuario_id' not in session:
-        return redirect(url_for('login'))
+        # Prevent redirect loops for /login itself
+        if request.path != url_for('login'):
+            return redirect(url_for('login'))
 
 @app.route('/test-db')
 def test_db():
@@ -1704,30 +1699,38 @@ def ultimo_cliente(habitacion_id):
         conn.close()
 
 def liberar_habitaciones_automaticamente():
-    """Función que se ejecuta en hilo separado para liberar habitaciones a la 1 PM"""
+    """Función que se ejecuta en hilo separado para liberar habitaciones a la 1 AM"""
     while True:
         try:
             now = datetime.now()
-            if now.hour == 13 and now.minute == 0:  # 1:00 PM
+            if now.hour == 1 and now.minute == 0:  # 1:00 AM
                 conn = get_db_connection()
                 if conn:
                     try:
                         cur = conn.cursor()
-                        # Liberar habitaciones cuyo checkout ya pasó
+                        # First, mark clients as checked out
+                        cur.execute("""
+                            UPDATE clientes 
+                            SET check_out = NOW() 
+                            WHERE check_out <= NOW() 
+                            AND (check_out IS NOT NULL)
+                        """)
+                        
+                        # Then, release rooms that have no active clients
                         cur.execute("""
                             UPDATE habitaciones h 
-                            JOIN clientes c ON h.id = c.habitacion_id 
                             SET h.estado = 'libre' 
-                            WHERE c.check_out <= NOW() 
-                            AND h.estado IN ('ocupada', 'mensualidad')
+                            WHERE h.estado IN ('ocupada', 'mensualidad', 'reservado')
                             AND NOT EXISTS (
-                                SELECT 1 FROM clientes c2 
-                                WHERE c2.habitacion_id = h.id 
-                                AND (c2.check_out IS NULL OR c2.check_out > NOW())
+                                SELECT 1 FROM clientes c 
+                                WHERE c.habitacion_id = h.id 
+                                AND (c.check_out IS NULL OR c.check_out > NOW())
                             )
                         """)
+                        
+                        habitaciones_liberadas = cur.rowcount
                         conn.commit()
-                        print(f"[{now}] Habitaciones liberadas automáticamente")
+                        print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente a la 1 AM")
                     except Exception as e:
                         print(f"Error en liberación automática: {e}")
                     finally:
@@ -2383,6 +2386,79 @@ def actualizar_reserva_existente(cliente_id, datos_cliente):
         cur.close()
         conn.close()
 
+# ----------------- EDITAR HABITACIÓN -----------------
+@app.route('/editar_habitacion/<int:habitacion_id>')
+def editar_habitacion(habitacion_id):
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    if not conn:
+        flash('Error de conexión a la base de datos.', 'error')
+        return redirect(url_for('index'))
+
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, numero, descripcion, estado FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        habitacion = cur.fetchone()
+
+        if not habitacion:
+            flash('Habitación no encontrada o no tienes permisos para acceder a ella.', 'error')
+            return redirect(url_for('index'))
+
+        return render_template('editar_habitacion.html', habitacion=habitacion)
+
+    except pymysql.MySQLError as e:
+        flash(f'Error en la base de datos: {str(e)}', 'error')
+        return redirect(url_for('index'))
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route('/actualizar_habitacion', methods=['POST'])
+def actualizar_habitacion():
+    user_id = require_user_session()
+    if not user_id:
+        return redirect(url_for('login'))
+    
+    habitacion_id = request.form.get('habitacion_id')
+    numero = request.form.get('numero')
+    descripcion = request.form.get('descripcion')
+    estado = request.form.get('estado')
+
+    conn = get_db_connection()
+    if not conn:
+        flash('Error de conexión a la base de datos.', 'error')
+        return redirect(url_for('index'))
+
+    try:
+        cur = conn.cursor()
+        
+        # Verificar que la habitación pertenezca al usuario
+        cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
+        if not cur.fetchone():
+            flash('No tienes permisos para editar esta habitación.', 'error')
+            return redirect(url_for('index'))
+        
+        # Actualizar la habitación
+        cur.execute("""
+            UPDATE habitaciones 
+            SET numero = %s, descripcion = %s, estado = %s 
+            WHERE id = %s AND usuario_id = %s
+        """, (numero, descripcion, estado, habitacion_id, user_id))
+        
+        conn.commit()
+        flash('Habitación actualizada exitosamente.', 'success')
+        return redirect(url_for('index'))
+
+    except pymysql.MySQLError as e:
+        flash(f'Error en la base de datos: {str(e)}', 'error')
+        return redirect(url_for('index'))
+    finally:
+        cur.close()
+        conn.close()
+
 
 if __name__ == '__main__':
     print("🚀 Iniciando servidor Flask...")
@@ -2403,8 +2479,7 @@ if __name__ == '__main__':
         print("❌ Error de conexión a base de datos")
         print("💡 Visita http://localhost:5000/test-db para más detalles")
     
-    # Iniciar el hilo para la liberación automática de habitaciones
-    # liberation_thread = threading.Thread(target=liberar_habitaciones_automaticamente, daemon=True)
-    # liberation_thread.start()
+    liberation_thread = threading.Thread(target=liberar_habitaciones_automaticamente, daemon=True)
+    liberation_thread.start()
     
     app.run(debug=True, host='0.0.0.0', port=5000)

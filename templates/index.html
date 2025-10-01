@@ -154,10 +154,11 @@
                     📅 Calendario de Reservas
                 </a>
                 
-                <div class="bg-gray-50 border border-gray-200 rounded p-3 text-center">
-                    <p class="text-sm text-gray-600">Total de habitaciones:</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ rooms|length }}</p>
-                </div>
+                <!-- Agregando botón para ver estadísticas de habitaciones -->
+                <button onclick="mostrarEstadisticasHabitaciones()" 
+                        class="bg-indigo-500 text-white px-4 py-3 rounded hover:bg-indigo-600 text-center font-medium">
+                    📊 Ver Estado de Habitaciones
+                </button>
             </div>
 
             <!-- Enhanced room state management with name and price fields -->
@@ -191,9 +192,7 @@
                         <input type="number" name="precio_noche" id="precio_noche" step="0.01" min="0"
                                placeholder="Precio por noche *"
                                class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <button type="button" id="btnReutilizarUltimo" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm hover:bg-indigo-700">
-                            🔁 Reutilizar último
-                        </button>
+                      
                     </div>
 
                     <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
@@ -394,6 +393,14 @@
                                     👤+ Cliente
                                 </a>
                             {% endif %}
+                            
+                            <!-- Agregando botón para editar habitación -->
+                            <a href="{{ url_for('editar_habitacion', habitacion_id=room.id) }}" 
+                               class="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
+
+                               title="Editar información de la habitación">
+                                ✏️ Editar Habitación
+                            </a>
                             
                             <!-- Separando claramente los botones de editar habitación vs editar cliente -->
                           
@@ -611,6 +618,64 @@
         </div>
     </div>
 
+    <!-- Modal para mostrar estadísticas de habitaciones -->
+    <div id="modalEstadisticas" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800">📊 Estado de Habitaciones</h3>
+                <button onclick="cerrarModalEstadisticas()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-green-600" id="stat-libres-modal">0</div>
+                    <div class="text-sm text-gray-600">🟢 Habitaciones Libres</div>
+                </div>
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-red-600" id="stat-ocupadas-modal">0</div>
+                    <div class="text-sm text-gray-600">🔴 Habitaciones Ocupadas</div>
+                </div>
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-blue-600" id="stat-reservadas-modal">0</div>
+                    <div class="text-sm text-gray-600">🔵 Habitaciones Reservadas</div>
+                </div>
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-yellow-600" id="stat-mensualidad-modal">0</div>
+                    <div class="text-sm text-gray-600">🟡 Mensualidad</div>
+                </div>
+                <div class="bg-gray-50 border-l-4 border-gray-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-gray-600" id="stat-mantenimiento-modal">0</div>
+                    <div class="text-sm text-gray-600">⚙️ Mantenimiento</div>
+                </div>
+                <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-indigo-600" id="stat-total-modal">0</div>
+                    <div class="text-sm text-gray-600">🏨 Total de Habitaciones</div>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-semibold text-gray-700 mb-2">📈 Resumen</h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span>Disponibilidad:</span>
+                        <span class="font-semibold" id="porcentaje-disponibilidad">0%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Ocupación:</span>
+                        <span class="font-semibold" id="porcentaje-ocupacion">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 text-center">
+                <button onclick="cerrarModalEstadisticas()" 
+                        class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts para funcionalidad del tablero -->
     <script>
         let habitacionActual = null;
@@ -623,6 +688,7 @@
         let anioActual = new Date().getFullYear();
         let callbackConfirmarFecha = null;
         let currentHabitacionId = null; // To store the current room ID for modal context
+        let existingClientData = null; // Variable to store client data for 'reservado' state
 
         function toggleReservationFields() {
             const select = document.getElementById('selectNuevoEstado');
@@ -636,6 +702,7 @@
                     // Add required attribute when visible
                     nombreInput.setAttribute('required', 'required');
                     precioInput.setAttribute('required', 'required');
+                    checkExistingClientData(); // Check if we need to pre-fill data
                 } else {
                     fields.style.display = 'none';
                     // Remove required attribute when hidden to prevent validation error
@@ -644,6 +711,8 @@
                     // Clear values
                     nombreInput.value = '';
                     precioInput.value = '';
+                    document.getElementById('datosExistentes').style.display = 'none'; // Hide existing data section
+                    window.existingClientData = null; // Clear stored data
                 }
             }
         }
@@ -867,7 +936,7 @@
             
             if (estado === 'libre') {
                 abrirModalAgregarCliente(habitacionId, numero, estado);
-            } else if (estado === 'reservado' && clienteNombre && clienteNombre !== 'null') {
+            } else if (estado === 'reservado' && (clienteNombre && clienteNombre !== 'null')) {
                 abrirModalCompletarReserva(habitacionId, numero, clienteNombre, valor);
             } else {
                 mostrarInformacionCliente(
@@ -1254,7 +1323,7 @@
                                             
                                             ${index === 0 && huesped.valor ? `
                                             <div>
-                                                <span class="font-medium text-gray-600">Valor Total:</span>
+                                                <span class="font-medium text-gray-600">Valor:</span>
                                                 <span class="text-gray-900 font-semibold">$${Number(huesped.valor).toLocaleString()}</span>
                                             </div>
                                             ` : ''}
@@ -1862,6 +1931,7 @@
                 }
                 contadorPersonas = 0;
                 contadorPersonasCompletarReserva = 0; // Also reset for the other modal
+                window.existingClientData = null; // Clear stored data
             }
         }
 
@@ -1878,151 +1948,230 @@
                 if (modal && modal.style.display === 'block') {
                     cerrarModal();
                 }
+                const modalRenovacion = document.getElementById('modalRenovacion');
+                if (modalRenovacion && modalRenovacion.style.display === 'block') {
+                    cerrarModalRenovacion();
+                }
+                const modalCalendario = document.getElementById('modalCalendario');
+                if (modalCalendario && modalCalendario.style.display === 'block') {
+                    cerrarModalCalendario();
+                }
             }
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('[v0] Página cargada, verificando datos de habitaciones');
+        // This function is to check if client data needs to be pre-filled when changing status to 'reservado'
+        async function checkExistingClientData() {
+            const habitacionId = currentHabitacionId; // This should be set when opening the modal
             
-            // Force refresh of room data display if needed
-            const roomCards = document.querySelectorAll('.bg-white.rounded-lg.shadow-md');
-            console.log('[v0] Encontradas', roomCards.length, 'cards de habitaciones');
-            
-            // Log room data for debugging
-            {% for room in rooms %}
-                console.log('[v0] Habitación {{ room.numero }}:', {
-                    id: {{ room.id }},
-                    estado: '{{ room.estado }}',
-                    inquilino: '{{ room.inquilino_principal or "Sin cliente" }}',
-                    telefono: '{{ room.telefono or "Sin teléfono" }}',
-                    personas: {{ room.num_personas_ocupadas or 0 }}
+            try {
+                const response = await fetch(`/cambiar_estado_habitacion`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        habitacion_id: habitacionId,
+                        estado: 'reservado',
+                        check_existing_data: true // Flag to indicate we only want to check data
+                    })
                 });
-            {% endfor %}
-
-            const btnReutilizarUltimo = document.getElementById('btnReutilizarUltimo');
-            if (btnReutilizarUltimo) {
-                btnReutilizarUltimo.addEventListener('click', function() {
-                    const habitacionSelect = document.getElementById('selectHabitacion');
-                    if (!habitacionSelect.value) {
-                        alert('Por favor selecciona una habitación primero');
-                        return;
-                    }
-                    
-                    const habitacionId = habitacionSelect.value;
-                    
-                    fetch(`/ultimo_cliente/${habitacionId}`)
-                        .then(resp => resp.json())
-                        .then(data => {
-                            if (!data.success) {
-                                alert(data.error || 'No se encontró último cliente.');
-                                return;
-                            }
-
-                            const clientes = data.clientes;
-                            if (clientes && clientes.length > 0) {
-                                const cliente = clientes[0]; // Get the main client
-                                
-                                // Fill the form fields
-                                const nombreInput = document.getElementById('nombre_cliente');
-                                const precioInput = document.getElementById('precio_noche');
-                                
-                                if (nombreInput && cliente.nombre) {
-                                    nombreInput.value = cliente.nombre;
-                                }
-                                
-                                if (precioInput && cliente.valor) {
-                                    precioInput.value = cliente.valor;
-                                }
-                                
-                                alert(`Datos del último cliente cargados: ${cliente.nombre}`);
-                            } else {
-                                alert('No se encontraron datos del último cliente');
-                            }
-                        })
-                        .catch(err => {
-                            console.error('Error al obtener último cliente:', err);
-                            alert('Error al obtener información del último cliente.');
-                        });
-                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.client_data) {
+                    const clientData = data.client_data;
+                    document.getElementById('infoClienteExistente').innerHTML = `
+                        <strong>Nombre:</strong> ${clientData.nombre}<br>
+                        <strong>Teléfono:</strong> ${clientData.telefono}<br>
+                        <strong>Valor:</strong> $${clientData.valor}<br>
+                        <strong>Observación:</strong> ${clientData.observacion}
+                    `;
+                    document.getElementById('datosExistentes').style.display = 'block';
+                    window.existingClientData = clientData; // Store data for later use
+                } else {
+                    document.getElementById('datosExistentes').style.display = 'none'; // Hide if no data found
+                    window.existingClientData = null;
+                }
+            } catch (error) {
+                console.error('Error checking existing client data:', error);
+                document.getElementById('datosExistentes').style.display = 'none';
+                window.existingClientData = null;
             }
-        });
-        
-function reutilizarUltimo(habitacionId) {
-    console.log('[v0] Reutilizando último cliente para habitación:', habitacionId);
-    
-    fetch(`/ultimo_cliente/${habitacionId}`)
-        .then(resp => resp.json())
-        .then(data => {
-            if (!data.success) {
-                alert(data.error || 'No se encontró último cliente.');
+        }
+
+        function mantenerDatosExistentes() {
+            if (window.existingClientData) {
+                const data = window.existingClientData;
+                document.getElementById('nombre_cliente').value = data.nombre;
+                document.querySelector('input[name="precio_reserva"]').value = data.valor;
+                document.getElementById('datosExistentes').style.display = 'none';
+            }
+        }
+
+        function procesarCambioEstado(event, habitacionId) {
+            event.preventDefault();
+            
+            currentHabitacionId = habitacionId; // Ensure currentHabitacionId is set
+            
+            const formData = new FormData(event.target);
+            const estado = formData.get('estado');
+            const nombreCliente = formData.get('nombre_cliente') || '';
+            const precioReserva = parseFloat(formData.get('precio_reserva')) || 0;
+            
+            if (estado === 'reservado' && !nombreCliente.trim()) {
+                alert('Por favor ingresa el nombre del cliente para la reserva');
                 return;
             }
+            
+            const data = {
+                habitacion_id: habitacionId,
+                estado: estado,
+                nombre_cliente: nombreCliente,
+                precio_reserva: precioReserva
+            };
+            
+            console.log('[v0] Changing room status:', data);
+            
+            fetch('/cambiar_estado_habitacion', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert(result.message);
+                    cerrarModalCambiarEstado();
+                    location.reload();
+                } else if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    alert('Ocurrió un error desconocido.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cambiar estado de habitación');
+            });
+        }
 
-            // Pre-llenar el nombre en el input si existe
-            const cli = data.cliente;
-            if (cli && cli.nombre) {
-                const nombreInput = document.getElementById('nombre_cliente');
-                if (nombreInput) {
-                    nombreInput.value = cli.nombre;
+        function cerrarModalCambiarEstado() {
+            document.getElementById('modalCambiarEstado').style.display = 'none';
+        }
+
+        function liberarHabitacion(habitacionId) {
+            if (confirm('¿Estás seguro de que deseas liberar esta habitación?')) {
+                window.location.href = `/liberar/${habitacionId}`;
+            }
+        }
+
+        // Adding the modal HTML dynamically to the DOM
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalCambiarEstadoHTML = `
+                <div id="modalCambiarEstado" class="modal">
+                    <div class="modal-content">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 id="modalCambiarEstadoTitulo" class="text-xl font-bold text-gray-800"></h2>
+                            <button onclick="cerrarModalCambiarEstado()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        <div id="modalCambiarEstadoContenido"></div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalCambiarEstadoHTML);
+            
+            // **CHANGE**: Updated automatic liberation check to run at 1 AM instead of 1 PM
+            function verificarLiberacionAutomatica() {
+                const ahora = new Date();
+                // Changed from hour 13 (1 PM) to hour 1 (1 AM)
+                if (ahora.getHours() === 1 && ahora.getMinutes() === 0) {
+                    console.log('[v0] Verificando liberación automática de habitaciones a la 1 AM...');
+                    // Recargar la página para mostrar cambios
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 }
             }
-
-            abrirCalendario(async (fechaISO, precioInfo) => {
-                try {
-                    let fechaParaEnviar = fechaISO;
-                    
-                    // If it's just a date (YYYY-MM-DD), keep it as is
-                    // If it includes time, make sure we're using local time
-                    if (fechaISO.includes('T')) {
-                        const fecha = new Date(fechaISO);
-                        // Format as local datetime string
-                        const year = fecha.getFullYear();
-                        const month = String(fecha.getMonth() + 1).padStart(2, '0');
-                        const day = String(fecha.getDate()).padStart(2, '0');
-                        const hours = String(fecha.getHours()).padStart(2, '0');
-                        const minutes = String(fecha.getMinutes()).padStart(2, '0');
-                        fechaParaEnviar = `${year}-${month}-${day}T${hours}:${minutes}`;
-                    }
-                    
-                    const requestData = { 
-                        habitacion_id: habitacionId, 
-                        nueva_fecha_ingreso: fechaParaEnviar
-                    };
-                    
-                    // Add price information if provided
-                    if (precioInfo && precioInfo.precioTotal > 0) {
-                        requestData.precio_total = precioInfo.precioTotal;
-                        requestData.noches = precioInfo.noches;
-                        requestData.precio_por_noche = precioInfo.precioPorNoche;
-                    }
-                    
-                    const r = await fetch('/reutilizar_ultimo', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(requestData)
-                    });
-                    const res = await r.json();
-                    if (res.success) {
-                        alert(res.message || 'Cliente reutilizado y reservado correctamente.');
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + (res.error || 'No se pudo reutilizar'));
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert('Error al intentar reutilizar el último cliente.');
-                }
-            });
-        })
-        .catch(err => {
-            console.error('Error al obtener último cliente:', err);
-            alert('Error al obtener información del último cliente.');
+            
+            // Verificar cada minuto
+            setInterval(verificarLiberacionAutomatica, 60000);
         });
-}
+        
+        function reutilizarUltimo(habitacionId) {
+            console.log('[v0] Reutilizando último cliente para habitación:', habitacionId);
+            
+            fetch(`/ultimo_cliente/${habitacionId}`)
+                .then(resp => resp.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert(data.error || 'No se encontró último cliente.');
+                        return;
+                    }
+
+                    // Pre-llenar el nombre en el input si existe
+                    const cli = data.cliente;
+                    if (cli && cli.nombre) {
+                        const nombreInput = document.getElementById('nombre_cliente');
+                        if (nombreInput) {
+                            nombreInput.value = cli.nombre;
+                        }
+                    }
+
+                    abrirCalendario(async (fechaISO, precioInfo) => {
+                        try {
+                            let fechaParaEnviar = fechaISO;
+                            
+                            // If it's just a date (YYYY-MM-DD), keep it as is
+                            // If it includes time, make sure we're using local time
+                            if (fechaISO.includes('T')) {
+                                const fecha = new Date(fechaISO);
+                                // Format as local datetime string
+                                const year = fecha.getFullYear();
+                                const month = String(fecha.getMonth() + 1).padStart(2, '0');
+                                const day = String(fecha.getDate()).padStart(2, '0');
+                                const hours = String(fecha.getHours()).padStart(2, '0');
+                                const minutes = String(fecha.getMinutes()).padStart(2, '0');
+                                fechaParaEnviar = `${year}-${month}-${day}T${hours}:${minutes}`;
+                            }
+                            
+                            const requestData = { 
+                                habitacion_id: habitacionId, 
+                                nueva_fecha_ingreso: fechaParaEnviar
+                            };
+                            
+                            // Add price information if provided
+                            if (precioInfo && precioInfo.precioTotal > 0) {
+                                requestData.precio_total = precioInfo.precioTotal;
+                                requestData.noches = precioInfo.noches;
+                                requestData.precio_por_noche = precioInfo.precioPorNoche;
+                            }
+                            
+                            const r = await fetch('/reutilizar_ultimo', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify(requestData)
+                            });
+                            const res = await r.json();
+                            if (res.success) {
+                                alert(res.message || 'Cliente reutilizado y reservado correctamente.');
+                                window.location.reload();
+                            } else {
+                                alert('Error: ' + (res.error || 'No se pudo reutilizar'));
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            alert('Error al intentar reutilizar el último cliente.');
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.error('Error al obtener último cliente:', err);
+                    alert('Error al obtener información del último cliente.');
+                });
+        }
 
         function mostrarModalCambiarEstado(habitacionId, numeroHabitacion, estadoActual) {
             console.log('[v0] Abriendo modal cambiar estado para habitación:', habitacionId);
             
+            currentHabitacionId = habitacionId; // Set for modal context
             document.getElementById('modalCambiarEstadoTitulo').textContent = `Cambiar Estado - Habitación ${numeroHabitacion}`;
             document.getElementById('modalCambiarEstadoContenido').innerHTML = generarFormularioCambiarEstado(habitacionId, estadoActual);
             document.getElementById('modalCambiarEstado').style.display = 'block';
@@ -2037,7 +2186,7 @@ function reutilizarUltimo(habitacionId) {
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Estado actual: <span class="font-bold text-blue-600">${estadoActual.toUpperCase()}</span></label>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nuevo estado:</label>
-                            <select name="estado" id="selectNuevoEstado" required onchange="toggleCamposReserva()"
+                            <select name="estado" id="selectNuevoEstado" required onchange="toggleReservationFields()"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                                 <option value="">Seleccionar estado...</option>
                                 <option value="libre">🟢 Libre</option>
@@ -2090,160 +2239,49 @@ function reutilizarUltimo(habitacionId) {
             `;
         }
 
-        function toggleCamposReserva() {
-            const select = document.getElementById('selectNuevoEstado');
-            const campos = document.getElementById('camposReserva');
-            
-            if (select && campos) {
-                if (select.value === 'reservado') {
-                    campos.style.display = 'block';
-                    document.getElementById('nombre_cliente').required = true;
-                    checkExistingClientData();
-                } else {
-                    campos.style.display = 'none';
-                    document.getElementById('nombre_cliente').required = false;
-                    document.getElementById('nombre_cliente').value = '';
-                    document.querySelector('input[name="precio_reserva"]').value = '';
-                    document.getElementById('datosExistentes').style.display = 'none';
-                }
-            }
-        }
-
-        async function checkExistingClientData() {
-            const habitacionId = currentHabitacionId; // This should be set when opening the modal
-            
-            try {
-                const response = await fetch(`/cambiar_estado_habitacion`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        habitacion_id: habitacionId,
-                        estado: 'reservado',
-                        nombre_cliente: '', // Empty to trigger data check
-                        precio_reserva: 0
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.show_existing_data && data.client_data) {
-                    const clientData = data.client_data;
-                    document.getElementById('infoClienteExistente').innerHTML = `
-                        <strong>Nombre:</strong> ${clientData.nombre}<br>
-                        <strong>Teléfono:</strong> ${clientData.telefono}<br>
-                        <strong>Valor:</strong> $${clientData.valor}<br>
-                        <strong>Observación:</strong> ${clientData.observacion}
-                    `;
-                    document.getElementById('datosExistentes').style.display = 'block';
-                    
-                    // Store data for later use
-                    window.existingClientData = clientData;
-                }
-            } catch (error) {
-                console.error('Error checking existing client data:', error);
-            }
-        }
-
-        function mantenerDatosExistentes() {
-            if (window.existingClientData) {
-                const data = window.existingClientData;
-                document.getElementById('nombre_cliente').value = data.nombre;
-                document.querySelector('input[name="precio_reserva"]').value = data.valor;
-                document.getElementById('datosExistentes').style.display = 'none';
-            }
-        }
-
-        function procesarCambioEstado(event, habitacionId) {
-            event.preventDefault();
-            
-            currentHabitacionId = habitacionId; // Ensure currentHabitacionId is set
-            
-            const formData = new FormData(event.target);
-            const estado = formData.get('estado');
-            const nombreCliente = formData.get('nombre_cliente') || '';
-            const precioReserva = parseFloat(formData.get('precio_reserva')) || 0;
-            
-            if (estado === 'reservado' && !nombreCliente.trim()) {
-                alert('Por favor ingresa el nombre del cliente para la reserva');
-                return;
-            }
-            
-            const data = {
-                habitacion_id: habitacionId,
-                estado: estado,
-                nombre_cliente: nombreCliente,
-                precio_reserva: precioReserva
-            };
-            
-            console.log('[v0] Changing room status:', data);
-            
-            fetch('/cambiar_estado_habitacion', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            })
+        function mostrarEstadisticasHabitaciones() {
+            fetch('/estadisticas_habitaciones')
             .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    alert(result.message);
-                    cerrarModalCambiarEstado();
-                    location.reload();
-                } else if (result.show_existing_data) {
-                    // This case is now handled in checkExistingClientData
-                    alert(result.message);
+            .then(data => {
+                if (data.success) {
+                    const stats = data.estadisticas;
+                    
+                    document.getElementById('stat-libres-modal').textContent = stats.libres;
+                    document.getElementById('stat-ocupadas-modal').textContent = stats.ocupadas;
+                    document.getElementById('stat-reservadas-modal').textContent = stats.reservadas || 0;
+                    document.getElementById('stat-mensualidad-modal').textContent = stats.mensualidad;
+                    document.getElementById('stat-mantenimiento-modal').textContent = stats.mantenimiento;
+                    document.getElementById('stat-total-modal').textContent = stats.total;
+                    
+                    // Calcular porcentajes
+                    const porcentajeDisponibilidad = stats.total > 0 ? ((stats.libres / stats.total) * 100).toFixed(1) : 0;
+                    const porcentajeOcupacion = stats.total > 0 ? (((stats.ocupadas + stats.mensualidad) / stats.total) * 100).toFixed(1) : 0;
+                    
+                    document.getElementById('porcentaje-disponibilidad').textContent = porcentajeDisponibilidad + '%';
+                    document.getElementById('porcentaje-ocupacion').textContent = porcentajeOcupacion + '%';
+                    
+                    document.getElementById('modalEstadisticas').style.display = 'block';
                 } else {
-                    alert('Error: ' + result.error);
+                    alert('Error al cargar estadísticas: ' + data.error);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al cambiar estado de habitación');
+                alert('Error al cargar las estadísticas');
             });
         }
 
-        function cerrarModalCambiarEstado() {
-            document.getElementById('modalCambiarEstado').style.display = 'none';
+        function cerrarModalEstadisticas() {
+            document.getElementById('modalEstadisticas').style.display = 'none';
         }
 
-        function liberarHabitacion(habitacionId) {
-            if (confirm('¿Estás seguro de que deseas liberar esta habitación?')) {
-                window.location.href = `/liberar/${habitacionId}`;
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function(event) {
+            const modalEstadisticas = document.getElementById('modalEstadisticas');
+            if (event.target === modalEstadisticas) {
+                cerrarModalEstadisticas();
             }
         }
-
-        // This function was causing the text input dialog to appear
-        
-
-        const modalCambiarEstadoHTML = `
-            <div id="modalCambiarEstado" class="modal">
-                <div class="modal-content">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 id="modalCambiarEstadoTitulo" class="text-xl font-bold text-gray-800"></h2>
-                        <button onclick="cerrarModalCambiarEstado()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-                    </div>
-                    <div id="modalCambiarEstadoContenido"></div>
-                </div>
-            </div>
-        `;
-
-        // Agregar el modal al DOM cuando se carga la página
-        document.addEventListener('DOMContentLoaded', function() {
-            document.body.insertAdjacentHTML('beforeend', modalCambiarEstadoHTML);
-            
-            function verificarLiberacionAutomatica() {
-                const ahora = new Date();
-                if (ahora.getHours() === 13 && ahora.getMinutes() === 0) {
-                    console.log('[v0] Verificando liberación automática de habitaciones...');
-                    // Recargar la página para mostrar cambios
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                }
-            }
-            
-            // Verificar cada minuto
-            setInterval(verificarLiberacionAutomatica, 60000);
-        });
     </script>
 </body>
 </html>
