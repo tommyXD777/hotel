@@ -862,7 +862,7 @@ def exportar_excel():
     user_id = require_user_session()
     if not user_id:
         return redirect(url_for('login'))
-    
+
     conn = get_db_connection()
     if not conn:
         flash('Error de conexión a la base de datos.', 'error')
@@ -885,7 +885,6 @@ def exportar_excel():
             flash('No hay datos para exportar', 'error')
             return redirect(url_for('index'))
 
-        # Imports para Excel y formatos
         import os
         from openpyxl import Workbook
         from openpyxl.styles import NamedStyle, Font, PatternFill, Alignment, Border, Side
@@ -893,12 +892,12 @@ def exportar_excel():
         from datetime import datetime, date, time, timedelta
 
         desktop = os.path.join(os.path.expanduser("~"), "Desktop", "Nelson")
-        os.makedirs(desktop, exist_ok=True)  # Crea la carpeta si no existe
+        os.makedirs(desktop, exist_ok=True)
         excel_path = os.path.join(desktop, "clientes_hotel.xlsx")
 
-        # Columnas en el orden solicitado
+        # ✅ Encabezados actualizados
         columnas = [
-            'Check-in', 'Habitación', 'Nombre', 'Tipo Doc', 'Teléfono', 
+            'Check-in', 'Habitación', 'Nombre', 'Tipo Doc', 'Número Doc', 'Teléfono', 
             'Procedencia', 'Check-out', 'Valor', 'Observación'
         ]
 
@@ -916,25 +915,18 @@ def exportar_excel():
         if header_style.name not in wb.named_styles:
             wb.add_named_style(header_style)
 
-        # Funciones auxiliares para formatear tiempos/fechas robustamente
         def format_time_value(tv):
-            """Devuelve 'HH:MM' o None si no hay valor legible."""
             if tv is None:
                 return None
-            # datetime.time
             if isinstance(tv, time):
                 return tv.strftime('%H:%M')
-            # datetime.datetime
             if isinstance(tv, datetime):
                 return tv.strftime('%H:%M')
-            # datetime.timedelta (MySQL TIME puede llegar así)
             if isinstance(tv, timedelta):
-                # normalizar a un día y obtener horas:minutos
                 total_seconds = int(tv.total_seconds()) % (24 * 3600)
                 hours = total_seconds // 3600
                 minutes = (total_seconds % 3600) // 60
                 return f"{hours:02d}:{minutes:02d}"
-            # str con formato 'HH:MM[:SS]' o 'HH:MM'
             if isinstance(tv, str):
                 if ':' in tv:
                     parts = tv.split(':')
@@ -945,48 +937,26 @@ def exportar_excel():
                     except Exception:
                         return tv
                 return tv
-            # fallback
             try:
                 return str(tv)
             except Exception:
                 return None
 
         def format_date_value(dv):
-            """Devuelve 'DD/MM/YYYY' o '' si None."""
             if dv is None:
                 return ''
             if isinstance(dv, datetime):
                 return dv.strftime('%d/%m/%Y')
             if isinstance(dv, date):
                 return dv.strftime('%d/%m/%Y')
-            # si viene timedelta u otro, devolvemos su representación
             return str(dv)
 
-        def format_datetime_field(dt):
-            """Devuelve 'DD/MM/YYYY HH:MM' si es datetime, o '' si None."""
-            if dt is None:
-                return ''
-            if isinstance(dt, datetime):
-                return dt.strftime('%d/%m/%Y %H:%M')
-            if isinstance(dt, date):
-                return dt.strftime('%d/%m/%Y')
-            return str(dt)
-
-        # Organizar datos por mes de Check-in
         meses = {i: [] for i in range(1, 13)}
         for fila in all_clientes_data:
-            # fila indices:
-            # 0 nombre,1 tipo_doc,2 numero_doc,3 telefono,4 procedencia,
-            # 5 check_in,6 check_out,7 valor,8 observacion,9 habitacion_numero,10 hora_ingreso
             check_in = fila[5]
             check_out = fila[6]
-            hora_ingreso = None
-            try:
-                hora_ingreso = fila[10]
-            except Exception:
-                hora_ingreso = None
+            hora_ingreso = fila[10] if len(fila) > 10 else None
 
-            # Formar Check-in: preferimos fecha del check_in + hora_ingreso (si existe)
             checkin_str = ''
             if isinstance(check_in, (datetime, date)):
                 fecha_str = format_date_value(check_in)
@@ -994,18 +964,12 @@ def exportar_excel():
                 if hora_str:
                     checkin_str = f"{fecha_str} {hora_str}"
                 elif isinstance(check_in, datetime):
-                    # si check_in ya trae hora, la usamos
                     checkin_str = check_in.strftime('%d/%m/%Y %H:%M')
                 else:
                     checkin_str = fecha_str
             else:
-                # Si check_in no es fecha (por ejemplo string o timedelta), intentar formatearlo directamente
-                if check_in is None:
-                    checkin_str = ''
-                else:
-                    checkin_str = str(check_in)
+                checkin_str = str(check_in) if check_in else ''
 
-            # Formar Check-out (si trae hora, la mostramos)
             if isinstance(check_out, datetime):
                 checkout_str = check_out.strftime('%d/%m/%Y %H:%M')
             elif isinstance(check_out, date):
@@ -1015,28 +979,26 @@ def exportar_excel():
             else:
                 checkout_str = str(check_out)
 
-            # Determinar mes para organizar hojas (si no hay fecha, usar mes actual)
-            if isinstance(check_in, datetime):
-                mes = check_in.month
-            elif isinstance(check_in, date):
+            if isinstance(check_in, (datetime, date)):
                 mes = check_in.month
             else:
                 mes = datetime.now().month
 
+            # ✅ Tipo y número de documento en celdas separadas
             nueva_fila = [
-                checkin_str,                 # Check-in (fecha + hora)
+                checkin_str,                 # Check-in
                 fila[9] or '',               # Habitación
                 fila[0] or '',               # Nombre
                 fila[1] or '',               # Tipo Doc
+                fila[2] or '',               # Número Doc
                 fila[3] or '',               # Teléfono
                 fila[4] or '',               # Procedencia
-                checkout_str,                # Check-out (fecha + hora)
+                checkout_str,                # Check-out
                 float(fila[7]) if fila[7] is not None else 0,  # Valor
                 fila[8] or ''                # Observación
             ]
             meses[mes].append(nueva_fila)
 
-        # Crear una hoja por cada mes
         for mes, datos_mes in meses.items():
             if datos_mes:
                 nombre_mes = [
@@ -1050,38 +1012,30 @@ def exportar_excel():
                 for fila in datos_mes:
                     ws.append(fila)
 
-                # Estilos para encabezados y contenido
                 for cell in ws[1]:
                     cell.style = header_style
 
-                # Ajustar ancho de columnas y altura de filas
                 for col_idx, column in enumerate(ws.iter_cols(min_row=1, max_row=ws.max_row), 1):
                     max_length = 0
                     col_letter = get_column_letter(col_idx)
                     for cell in column:
                         cell.border = thin_border
                         if cell.value:
-                            # considerar longitud del texto
                             max_length = max(max_length, len(str(cell.value)))
                     adjusted_width = (max_length + 2) * 1.2
                     if adjusted_width > 0:
                         ws.column_dimensions[col_letter].width = adjusted_width
 
-                # Altura de todas las filas a 19.20
                 for row in ws.iter_rows(min_row=1, max_row=ws.max_row):
                     ws.row_dimensions[row[0].row].height = 19.20
 
-                # Congelar encabezado
                 ws.freeze_panes = 'A2'
 
-        # Eliminar la hoja por defecto si no se usó
         if 'Sheet' in wb.sheetnames and not wb['Sheet'].max_row > 1:
             del wb['Sheet']
 
-        # Guardar el archivo
         wb.save(excel_path)
 
-        # Descargar con timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         download_name = f'clientes_hotel_{timestamp}.xlsx'
         return send_file(excel_path, as_attachment=True, download_name=download_name)
@@ -1097,7 +1051,6 @@ def exportar_excel():
             cur.close()
         if 'conn' in locals():
             conn.close()
-
 
 # ----------------- CAMBIAR COLOR GENERAL -----------------
 @app.route('/cambiar_color_general', methods=['POST'])
