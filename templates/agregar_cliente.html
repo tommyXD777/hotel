@@ -5,6 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agregar Cliente - Habitación {{ habitacion[1] }}</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.75rem;
+            }
+            
+            h1 {
+                font-size: 1.25rem;
+            }
+            
+            .grid.grid-cols-1.md\\:grid-cols-2 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .grid.grid-cols-1.md\\:grid-cols-3 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .flex.justify-between {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .flex.justify-end.space-x-3 {
+                flex-direction: column;
+                space-x: 0;
+            }
+            
+            .flex.justify-end.space-x-3 > * {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans">
     <div class="container mx-auto p-4 max-w-4xl">
@@ -120,19 +154,17 @@
                 </div>
 
                 <!-- Botones -->
-                <div class="flex justify-end space-x-3 pt-4">
-                    <a href="{{ url_for('index') }}"
-                       class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
-                        Cancelar
-                    </a>
-                    <button type="submit" 
-                            class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
-                        💾 Registrar Cliente(s)
-                    </button>
-                </div>
-            </form>
+              <div class="grid grid-cols-2 gap-3 justify-end pt-4">
+            <a href="{{ url_for('index') }}"
+            class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400 text-center">
+                Cancelar
+            </a>
+            <button type="submit" 
+                    class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 flex items-center justify-center gap-2">
+                <span>💾</span>
+                <span>Registrar Cliente(s)</span>
+            </button>
         </div>
-    </div>
 
     <!-- Added JavaScript for additional persons functionality -->
     <script>

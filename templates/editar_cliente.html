@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editar Cliente - Sistema Hotelero</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-     <link rel="icon" href="{{ url_for('static', filename='img/logo.png') }}" type="image/png">
+    <link rel="icon" href="{{ url_for('static', filename='img/logo.png') }}" type="image/png">
     <!-- Agregando estilos personalizados para mejor UX -->
     <style>
         .form-section {
@@ -30,6 +30,51 @@
             background: linear-gradient(135deg, #e3f2fd, #bbdefb);
             border: none;
             border-left: 4px solid #2196f3;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.5rem;
+            }
+            
+            .card-header h3 {
+                font-size: 1.25rem;
+            }
+            
+            .card-header p {
+                font-size: 0.85rem;
+            }
+            
+            .form-section {
+                padding: 15px;
+            }
+            
+            .section-title {
+                font-size: 1rem;
+            }
+            
+            .row > div {
+                margin-bottom: 1rem;
+            }
+            
+            .d-flex.gap-2 {
+                flex-direction: column;
+            }
+            
+            .d-flex.gap-2 > * {
+                width: 100% !important;
+            }
+            
+            .text-center.mt-4 .row > div {
+                border-right: none !important;
+                border-bottom: 1px solid #dee2e6;
+                padding-bottom: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .text-center.mt-4 .row > div:last-child {
+                border-bottom: none;
+            }
         }
     </style>
 </head>
@@ -214,33 +259,6 @@
                                 </div>
                             </div>
                         </form>
-                    </div>
-                </div>
-                
-                <!-- Agregando información adicional del cliente -->
-                <div class="card shadow-sm mt-4">
-                    <div class="card-header bg-light">
-                        <h6 class="mb-0">📊 Información Adicional</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row text-center">
-                            <div class="col-md-4">
-                                <div class="border-end">
-                                    <h6 class="text-muted">Cliente ID</h6>
-                                    <strong>#{{ cliente[0] }}</strong>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="border-end">
-                                    <h6 class="text-muted">Habitación Actual</h6>
-                                    <strong>{{ cliente[11] }}</strong>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <h6 class="text-muted">Tipo de Habitación</h6>
-                                <strong>{{ cliente[12] }}</strong>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendario de Reservas - Sistema Hotelero</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-     <link rel="icon" href="{{ url_for('static', filename='img/logo.png') }}" type="image/png">
+    <link rel="icon" href="{{ url_for('static', filename='img/logo.png') }}" type="image/png">
     <style>
         .calendar-day {
             min-height: 100px;
@@ -52,6 +52,158 @@
             max-width: 600px;
             max-height: 80vh;
             overflow-y: auto;
+        }
+        
+        @media (max-width: 640px) {
+            .calendar-day {
+                min-height: 80px;
+                font-size: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            /* Container adjustments */
+            .container {
+                padding: 0.5rem !important;
+            }
+            
+            /* Header section */
+            .bg-white.rounded-lg.shadow-md.p-6 {
+                padding: 1rem !important;
+            }
+            
+            h1 {
+                font-size: 1.25rem !important;
+            }
+            
+            h2 {
+                font-size: 1rem !important;
+            }
+            
+            h3 {
+                font-size: 1.125rem !important;
+            }
+            
+            /* Flex containers to stack vertically */
+            .flex.justify-between.items-center {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 0.75rem;
+            }
+            
+            .flex.gap-3 {
+                flex-direction: column !important;
+                width: 100%;
+                gap: 0.5rem !important;
+            }
+            
+            .flex.gap-3 > a,
+            .flex.gap-3 > button {
+                width: 100%;
+                text-align: center;
+            }
+            
+            /* Calendar navigation buttons */
+            .flex.justify-between.items-center.mb-4 {
+                flex-direction: row !important;
+            }
+            
+            .flex.justify-between.items-center.mb-4 button {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.875rem;
+            }
+            
+            /* Calendar grid */
+            .calendar-day {
+                min-height: 70px;
+                font-size: 0.75rem;
+                padding: 2px;
+            }
+            
+            .calendar-day .font-semibold {
+                font-size: 0.75rem;
+            }
+            
+            /* Week day headers */
+            .grid.grid-cols-7.gap-1.mb-2 > div {
+                padding: 0.25rem;
+                font-size: 0.625rem;
+            }
+            
+            /* Reservation blocks in calendar */
+            .reservation-block {
+                font-size: 7px;
+                padding: 1px 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            /* Modal adjustments */
+            .modal-content {
+                width: 95%;
+                margin: 2% auto;
+                padding: 1rem;
+                max-height: 90vh;
+            }
+            
+            /* Form grid to single column */
+            .grid.grid-cols-2 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* Form buttons */
+            .flex.justify-end.space-x-3 {
+                flex-direction: column !important;
+                gap: 0.5rem !important;
+            }
+            
+            .flex.justify-end.space-x-3 button {
+                width: 100%;
+            }
+            
+            /* Reservation list cards */
+            .border.border-gray-200.rounded-lg.p-4 {
+                padding: 0.75rem !important;
+            }
+            
+            .border.border-gray-200.rounded-lg.p-4 .flex.justify-between {
+                flex-direction: column !important;
+                gap: 0.75rem;
+            }
+            
+            .border.border-gray-200.rounded-lg.p-4 .text-right {
+                text-align: left !important;
+            }
+            
+            .border.border-gray-200.rounded-lg.p-4 .flex.gap-2 {
+                flex-direction: row !important;
+                width: 100%;
+            }
+            
+            .border.border-gray-200.rounded-lg.p-4 .flex.gap-2 button {
+                flex: 1;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            /* Extra small screens */
+            .calendar-day {
+                min-height: 60px;
+            }
+            
+            .grid.grid-cols-7.gap-1.mb-2 > div {
+                font-size: 0.5rem;
+                padding: 0.125rem;
+            }
+            
+            .reservation-block {
+                font-size: 6px;
+            }
+            
+            h1 {
+                font-size: 1.125rem !important;
+            }
         }
     </style>
 </head>

@@ -16,6 +16,14 @@
             max-width: 100%;
         }
         
+        /* Added responsive grid for mobile */
+        @media (max-width: 640px) {
+            .room-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 8px;
+            }
+        }
+        
         .room-cell {
             aspect-ratio: 1;
             border: 2px solid #e5e7eb;
@@ -31,9 +39,13 @@
             padding: 8px;
         }
         
-        .room-cell:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        /* Smaller room cells on mobile */
+        @media (max-width: 640px) {
+            .room-cell {
+                min-height: 100px;
+                padding: 6px;
+                font-size: 0.85rem;
+            }
         }
         
         /* Updated color system according to requirements */
@@ -90,6 +102,68 @@
             max-width: 800px;
             max-height: 90vh;
             overflow-y: auto;
+        }
+        
+        /* Full width modals on mobile with better spacing */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+                padding: 15px;
+                max-height: 85vh;
+            }
+        }
+        
+        /* Responsive button groups */
+        @media (max-width: 768px) {
+            .grid.grid-cols-1.md\\:grid-cols-5 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .grid.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-3 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .flex.flex-wrap.gap-2 {
+                flex-direction: column;
+            }
+            
+            .flex.flex-wrap.gap-2 > * {
+                width: 100%;
+            }
+        }
+        
+        /* Responsive header */
+        @media (max-width: 640px) {
+            .container.mx-auto.p-4 {
+                padding: 0.75rem;
+            }
+            
+            h1 {
+                font-size: 1.5rem !important;
+            }
+            
+            h2 {
+                font-size: 1.25rem !important;
+            }
+            
+            h3 {
+                font-size: 1.1rem !important;
+            }
+        }
+        
+        /* Responsive form layout */
+        @media (max-width: 640px) {
+            #formCambiarEstado {
+                flex-direction: column !important;
+            }
+            
+            #formCambiarEstado select,
+            #formCambiarEstado input,
+            #formCambiarEstado button {
+                width: 100% !important;
+                margin-bottom: 0.5rem;
+            }
         }
     </style>
 </head>
@@ -605,7 +679,7 @@
         </div>
     </div>
 
-    <!-- Added modal for reservation details -->
+    <!-- Modal for reservation details -->
     <div id="modalReservacion" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
@@ -1069,7 +1143,7 @@
                         </div>
                     </div>
 
-                    <div class="flex justify-end space-x-3">
+                    <div class="flex justify-end space-x-3 pt-4">
                         <button type="button" onclick="cerrarModal()" 
                                 class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
                             Cancelar
@@ -1577,8 +1651,9 @@
                             Cancelar
                         </button>
                         <button type="submit" 
-                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
-                            💾 Registrar Cliente(s)
+                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 flex items-center gap-2">
+                            <span>💾</span>
+                            <span>Registrar Cliente(s)</span>
                         </button>
                     </div>
                 </form>
@@ -2106,13 +2181,46 @@
                         return;
                     }
 
-                    // Pre-llenar el nombre en el input si existe
                     const cli = data.cliente;
-                    if (cli && cli.nombre) {
-                        const nombreInput = document.getElementById('nombre_cliente');
-                        if (nombreInput) {
-                            nombreInput.value = cli.nombre;
-                        }
+                    if (cli) {
+                        // Esperar un momento para que el DOM esté listo
+                        setTimeout(() => {
+                            const nombreInput = document.getElementById('nombre_cliente');
+                            const telefonoInput = document.querySelector('input[name="telefono"]');
+                            const documentoInput = document.querySelector('input[name="documento"]'); // This input might not exist in the current form
+                            const emailInput = document.querySelector('input[name="email"]'); // This input might not exist
+                            const direccionInput = document.querySelector('input[name="direccion"]'); // This input might not exist
+                            const observacionInput = document.querySelector('textarea[name="observacion"]'); // This input might not exist
+                            
+                            // Adjusting to target the correct fields in the form being opened
+                            // The form opened by 'reutilizarUltimo' is likely the one generated by 'generarFormularioAgregarCliente' or similar
+                            // We need to ensure these fields exist before trying to set their values.
+                            
+                            // For the 'agregar_cliente_habitacion' flow:
+                            const formFields = document.getElementById('modalContenido'); // Assuming this is the container for the form
+                            if (formFields) {
+                                if (nombreInput && cli.nombre) nombreInput.value = cli.nombre;
+                                // Finding the correct input for phone number, document number, etc.
+                                const phoneInput = formFields.querySelector('input[name="telefono"]');
+                                if (phoneInput && cli.telefono) phoneInput.value = cli.telefono;
+
+                                // Check for document type and number fields
+                                const tipoDocSelect = formFields.querySelector('select[name="tipo_doc"]');
+                                if (tipoDocSelect && cli.tipo_doc) {
+                                    tipoDocSelect.value = cli.tipo_doc;
+                                }
+                                const numeroDocInput = formFields.querySelector('input[name="numero_doc"]');
+                                if (numeroDocInput && cli.numero_doc) numeroDocInput.value = cli.numero_doc;
+                                
+                                // If email and address are part of the form
+                                const emailInputForm = formFields.querySelector('input[name="email"]');
+                                if (emailInputForm && cli.email) emailInputForm.value = cli.email;
+                                const direccionInputForm = formFields.querySelector('input[name="direccion"]');
+                                if (direccionInputForm && cli.direccion) direccionInputForm.value = cli.direccion;
+                                
+                                if (observacionInput && cli.observacion) observacionInput.value = cli.observacion;
+                            }
+                        }, 100); // Small delay to ensure the form is rendered
                     }
 
                     abrirCalendario(async (fechaISO, precioInfo) => {
@@ -2164,7 +2272,7 @@
                 })
                 .catch(err => {
                     console.error('Error al obtener último cliente:', err);
-                    alert('Error al obtener información del último cliente.');
+                    alert('Error al obtener último cliente.');
                 });
         }
 
