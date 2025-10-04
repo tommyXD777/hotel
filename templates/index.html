@@ -560,7 +560,7 @@
         </div>
     </div>
 
-    <!-- Added custom calendar picker modal for date selection -->
+    <!-- Custom calendar picker modal for date selection -->
     <!-- Updated calendar modal to remove minutes section -->
     <div id="modalCalendario" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 500px;">
@@ -2153,12 +2153,12 @@
             `;
             document.body.insertAdjacentHTML('beforeend', modalCambiarEstadoHTML);
             
-            // **CHANGE**: Updated automatic liberation check to run at 1 AM instead of 1 PM
+            // CHANGE: Updated automatic liberation check to run at 1 PM (13:00) instead of 1 AM to match checkout time
             function verificarLiberacionAutomatica() {
                 const ahora = new Date();
-                // Changed from hour 13 (1 PM) to hour 1 (1 AM)
-                if (ahora.getHours() === 1 && ahora.getMinutes() === 0) {
-                    console.log('[v0] Verificando liberación automática de habitaciones a la 1 AM...');
+                // Changed from hour 1 (1 AM) to hour 13 (1 PM / 13:00)
+                if (ahora.getHours() === 13 && ahora.getMinutes() === 0) {
+                    console.log('[v0] Verificando liberación automática de habitaciones a las 13:00 (1 PM)...');
                     // Recargar la página para mostrar cambios
                     setTimeout(() => {
                         window.location.reload();

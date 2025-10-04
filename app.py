@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash, send_file
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone, time
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, PatternFill, Alignment, NamedStyle
 from openpyxl.utils import get_column_letter
@@ -659,10 +659,10 @@ def guardar_nuevo_cliente():
                 for persona in personas_adicionales:
                     if persona.get('nombre'):
                         cur.execute("""
-                            INSERT INTO clientes (habitacion_id, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion, hora_ingreso) 
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            INSERT INTO clientes (habitacion_id, nombre, tipo_doc, numero_doc, telefono, procedencia, check_in, check_out, valor, observacion) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """, (habitacion_id, persona['nombre'], persona.get('tipo_doc', 'C.c'), persona.get('numero_doc', ''), 
-                              persona.get('telefono', ''), persona.get('procedencia', ''), check_in_dt, check_out_dt, 0, '', hora_ingreso_time))
+                              persona.get('telefono', ''), persona.get('procedencia', ''), check_in_dt, check_out_dt, 0, ''))
                 
                 cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
                 conn.commit()
@@ -1289,7 +1289,7 @@ def reutilizar_ultimo():
 
     try:
         cur = conn.cursor()
-        cur.execute("SET time_zone = '-05:00'")
+        cur.execute("SET time_zone = '-05:00'")  # Forzar TZ MySQL
 
         cur.execute("""
             SELECT nombre, tipo_doc, numero_doc, telefono, procedencia, valor, observacion, check_in
@@ -1652,11 +1652,11 @@ def ultimo_cliente(habitacion_id):
         conn.close()
 
 def liberar_habitaciones_automaticamente():
-    """Función que se ejecuta en hilo separado para liberar habitaciones a la 1 AM"""
+    """Función que se ejecuta en hilo separado para liberar habitaciones a las 13:00 (1 PM)"""
     while True:
         try:
             now = datetime.now()
-            if now.hour == 1 and now.minute == 0:  # 1:00 AM
+            if now.hour == 13 and now.minute == 0:  # 1:00 PM (13:00)
                 conn = get_db_connection()
                 if conn:
                     try:
@@ -1683,7 +1683,7 @@ def liberar_habitaciones_automaticamente():
                         
                         habitaciones_liberadas = cur.rowcount
                         conn.commit()
-                        print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente a la 1 AM")
+                        print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente a las 13:00 (1 PM)")
                     except Exception as e:
                         print(f"Error en liberación automática: {e}")
                     finally:
@@ -2338,6 +2338,7 @@ def actualizar_reserva_existente(cliente_id, datos_cliente):
     finally:
         cur.close()
         conn.close()
+
 
 # ----------------- EDITAR HABITACIÓN -----------------
 @app.route('/editar_habitacion/<int:habitacion_id>')

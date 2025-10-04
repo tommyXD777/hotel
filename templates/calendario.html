@@ -309,14 +309,22 @@
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Precio Total</label>
-                    <input type="number" id="precioTotal" step="0.01" min="0"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                           placeholder="0.00">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Valor por Noche *</label>
+                        <input type="number" id="valorPorNoche" step="0.01" min="0" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                               placeholder="0.00">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Total Calculado</label>
+                        <input type="text" id="totalCalculado" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-semibold"
+                               placeholder="$0.00">
+                    </div>
                 </div>
 
-                 Added observation field 
+                <!-- Added observation field -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
                     <textarea id="observacionReserva" rows="3"
@@ -356,7 +364,7 @@
             // Event listeners para el formulario
             document.getElementById('fechaInicio').addEventListener('change', calcularResumen);
             document.getElementById('fechaFin').addEventListener('change', calcularResumen);
-            document.getElementById('precioTotal').addEventListener('input', calcularResumen);
+            document.getElementById('valorPorNoche').addEventListener('input', calcularResumen);
         });
 
         function generarCalendario() {
@@ -471,13 +479,27 @@
             });
         }
 
-        function editarReserva(reserva) {
+        function editarReserva(reservaId) {
+            // Find the reservation in the data array
+            const reserva = reservasData.find(r => (r.id || r.reserva_id) == reservaId);
+            
+            if (!reserva) {
+                alert('❌ No se pudo encontrar la reserva');
+                return;
+            }
+            
             // Pre-llenar el modal con los datos existentes
             document.getElementById('habitacionSelect').value = reserva.habitacion_id;
             document.getElementById('nombreCliente').value = reserva.nombre;
             document.getElementById('fechaInicio').value = reserva.fecha_inicio;
             document.getElementById('fechaFin').value = reserva.fecha_fin;
-            document.getElementById('precioTotal').value = reserva.valor;
+            
+            const fechaInicio = new Date(reserva.fecha_inicio);
+            const fechaFin = new Date(reserva.fecha_fin);
+            const dias = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
+            const valorPorNoche = dias > 0 ? (reserva.valor / dias) : 0;
+            
+            document.getElementById('valorPorNoche').value = valorPorNoche.toFixed(2);
             document.getElementById('observacionReserva').value = reserva.observacion || '';
             
             // Cambiar el título del modal
@@ -518,6 +540,8 @@
             document.getElementById('formReserva').reset();
             document.getElementById('resumenReserva').style.display = 'none';
             
+            document.getElementById('totalCalculado').value = '';
+            
             document.querySelector('#modalReserva h3').textContent = '📅 Nueva Reserva Larga';
             document.querySelector('#formReserva button[type="submit"]').textContent = '💾 Guardar Reserva';
             document.getElementById('formReserva').dataset.modo = '';
@@ -532,7 +556,7 @@
         function calcularResumen() {
             const fechaInicio = document.getElementById('fechaInicio').value;
             const fechaFin = document.getElementById('fechaFin').value;
-            const precio = parseFloat(document.getElementById('precioTotal').value) || 0;
+            const valorPorNoche = parseFloat(document.getElementById('valorPorNoche').value) || 0;
             
             if (fechaInicio && fechaFin) {
                 const inicio = new Date(fechaInicio);
@@ -540,20 +564,25 @@
                 const dias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
                 
                 if (dias > 0) {
-                    const precioPorDia = precio > 0 ? (precio / dias).toFixed(2) : 0;
+                    const precioTotal = valorPorNoche * dias;
+                    
+                    // Update the calculated total field
+                    document.getElementById('totalCalculado').value = `$${precioTotal.toFixed(2)}`;
                     
                     document.getElementById('detallesReserva').innerHTML = `
                         <div><strong>Duración:</strong> ${dias} día${dias !== 1 ? 's' : ''}</div>
-                        <div><strong>Precio total:</strong> $${precio.toFixed(2)}</div>
-                        <div><strong>Precio por día:</strong> $${precioPorDia}</div>
+                        <div><strong>Valor por noche:</strong> $${valorPorNoche.toFixed(2)}</div>
+                        <div><strong>Precio total:</strong> $${precioTotal.toFixed(2)}</div>
                         <div><strong>Check-in:</strong> ${inicio.toLocaleDateString()} 2:00 PM</div>
                         <div><strong>Check-out:</strong> ${fin.toLocaleDateString()} 1:00 PM</div>
                     `;
                     document.getElementById('resumenReserva').style.display = 'block';
                 } else {
+                    document.getElementById('totalCalculado').value = '';
                     document.getElementById('resumenReserva').style.display = 'none';
                 }
             } else {
+                document.getElementById('totalCalculado').value = '';
                 document.getElementById('resumenReserva').style.display = 'none';
             }
         }
@@ -565,12 +594,18 @@
             const modoEdicion = this.dataset.modo === 'editar';
             const clienteId = document.getElementById('cliente_id_edit')?.value;
             
+            const fechaInicio = new Date(document.getElementById('fechaInicio').value);
+            const fechaFin = new Date(document.getElementById('fechaFin').value);
+            const dias = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
+            const valorPorNoche = parseFloat(document.getElementById('valorPorNoche').value) || 0;
+            const precioTotal = valorPorNoche * dias;
+            
             const data = {
                 habitacion_id: document.getElementById('habitacionSelect').value,
                 nombre_cliente: document.getElementById('nombreCliente').value,
                 fecha_inicio: document.getElementById('fechaInicio').value,
                 fecha_fin: document.getElementById('fechaFin').value,
-                precio_total: parseFloat(document.getElementById('precioTotal').value) || 0,
+                precio_total: precioTotal,
                 observacion: document.getElementById('observacionReserva').value || ''
             };
             
@@ -583,9 +618,9 @@
                 return;
             }
             
-            const fechaInicio = new Date(data.fecha_inicio);
-            const fechaFin = new Date(data.fecha_fin);
-            if (fechaFin <= fechaInicio) {
+            const fechaInicioDateObj = new Date(data.fecha_inicio);
+            const fechaFinDateObj = new Date(data.fecha_fin);
+            if (fechaFinDateObj <= fechaInicioDateObj) {
                 alert('La fecha de fin debe ser posterior a la fecha de inicio');
                 return;
             }
@@ -663,6 +698,7 @@
                 const dias = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
                 const hoy = new Date();
                 const esFutura = fechaInicio > hoy;
+                const reservaId = reserva.id || reserva.reserva_id;
                 
                 return `
                     <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${esFutura ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-green-500'}">
@@ -684,11 +720,11 @@
                                 <div class="text-sm text-gray-500">Total</div>
                                 ${esFutura ? `
                                     <div class="flex gap-2 mt-2">
-                                        <button onclick="editarReserva(${JSON.stringify(reserva).replace(/"/g, '&quot;')})" 
+                                        <button onclick="editarReserva(${reservaId})" 
                                                 class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600">
                                             ✏️ Editar
                                         </button>
-                                        <button onclick="if(confirm('¿Estás seguro de eliminar esta reserva?')) eliminarReserva(${reserva.id || reserva.reserva_id})" 
+                                        <button onclick="if(confirm('¿Estás seguro de eliminar esta reserva?')) eliminarReserva(${reservaId})" 
                                                 class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
                                             🗑️ Eliminar
                                         </button>
