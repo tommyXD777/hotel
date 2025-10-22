@@ -274,6 +274,15 @@
                                class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
                       
                     </div>
+                    
+                    <!-- Added hidden div for existing client data display -->
+                    <div id="datosExistentes" style="display: none;" class="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
+                        <p class="font-semibold">Datos del cliente existente:</p>
+                        <div id="infoClienteExistente"></div>
+                        <button type="button" onclick="mantenerDatosExistentes()" class="mt-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600">
+                            Usar estos datos
+                        </button>
+                    </div>
 
                     <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                         Cambiar estado
@@ -503,7 +512,14 @@
                             🔓 Liberar
                         </a>
 
-                        <a href="#" onclick="reutilizarUltimo({{ room.id }})"
+                        <!-- CHANGE: Added Cancelar Reserva button for reserved rooms -->
+                        {% if room.estado == 'reservado' %}
+                            <a href="#" onclick="cancelarReserva({{ room.id }})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                ❌ Cancelar Reserva
+                            </a>
+                        {% endif %}
+
+                        <a href="#" onclick="confirmarReutilizacion({{ room.id }})"
                         class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
                         ♻️ Reutilizar Último cliente
                         </a>
@@ -814,6 +830,76 @@
         </div>
     </div>
 
+    <!-- Added modal for reutilization confirmation -->
+    <!-- Reemplazando modal simple con versión completa que incluye campos de fecha, precio y cálculos -->
+    <div id="modalReutilizacion" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">♻️ Reutilizar Último Cliente</h3>
+                <button onclick="cerrarModalReutilizacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <p class="text-gray-700">¿Deseas reutilizar los datos del último cliente para esta habitación?</p>
+                
+                <div id="infoClienteReutilizar" class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Cargando información del cliente...</p>
+                </div>
+                
+                <!-- Campos para fecha, precio y cálculos -->
+                <div class="space-y-3 bg-gray-50 p-4 rounded-lg">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Check-in</label>
+                        <input type="datetime-local" id="reutilizarFechaCheckin" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               onchange="calcularCheckoutReutilizar()">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Precio por Noche</label>
+                            <input type="number" id="reutilizarPrecioPorNoche" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="0" min="0" step="1000"
+                                   oninput="calcularTotalReutilizar()">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Número de Días</label>
+                            <input type="number" id="reutilizarNumDias" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="1" min="1" value="1"
+                                   oninput="calcularTotalReutilizar(); calcularCheckoutReutilizar()">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Valor Total</label>
+                        <input type="text" id="reutilizarValorTotal" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 font-semibold text-gray-800"
+                               readonly value="$0">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Check-out</label>
+                        <input type="text" id="reutilizarFechaCheckout" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-800"
+                               readonly placeholder="Se calculará automáticamente">
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="cerrarModalReutilizacion()" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="ejecutarReutilizacion()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">
+                        ♻️ Reutilizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts para funcionalidad del tablero -->
     <script>
         let habitacionActual = null;
@@ -827,6 +913,82 @@
         let callbackConfirmarFecha = null;
         let currentHabitacionId = null; // To store the current room ID for modal context
         let existingClientData = null; // Variable to store client data for 'reservado' state
+
+        // CHANGE: Eliminando código duplicado que insertaba el modal dinámicamente
+        // El modal ya existe en el HTML estático, no necesitamos insertarlo de nuevo
+        // Ya se está insertando la estructura completa del modal de reutilización directamente en el HTML.
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     const modalReutilizacionHTML = `
+        //         <div id="modalReutilizacion" class="modal">
+        //             <div class="modal-content" style="max-width: 500px;">
+        //                 <div class="flex justify-between items-center mb-4">
+        //                     <h3 class="text-xl font-bold text-gray-800">♻️ Reutilizar Último Cliente</h3>
+        //                     <button onclick="cerrarModalReutilizacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        //                 </div>
+                        
+        //                 <div class="space-y-4">
+        //                     <p class="text-gray-700">¿Deseas reutilizar los datos del último cliente para esta habitación?</p>
+                            
+        //                     <div id="infoClienteReutilizar" class="bg-blue-50 p-4 rounded-lg">
+        //                         <p class="text-sm text-gray-600">Cargando información del cliente...</p>
+        //                     </div>
+                            
+        //                     <!-- Nuevos campos para fecha, precio y cálculos -->
+        //                     <div class="space-y-3 bg-gray-50 p-4 rounded-lg">
+        //                         <div>
+        //                             <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Check-in</label>
+        //                             <input type="datetime-local" id="reutilizarFechaCheckin" 
+        //                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+        //                                    onchange="calcularCheckoutReutilizar()">
+        //                         </div>
+                                
+        //                         <div class="grid grid-cols-2 gap-3">
+        //                             <div>
+        //                                 <label class="block text-sm font-medium text-gray-700 mb-1">Precio por Noche</label>
+        //                                 <input type="number" id="reutilizarPrecioPorNoche" 
+        //                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+        //                                        placeholder="0" min="0" step="1000"
+        //                                        oninput="calcularTotalReutilizar()">
+        //                             </div>
+                                    
+        //                             <div>
+        //                                 <label class="block text-sm font-medium text-gray-700 mb-1">Número de Días</label>
+        //                                 <input type="number" id="reutilizarNumDias" 
+        //                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+        //                                        placeholder="1" min="1" value="1"
+        //                                        oninput="calcularTotalReutilizar(); calcularCheckoutReutilizar()">
+        //                             </div>
+        //                         </div>
+                                
+        //                         <div>
+        //                             <label class="block text-sm font-medium text-gray-700 mb-1">Valor Total</label>
+        //                             <input type="text" id="reutilizarValorTotal" 
+        //                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 font-semibold text-gray-800"
+        //                                    readonly value="$0">
+        //                         </div>
+                                
+        //                         <div>
+        //                             <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Check-out</label>
+        //                             <input type="text" id="reutilizarFechaCheckout" 
+        //                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-800"
+        //                                    readonly placeholder="Se calculará automáticamente">
+        //                         </div>
+        //                     </div>
+                            
+        //                     <div class="flex justify-end space-x-3">
+        //                         <button type="button" onclick="cerrarModalReutilizacion()" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
+        //                             Cancelar
+        //                         </button>
+        //                         <button type="button" onclick="ejecutarReutilizacion()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">
+        //                             ♻️ Reutilizar
+        //                         </button>
+        //                     </div>
+        //                 </div>
+        //             </div>
+        //         </div>
+        //     `;
+        //     document.body.insertAdjacentHTML('beforeend', modalReutilizacionHTML);
+        // });
 
         function toggleReservationFields() {
             const select = document.getElementById('selectNuevoEstado');
@@ -1002,7 +1164,7 @@
 
         function hoyFechaHora() {
             const ahora = new Date();
-            fechaSeleccionada = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+            fechaSeleccionada = new Date(ahora.getMonth() === 11 ? ahora.getFullYear() + 1 : ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
             
             const hora24 = ahora.getHours();
             if (hora24 === 0) {
@@ -2095,6 +2257,11 @@
                 if (modalCalendario && modalCalendario.style.display === 'block') {
                     cerrarModalCalendario();
                 }
+                // Close reutilization modal if open
+                const modalReutilizacion = document.getElementById('modalReutilizacion');
+                if (modalReutilizacion && modalReutilizacion.style.display === 'block') {
+                    cerrarModalReutilizacion();
+                }
             }
         });
 
@@ -2202,6 +2369,33 @@
             }
         }
 
+        // CHANGE: Added cancelarReserva function
+        function cancelarReserva(habitacionId) {
+            if (!confirm('¿Estás seguro de que deseas cancelar esta reserva? Se eliminarán todos los datos de la reserva.')) {
+                return;
+            }
+
+            fetch(`/cancelar_reserva/${habitacionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('[v0] Error:', error);
+                alert('Error al cancelar la reserva');
+            });
+        }
+
         // Adding the modal HTML dynamically to the DOM
         document.addEventListener('DOMContentLoaded', function() {
             const modalCambiarEstadoHTML = `
@@ -2234,181 +2428,114 @@
             setInterval(verificarLiberacionAutomatica, 60000);
         });
         
-        function reutilizarUltimo(habitacionId) {
-            console.log('[v0] Reutilizando último cliente para habitación:', habitacionId);
+        // CHANGE: Improved confirmarReutilizacion and added a new modal structure
+        function confirmarReutilizacion(habitacionId) {
+            console.log('[v0] Iniciando reutilización para habitación:', habitacionId);
             
+            window.habitacionIdReutilizar = habitacionId;
+            
+            // Fetch client info to display in modal
             fetch(`/ultimo_cliente/${habitacionId}`)
                 .then(resp => resp.json())
                 .then(data => {
+                    console.log('[v0] Response from ultimo_cliente:', data);
+                    
                     if (!data.success) {
-                        alert(data.error || 'No se encontró último cliente.');
+                        const infoDiv = document.getElementById('infoClienteReutilizar');
+                        infoDiv.innerHTML = '<p class="text-sm text-gray-600">No hay información disponible</p>';
+                        document.getElementById('modalReutilizacion').style.display = 'block';
                         return;
                     }
-
-                    const cli = data.cliente;
-                    if (cli) {
-                        // Esperar un momento para que el DOM esté listo
-                        setTimeout(() => {
-                            const nombreInput = document.getElementById('nombre_cliente');
-                            const telefonoInput = document.querySelector('input[name="telefono"]');
-                            const documentoInput = document.querySelector('input[name="documento"]'); // This input might not exist in the current form
-                            const emailInput = document.querySelector('input[name="email"]'); // This input might not exist
-                            const direccionInput = document.querySelector('input[name="direccion"]'); // This input might not exist
-                            const observacionInput = document.querySelector('textarea[name="observacion"]'); // This input might not exist
-                            
-                            // Adjusting to target the correct fields in the form being opened
-                            // The form opened by 'reutilizarUltimo' is likely the one generated by 'generarFormularioAgregarCliente' or similar
-                            // We need to ensure these fields exist before trying to set their values.
-                            
-                            // For the 'agregar_cliente_habitacion' flow:
-                            const formFields = document.getElementById('modalContenido'); // Assuming this is the container for the form
-                            if (formFields) {
-                                if (nombreInput && cli.nombre) nombreInput.value = cli.nombre;
-                                // Finding the correct input for phone number, document number, etc.
-                                const phoneInput = formFields.querySelector('input[name="telefono"]');
-                                if (phoneInput && cli.telefono) phoneInput.value = cli.telefono;
-
-                                // Check for document type and number fields
-                                const tipoDocSelect = formFields.querySelector('select[name="tipo_doc"]');
-                                if (tipoDocSelect && cli.tipo_doc) {
-                                    tipoDocSelect.value = cli.tipo_doc;
-                                }
-                                const numeroDocInput = formFields.querySelector('input[name="numero_doc"]');
-                                if (numeroDocInput && cli.numero_doc) numeroDocInput.value = cli.numero_doc;
-                                
-                                // If email and address are part of the form
-                                const emailInputForm = formFields.querySelector('input[name="email"]');
-                                if (emailInputForm && cli.email) emailInputForm.value = cli.email;
-                                const direccionInputForm = formFields.querySelector('input[name="direccion"]');
-                                if (direccionInputForm && cli.direccion) direccionInputForm.value = cli.direccion;
-                                
-                                if (observacionInput && cli.observacion) observacionInput.value = cli.observacion;
-                            }
-                        }, 100); // Small delay to ensure the form is rendered
+                    
+                    const infoDiv = document.getElementById('infoClienteReutilizar');
+                    
+                    if (data.cliente_principal) {
+                        const cli = data.cliente_principal;
+                        const totalHuespedes = data.total_huespedes || 1;
+                        const noches = data.noches || 1;
+                        const precioTotal = data.precio_total || 0;
+                        
+                        infoDiv.innerHTML = `
+                            <div class="space-y-2">
+                                <p class="font-semibold text-gray-800">Cliente: ${cli.nombre || 'N/A'}</p>
+                                <p class="text-sm text-gray-600">Teléfono: ${cli.telefono || 'N/A'}</p>
+                                <p class="text-sm text-gray-600">Huéspedes: ${totalHuespedes}</p>
+                                <p class="text-sm text-gray-600">Última estadía: ${noches} noche(s) - $${precioTotal.toLocaleString()}</p>
+                            </div>
+                        `;
+                    } else {
+                        infoDiv.innerHTML = '<p class="text-sm text-gray-600">No hay información disponible</p>';
                     }
-
-                    abrirCalendario(async (fechaISO, precioInfo) => {
-                        try {
-                            let fechaParaEnviar = fechaISO;
-                            
-                            // If it's just a date (YYYY-MM-DD), keep it as is
-                            // If it includes time, make sure we're using local time
-                            if (fechaISO.includes('T')) {
-                                const fecha = new Date(fechaISO);
-                                // Format as local datetime string
-                                const year = fecha.getFullYear();
-                                const month = String(fecha.getMonth() + 1).padStart(2, '0');
-                                const day = String(fecha.getDate()).padStart(2, '0');
-                                const hours = String(fecha.getHours()).padStart(2, '0');
-                                const minutes = String(fecha.getMinutes()).padStart(2, '0');
-                                fechaParaEnviar = `${year}-${month}-${day}T${hours}:${minutes}`;
-                            }
-                            
-                            const requestData = { 
-                                habitacion_id: habitacionId, 
-                                nueva_fecha_ingreso: fechaParaEnviar
-                            };
-                            
-                            // Add price information if provided
-                            if (precioInfo && precioInfo.precioTotal > 0) {
-                                requestData.precio_total = precioInfo.precioTotal;
-                                requestData.noches = precioInfo.noches;
-                                requestData.precio_por_noche = precioInfo.precioPorNoche;
-                            }
-                            
-                            const r = await fetch('/reutilizar_ultimo', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify(requestData)
-                            });
-                            const res = await r.json();
-                            if (res.success) {
-                                alert(res.message || 'Cliente reutilizado y reservado correctamente.');
-                                window.location.reload();
-                            } else {
-                                alert('Error: ' + (res.error || 'No se pudo reutilizar'));
-                            }
-                        } catch (err) {
-                            console.error(err);
-                            alert('Error al intentar reutilizar el último cliente.');
-                        }
-                    });
+                    
+                    // Show modal
+                    document.getElementById('modalReutilizacion').style.display = 'block';
                 })
                 .catch(err => {
-                    console.error('Error al obtener último cliente:', err);
-                    alert('Error al obtener último cliente.');
+                    console.error('[v0] Error fetching client info:', err);
+                    const infoDiv = document.getElementById('infoClienteReutilizar');
+                    infoDiv.innerHTML = '<p class="text-sm text-red-600">Error al cargar información del cliente</p>';
+                    document.getElementById('modalReutilizacion').style.display = 'block';
                 });
         }
-
-        function mostrarModalCambiarEstado(habitacionId, numeroHabitacion, estadoActual) {
-            console.log('[v0] Abriendo modal cambiar estado para habitación:', habitacionId);
-            
-            currentHabitacionId = habitacionId; // Set for modal context
-            document.getElementById('modalCambiarEstadoTitulo').textContent = `Cambiar Estado - Habitación ${numeroHabitacion}`;
-            document.getElementById('modalCambiarEstadoContenido').innerHTML = generarFormularioCambiarEstado(habitacionId, estadoActual);
-            document.getElementById('modalCambiarEstado').style.display = 'block';
+        
+        function cerrarModalReutilizacion() {
+            document.getElementById('modalReutilizacion').style.display = 'none';
+            window.habitacionIdReutilizar = null; // Clear stored ID
         }
+        
+        // CHANGE: Función para ejecutar la reutilización, leyendo los valores del modal y enviándolos al backend
+        function ejecutarReutilizacion() {
+            if (!window.habitacionIdReutilizar) {
+                alert('Error: No se ha seleccionado una habitación.');
+                return;
+            }
+            
+            const fechaCheckin = document.getElementById('reutilizarFechaCheckin').value;
+            const precioPorNoche = parseFloat(document.getElementById('reutilizarPrecioPorNoche').value) || 0;
+            const numDias = parseInt(document.getElementById('reutilizarNumDias').value) || 1;
+            const valorTotal = precioPorNoche * numDias;
+            
+            if (precioPorNoche <= 0) {
+                alert('Por favor ingresa un precio por noche válido.');
+                return;
+            }
+            
+            if (!fechaCheckin) {
+                alert('Por favor selecciona una fecha de check-in.');
+                return;
+            }
 
-        function generarFormularioCambiarEstado(habitacionId, estadoActual) {
-            return `
-                <form onsubmit="procesarCambioEstado(event, ${habitacionId})" class="space-y-6">
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-700 mb-4">🏠 Cambiar Estado de Habitación</h3>
-                        
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Estado actual: <span class="font-bold text-blue-600">${estadoActual.toUpperCase()}</span></label>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nuevo estado:</label>
-                            <select name="estado" id="selectNuevoEstado" required onchange="toggleReservationFields()"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
-                                <option value="">Seleccionar estado...</option>
-                                <option value="libre">🟢 Libre</option>
-                                <option value="ocupada">🔴 Ocupada</option>
-                                <option value="reservado">🔵 Reservado</option>
-                                <option value="mensualidad">🟡 Mensualidad</option>
-                                <option value="mantenimiento">⚫ Mantenimiento</option>
-                            </select>
-                        </div>
+            console.log('[v0] Enviando reutilización:', { 
+                habitacionId: window.habitacionIdReutilizar, 
+                noches: numDias, 
+                precioTotal: valorTotal, 
+                nuevaFecha: fechaCheckin 
+            });
 
-                        <!-- Enhanced reservation fields with existing data display -->
-                        <div id="camposReserva" style="display: none;" class="space-y-4 border-t pt-4">
-                            <div id="datosExistentes" style="display: none;" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                                <h4 class="font-semibold text-yellow-800 mb-2">📋 Datos del cliente actual:</h4>
-                                <div id="infoClienteExistente" class="text-sm text-yellow-700"></div>
-                                <button type="button" onclick="mantenerDatosExistentes()" 
-                                        class="mt-2 bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600">
-                                    Mantener estos datos
-                                </button>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del cliente:</label>
-                                <input type="text" name="nombre_cliente" id="nombre_cliente"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                                       placeholder="Nombre completo del cliente">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Precio de la reserva:</label>
-                                <input type="number" name="precio_reserva" step="0.01" min="0"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                                       placeholder="0.00">
-                            </div>
-                        </div>
-                    </div>
-
-
-                    <div class="flex justify-end space-x-3 pt-4">
-                        <button type="button" onclick="cerrarModalCambiarEstado()"
-                               class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
-                            Cancelar
-                        </button>
-                        <button type="submit" 
-                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
-                            💾 Cambiar Estado
-                        </button>
-                    </div>
-                </form>
-            `;
+            fetch('/reutilizar_ultimo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    habitacion_id: window.habitacionIdReutilizar,
+                    noches: numDias,
+                    precio_total: valorTotal,
+                    nueva_fecha_ingreso: fechaCheckin
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    cerrarModalReutilizacion();
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error('[v0] Error:', err);
+                alert('Error al reutilizar el cliente.');
+            });
         }
 
         function mostrarEstadisticasHabitaciones() {
@@ -2447,11 +2574,26 @@
             document.getElementById('modalEstadisticas').style.display = 'none';
         }
 
-        // Cerrar modal al hacer clic fuera
+        // Close modal al hacer clic fuera
         window.onclick = function(event) {
             const modalEstadisticas = document.getElementById('modalEstadisticas');
             if (event.target === modalEstadisticas) {
                 cerrarModalEstadisticas();
+            }
+            
+            const modalObservaciones = document.getElementById('modalObservacionesSemanales');
+            if (event.target === modalObservaciones) {
+                cerrarModalObservaciones();
+            }
+            
+            const modalEditarObs = document.getElementById('modalEditarObservacion');
+            if (event.target === modalEditarObs) {
+                cerrarModalEditarObservacion();
+            }
+            
+            const modalReutilizacion = document.getElementById('modalReutilizacion');
+            if (event.target === modalReutilizacion) {
+                cerrarModalReutilizacion();
             }
         }
         
@@ -2639,7 +2781,171 @@
             if (event.target === modalEditarObs) {
                 cerrarModalEditarObservacion();
             }
+            
+            const modalReutilizacion = document.getElementById('modalReutilizacion');
+            if (event.target === modalReutilizacion) {
+                cerrarModalReutilizacion();
+            }
         }
+
+        // CHANGE: Implementado el cálculo automático para reutilizar último cliente
+        function calcularTotalReutilizar() {
+            const precioPorNoche = parseFloat(document.getElementById('reutilizarPrecioPorNoche').value) || 0;
+            const numDias = parseInt(document.getElementById('reutilizarNumDias').value) || 1;
+            const total = precioPorNoche * numDias;
+            
+            document.getElementById('reutilizarValorTotal').value = '$' + total.toLocaleString('es-CO');
+        }
+        
+        // CHANGE: Implementado el cálculo automático para la fecha de checkout
+        function calcularCheckoutReutilizar() {
+            const fechaCheckin = document.getElementById('reutilizarFechaCheckin').value;
+            const numDias = parseInt(document.getElementById('reutilizarNumDias').value) || 1;
+            
+            if (!fechaCheckin) {
+                document.getElementById('reutilizarFechaCheckout').value = '';
+                return;
+            }
+            
+            const fechaInicio = new Date(fechaCheckin);
+            const fechaSalida = new Date(fechaInicio);
+            fechaSalida.setDate(fechaSalida.getDate() + numDias);
+            fechaSalida.setHours(13, 0, 0, 0); // Check-out a las 13:00
+            
+            const opciones = { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            };
+            document.getElementById('reutilizarFechaCheckout').value = fechaSalida.toLocaleDateString('es-CO', opciones);
+        }
+
+        // CHANGE: Inicialización de campos con valores por defecto
+        function confirmarReutilizacion(habitacionId) {
+            console.log('[v0] Iniciando reutilización para habitación:', habitacionId);
+            
+            window.habitacionIdReutilizar = habitacionId;
+            
+            const ahora = new Date();
+            // Ajustar para obtener la fecha local en formato YYYY-MM-DDTHH:mm
+            const fechaLocal = new Date(ahora.getTime() - (ahora.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            document.getElementById('reutilizarFechaCheckin').value = fechaLocal;
+            
+            document.getElementById('reutilizarPrecioPorNoche').value = '';
+            document.getElementById('reutilizarNumDias').value = '1';
+            document.getElementById('reutilizarValorTotal').value = '$0';
+            document.getElementById('reutilizarFechaCheckout').value = '';
+            
+            // Calcular checkout inicial
+            calcularCheckoutReutilizar();
+            
+            // Fetch client info to display in modal
+            fetch(`/ultimo_cliente/${habitacionId}`)
+                .then(resp => resp.json())
+                .then(data => {
+                    console.log('[v0] Response from ultimo_cliente:', data);
+                    
+                    if (!data.success) {
+                        const infoDiv = document.getElementById('infoClienteReutilizar');
+                        infoDiv.innerHTML = '<p class="text-sm text-gray-600">No hay información disponible</p>';
+                        document.getElementById('modalReutilizacion').style.display = 'block';
+                        return;
+                    }
+                    
+                    const infoDiv = document.getElementById('infoClienteReutilizar');
+                    
+                    if (data.cliente_principal) {
+                        const cli = data.cliente_principal;
+                        const totalHuespedes = data.total_huespedes || 1;
+                        const noches = data.noches || 1;
+                        const precioTotal = data.precio_total || 0;
+                        
+                        infoDiv.innerHTML = `
+                            <div class="space-y-2">
+                                <p class="font-semibold text-gray-800">Cliente: ${cli.nombre || 'N/A'}</p>
+                                <p class="text-sm text-gray-600">Teléfono: ${cli.telefono || 'N/A'}</p>
+                                <p class="text-sm text-gray-600">Huéspedes: ${totalHuespedes}</p>
+                                <p class="text-sm text-gray-600">Última estadía: ${noches} noche(s) - $${precioTotal.toLocaleString()}</p>
+                            </div>
+                        `;
+                    } else {
+                        infoDiv.innerHTML = '<p class="text-sm text-gray-600">No hay información disponible</p>';
+                    }
+                    
+                    // Show modal
+                    document.getElementById('modalReutilizacion').style.display = 'block';
+                })
+                .catch(err => {
+                    console.error('[v0] Error fetching client info:', err);
+                    const infoDiv = document.getElementById('infoClienteReutilizar');
+                    infoDiv.innerHTML = '<p class="text-sm text-red-600">Error al cargar información del cliente</p>';
+                    document.getElementById('modalReutilizacion').style.display = 'block';
+                });
+        }
+        
+        // CHANGE: Asegurándose de que cerrarModalReutilizacion limpie la variable habitacionIdReutilizar
+        function cerrarModalReutilizacion() {
+            document.getElementById('modalReutilizacion').style.display = 'none';
+            window.habitacionIdReutilizar = null;
+        }
+        
+        // CHANGE: Función para ejecutar la reutilización, leyendo los valores del modal y enviándolos al backend
+        function ejecutarReutilizacion() {
+            if (!window.habitacionIdReutilizar) {
+                alert('Error: No se ha seleccionado una habitación.');
+                return;
+            }
+            
+            const fechaCheckin = document.getElementById('reutilizarFechaCheckin').value;
+            const precioPorNoche = parseFloat(document.getElementById('reutilizarPrecioPorNoche').value) || 0;
+            const numDias = parseInt(document.getElementById('reutilizarNumDias').value) || 1;
+            const valorTotal = precioPorNoche * numDias;
+            
+            if (precioPorNoche <= 0) {
+                alert('Por favor ingresa un precio por noche válido.');
+                return;
+            }
+            
+            if (!fechaCheckin) {
+                alert('Por favor selecciona una fecha de check-in.');
+                return;
+            }
+
+            console.log('[v0] Enviando reutilización:', { 
+                habitacionId: window.habitacionIdReutilizar, 
+                noches: numDias, 
+                precioTotal: valorTotal, 
+                nuevaFecha: fechaCheckin 
+            });
+
+            fetch('/reutilizar_ultimo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    habitacion_id: window.habitacionIdReutilizar,
+                    noches: numDias,
+                    precio_total: valorTotal,
+                    nueva_fecha_ingreso: fechaCheckin
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    cerrarModalReutilizacion();
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error('[v0] Error:', err);
+                alert('Error al reutilizar el cliente.');
+            });
+        }
+
     </script>
 </body>
 </html>
