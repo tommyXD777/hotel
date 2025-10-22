@@ -1651,50 +1651,7 @@ def ultimo_cliente(habitacion_id):
     finally:
         conn.close()
 
-def liberar_habitaciones_automaticamente():
-    """Función que se ejecuta en hilo separado para liberar habitaciones a las 13:00 (1 PM)"""
-    while True:
-        try:
-            now = datetime.now()
-            if now.hour == 13 and now.minute == 0:  # 1:00 PM (13:00)
-                conn = get_db_connection()
-                if conn:
-                    try:
-                        cur = conn.cursor()
-                        # First, mark clients as checked out
-                        cur.execute("""
-                            UPDATE clientes 
-                            SET check_out = NOW() 
-                            WHERE check_out <= NOW() 
-                            AND (check_out IS NOT NULL)
-                        """)
-                        
-                        # Then, release rooms that have no active clients
-                        cur.execute("""
-                            UPDATE habitaciones h 
-                            SET h.estado = 'libre' 
-                            WHERE h.estado IN ('ocupada', 'mensualidad', 'reservado')
-                            AND NOT EXISTS (
-                                SELECT 1 FROM clientes c 
-                                WHERE c.habitacion_id = h.id 
-                                AND (c.check_out IS NULL OR c.check_out > NOW())
-                            )
-                        """)
-                        
-                        habitaciones_liberadas = cur.rowcount
-                        conn.commit()
-                        print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente a las 13:00 (1 PM)")
-                    except Exception as e:
-                        print(f"Error en liberación automática: {e}")
-                    finally:
-                        cur.close()
-                        conn.close()
-                        
-            time.sleep(60)  # Verificar cada minuto
-        except Exception as e:
-            print(f"Error en hilo de liberación: {e}")
-            time.sleep(60)
-
+# ----------------- CHECK-IN -----------------
 @app.route('/checkin', methods=['POST'])
 def checkin():
     user_id = require_user_session_json()
@@ -1745,30 +1702,217 @@ def checkin():
     finally:
         conn.close()
 
-def get_hora_bogota():
-    bogota_tz = timezone(timedelta(hours=-5))
-    return datetime.now(bogota_tz).strftime("%Y-%m-%d %H:%M:%S")
+def liberar_habitaciones_automaticamente():
+    """Función que se ejecuta en hilo separado para liberar habitaciones a las 13:00 (1 PM)"""
+    while True:
+        try:
+            now = datetime.now()
+            if now.hour == 13 and now.minute == 0:  # 1:00 PM (13:00)
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        # First, mark clients as checked out
+                        cur.execute("""
+                            UPDATE clientes 
+                            SET check_out = NOW() 
+                            WHERE check_out <= NOW() 
+                            AND (check_out IS NOT NULL)
+                        """)
+                        
+                        # Then, release rooms that have no active clients
+                        cur.execute("""
+                            UPDATE habitaciones h 
+                            SET h.estado = 'libre' 
+                            WHERE h.estado IN ('ocupada', 'mensualidad', 'reservado')
+                            AND NOT EXISTS (
+                                SELECT 1 FROM clientes c 
+                                WHERE c.habitacion_id = h.id 
+                                AND (c.check_out IS NULL OR c.check_out > NOW())
+                            )
+                        """)
+                        
+                        habitaciones_liberadas = cur.rowcount
+                        conn.commit()
+                        print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente a las 13:00 (1 PM)")
+                    except Exception as e:
+                        print(f"Error en liberación automática: {e}")
+                    finally:
+                        cur.close()
+                        conn.close()
+                        
+            time.sleep(60)  # Verificar cada minuto
+        except Exception as e:
+            print(f"Error en hilo de liberación: {e}")
+            time.sleep(60)
 
-def checkin(cliente_id, habitacion_id, conexion):
+def limpiar_observaciones_semanales():
+    """Función que limpia todas las observaciones cada lunes a las 7:00 AM"""
+    while True:
+        try:
+            now = datetime.now()
+            # Check if it's Monday (weekday() returns 0 for Monday) at 7:00 AM
+            if now.weekday() == 0 and now.hour == 7 and now.minute == 0:
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        # Delete all observations
+                        cur.execute("DELETE FROM observaciones_diarias")
+                        observaciones_eliminadas = cur.rowcount
+                        conn.commit()
+                        print(f"[{now}] {observaciones_eliminadas} observaciones eliminadas automáticamente el lunes a las 7:00 AM")
+                    except Exception as e:
+                        print(f"Error en limpieza de observaciones: {e}")
+                    finally:
+                        cur.close()
+                        conn.close()
+                        
+            time.sleep(60)  # Check every minute
+        except Exception as e:
+            print(f"Error en hilo de limpieza de observaciones: {e}")
+            time.sleep(60)
+
+@app.route('/obtener_observaciones', methods=['GET'])
+def obtener_observaciones():
+    """Get all observations for the current user"""
+    user_id = require_user_session_json()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
+
     try:
-        with conexion.cursor() as cursor:
-            # Obtener la hora de Bogotá
-            hora_ingreso = get_hora_bogota()
-
-            # Actualizar la habitación como ocupada y guardar datos del check-in
-            sql = """
-                UPDATE habitaciones
-                SET estado = 'ocupada',
-                    cliente_id = %s,
-                    hora_ingreso = %s
-                WHERE id = %s
-            """
-            cursor.execute(sql, (cliente_id, hora_ingreso, habitacion_id))
-            conexion.commit()
-            print(f"✅ Check-in exitoso: Cliente {cliente_id} en habitación {habitacion_id} a las {hora_ingreso}")
+        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur.execute("""
+            SELECT dia_semana, observacion, fecha_actualizacion 
+            FROM observaciones_diarias 
+            WHERE usuario_id = %s
+            ORDER BY FIELD(dia_semana, 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo')
+        """, (user_id,))
+        
+        observaciones = cur.fetchall()
+        
+        # Convert to dict with day as key
+        obs_dict = {}
+        for obs in observaciones:
+            obs_dict[obs['dia_semana']] = {
+                'observacion': obs['observacion'],
+                'fecha_actualizacion': obs['fecha_actualizacion'].isoformat() if obs['fecha_actualizacion'] else None
+            }
+        
+        return jsonify({"success": True, "observaciones": obs_dict})
+        
     except Exception as e:
-        print(f"❌ Error en check-in: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 
+@app.route('/guardar_observacion', methods=['POST'])
+def guardar_observacion():
+    """Save or update an observation for a specific day"""
+    user_id = require_user_session_json()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
+    try:
+        data = request.get_json()
+        dia_semana = data.get('dia_semana')
+        observacion = data.get('observacion', '').strip()
+        
+        if not dia_semana:
+            return jsonify({"success": False, "error": "Día de la semana requerido"}), 400
+        
+        # Validate day of week
+        dias_validos = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+        if dia_semana not in dias_validos:
+            return jsonify({"success": False, "error": "Día de la semana inválido"}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
+        
+        try:
+            cur = conn.cursor()
+            
+            if observacion:
+                # Insert or update observation
+                cur.execute("""
+                    INSERT INTO observaciones_diarias (usuario_id, dia_semana, observacion)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE 
+                        observacion = VALUES(observacion),
+                        fecha_actualizacion = CURRENT_TIMESTAMP
+                """, (user_id, dia_semana, observacion))
+                
+                conn.commit()
+                return jsonify({"success": True, "message": f"Observación guardada para {dia_semana}"})
+            else:
+                # If observation is empty, delete it
+                cur.execute("""
+                    DELETE FROM observaciones_diarias 
+                    WHERE usuario_id = %s AND dia_semana = %s
+                """, (user_id, dia_semana))
+                
+                conn.commit()
+                return jsonify({"success": True, "message": f"Observación eliminada para {dia_semana}"})
+                
+        except pymysql.MySQLError as e:
+            conn.rollback()
+            return jsonify({"success": False, "error": f"Error en la base de datos: {str(e)}"}), 500
+        finally:
+            cur.close()
+            conn.close()
+            
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error interno: {str(e)}"}), 500
+
+@app.route('/eliminar_observacion', methods=['POST'])
+def eliminar_observacion():
+    """Delete an observation for a specific day"""
+    user_id = require_user_session_json()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
+    try:
+        data = request.get_json()
+        dia_semana = data.get('dia_semana')
+        
+        if not dia_semana:
+            return jsonify({"success": False, "error": "Día de la semana requerido"}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
+        
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                DELETE FROM observaciones_diarias 
+                WHERE usuario_id = %s AND dia_semana = %s
+            """, (user_id, dia_semana))
+            
+            conn.commit()
+            
+            if cur.rowcount > 0:
+                return jsonify({"success": True, "message": f"Observación eliminada para {dia_semana}"})
+            else:
+                return jsonify({"success": False, "error": "No se encontró observación para eliminar"}), 404
+                
+        except pymysql.MySQLError as e:
+            conn.rollback()
+            return jsonify({"success": False, "error": f"Error en la base de datos: {str(e)}"}), 500
+        finally:
+            cur.close()
+            conn.close()
+            
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error interno: {str(e)}"}), 500
+
+# ----------------- CALENDARIO -----------------
 @app.route('/calendario')
 def calendario():
     user_id = require_user_session()
@@ -1840,7 +1984,7 @@ def guardar_reserva_calendario():
             return jsonify({"success": False, "error": "No tienes permisos para esta habitación"})
 
         fecha_hoy = datetime.now().date()
-        if fecha_inicio_dt.date() == fecha_hoy and habitacion[1] != 'libre':
+        if fecha_inicio_dt.date() <= fecha_hoy and habitacion[1] != 'libre':
             return jsonify({
                 "success": False,
                 "error": f"La habitación {habitacion[0]} no está disponible para reservas que empiecen hoy. Estado actual: {habitacion[1]}. Para reservas inmediatas, la habitación debe estar libre."
@@ -2435,5 +2579,10 @@ if __name__ == '__main__':
     
     liberation_thread = threading.Thread(target=liberar_habitaciones_automaticamente, daemon=True)
     liberation_thread.start()
+    
+    # Start observations cleanup thread
+    observations_cleanup_thread = threading.Thread(target=limpiar_observaciones_semanales, daemon=True)
+    observations_cleanup_thread.start()
+    print("✅ Hilo de limpieza de observaciones iniciado")
     
     app.run(debug=True, host='0.0.0.0', port=5000)

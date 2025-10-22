@@ -233,6 +233,12 @@
                         class="bg-indigo-500 text-white px-4 py-3 rounded hover:bg-indigo-600 text-center font-medium">
                     📊 Ver Estado de Habitaciones
                 </button>
+                
+                <!-- CHANGE: Adding button to open weekly observations -->
+                <button onclick="mostrarObservacionesSemanales()" 
+                        class="bg-purple-500 text-white px-4 py-3 rounded hover:bg-purple-600 text-center font-medium">
+                    📝 Observaciones Semanales
+                </button>
             </div>
 
             <!-- Enhanced room state management with name and price fields -->
@@ -508,7 +514,7 @@
                                   onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
                                 <button type="submit" 
                                         class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
-                                    🗑 Eliminar
+                                    🗑️ Eliminar
                                 </button>
                             </form>
                         </div>
@@ -597,7 +603,7 @@
                     </div>
                 </div>
                 
-                <!-- Time Section (12-hour format with AM/PM) -->
+                <!-- Time Section (12-hour format with AM/PM toggle) -->
                 <div class="border border-gray-200 rounded-lg p-4">
                     <h4 class="text-lg font-semibold mb-3">🕐 Seleccionar Hora</h4>
                     
@@ -692,7 +698,7 @@
         </div>
     </div>
 
-    <!-- Modal para mostrar estadísticas de habitaciones -->
+    <!-- Modal for statistics -->
     <div id="modalEstadisticas" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
@@ -747,6 +753,64 @@
                     Cerrar
                 </button>
             </div>
+        </div>
+    </div>
+    
+    <!-- CHANGE: Adding modal for weekly observations -->
+    <div id="modalObservacionesSemanales" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800">📝 Observaciones Semanales</h3>
+                <button onclick="cerrarModalObservaciones()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+            </div>
+            
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p class="text-sm text-yellow-800">
+                    ⚠️ <strong>Nota:</strong> Las observaciones se limpian automáticamente cada lunes a las 7:00 AM
+                </p>
+            </div>
+            
+            <div id="contenidoObservaciones" class="space-y-3">
+                <!-- Weekly observation buttons will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for editing individual day observation -->
+    <div id="modalEditarObservacion" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="tituloEditarObservacion" class="text-xl font-bold text-gray-800"></h3>
+                <button onclick="cerrarModalEditarObservacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <form onsubmit="guardarObservacionDia(event)" class="space-y-4">
+                <input type="hidden" id="diaSeleccionado" name="dia_semana">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Observación:</label>
+                    <textarea id="textoObservacion" name="observacion" rows="6"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                              placeholder="Escribe tus observaciones para este día..."></textarea>
+                </div>
+                
+                <div class="flex justify-between space-x-3">
+                    <button type="button" onclick="eliminarObservacionDia()" 
+                            class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        🗑️ Eliminar
+                    </button>
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="cerrarModalEditarObservacion()" 
+                                class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            💾 Guardar
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -2388,6 +2452,192 @@
             const modalEstadisticas = document.getElementById('modalEstadisticas');
             if (event.target === modalEstadisticas) {
                 cerrarModalEstadisticas();
+            }
+        }
+        
+        let observacionesCache = {};
+        
+        function mostrarObservacionesSemanales() {
+            document.getElementById('modalObservacionesSemanales').style.display = 'block';
+            cargarObservaciones();
+        }
+        
+        function cerrarModalObservaciones() {
+            document.getElementById('modalObservacionesSemanales').style.display = 'none';
+        }
+        
+        function cargarObservaciones() {
+            fetch('/obtener_observaciones')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        observacionesCache = data.observaciones;
+                        renderizarBotonesSemanales();
+                    } else {
+                        alert('Error al cargar observaciones: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar las observaciones');
+                });
+        }
+        
+        function renderizarBotonesSemanales() {
+            const dias = [
+                { key: 'lunes', nombre: 'Lunes', emoji: '📅' },
+                { key: 'martes', nombre: 'Martes', emoji: '📅' },
+                { key: 'miercoles', nombre: 'Miércoles', emoji: '📅' },
+                { key: 'jueves', nombre: 'Jueves', emoji: '📅' },
+                { key: 'viernes', nombre: 'Viernes', emoji: '📅' },
+                { key: 'sabado', nombre: 'Sábado', emoji: '📅' },
+                { key: 'domingo', nombre: 'Domingo', emoji: '📅' }
+            ];
+            
+            const contenedor = document.getElementById('contenidoObservaciones');
+            contenedor.innerHTML = '';
+            
+            dias.forEach(dia => {
+                const tieneObservacion = observacionesCache[dia.key] && observacionesCache[dia.key].observacion;
+                
+                const diaDiv = document.createElement('div');
+                diaDiv.className = `border rounded-lg p-4 cursor-pointer transition-all ${
+                    tieneObservacion 
+                        ? 'bg-green-50 border-green-300 hover:bg-green-100' 
+                        : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
+                }`;
+                diaDiv.onclick = () => abrirEditarObservacion(dia.key, dia.nombre);
+                
+                diaDiv.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">${dia.emoji}</span>
+                            <div>
+                                <h4 class="font-semibold text-gray-800">${dia.nombre}</h4>
+                                ${tieneObservacion 
+                                    ? `<p class="text-sm text-gray-600 mt-1 line-clamp-2">${observacionesCache[dia.key].observacion}</p>`
+                                    : '<p class="text-sm text-gray-500 italic">Sin observaciones</p>'
+                                }
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            ${tieneObservacion 
+                                ? '<span class="bg-green-500 text-white text-xs px-2 py-1 rounded">✓ Guardado</span>'
+                                : '<span class="bg-gray-400 text-white text-xs px-2 py-1 rounded">Vacío</span>'
+                            }
+                            <span class="text-gray-400">›</span>
+                        </div>
+                    </div>
+                `;
+                
+                contenedor.appendChild(diaDiv);
+            });
+        }
+        
+        function abrirEditarObservacion(diaKey, diaNombre) {
+            document.getElementById('tituloEditarObservacion').textContent = `Observaciones - ${diaNombre}`;
+            document.getElementById('diaSeleccionado').value = diaKey;
+            
+            const observacionActual = observacionesCache[diaKey] ? observacionesCache[diaKey].observacion : '';
+            document.getElementById('textoObservacion').value = observacionActual || '';
+            
+            document.getElementById('modalEditarObservacion').style.display = 'block';
+        }
+        
+        function cerrarModalEditarObservacion() {
+            document.getElementById('modalEditarObservacion').style.display = 'none';
+            document.getElementById('textoObservacion').value = '';
+            document.getElementById('diaSeleccionado').value = '';
+        }
+        
+        function guardarObservacionDia(event) {
+            event.preventDefault();
+            
+            const diaKey = document.getElementById('diaSeleccionado').value;
+            const observacion = document.getElementById('textoObservacion').value.trim();
+            
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = '💾 Guardando...';
+            submitButton.disabled = true;
+            
+            fetch('/guardar_observacion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    dia_semana: diaKey,
+                    observacion: observacion
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert(result.message);
+                    cerrarModalEditarObservacion();
+                    cargarObservaciones(); // Reload observations
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al guardar la observación');
+            })
+            .finally(() => {
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
+            });
+        }
+        
+        function eliminarObservacionDia() {
+            const diaKey = document.getElementById('diaSeleccionado').value;
+            
+            if (!confirm('¿Estás seguro de que deseas eliminar esta observación?')) {
+                return;
+            }
+            
+            fetch('/eliminar_observacion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    dia_semana: diaKey
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert(result.message);
+                    cerrarModalEditarObservacion();
+                    cargarObservaciones(); // Reload observations
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al eliminar la observación');
+            });
+        }
+        
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const modalEstadisticas = document.getElementById('modalEstadisticas');
+            if (event.target === modalEstadisticas) {
+                cerrarModalEstadisticas();
+            }
+            
+            const modalObservaciones = document.getElementById('modalObservacionesSemanales');
+            if (event.target === modalObservaciones) {
+                cerrarModalObservaciones();
+            }
+            
+            const modalEditarObs = document.getElementById('modalEditarObservacion');
+            if (event.target === modalEditarObs) {
+                cerrarModalEditarObservacion();
             }
         }
     </script>
