@@ -642,10 +642,14 @@ def guardar_nuevo_cliente():
 
         check_in_dt = datetime.strptime(check_in, "%Y-%m-%dT%H:%M")
         check_out_dt = datetime.strptime(check_out_fecha, "%Y-%m-%d")
-        check_out_dt = datetime(check_out_dt.year, check_out_dt.month, check_out_dt.day, 13, 0)
 
-        hora_ingreso_time = check_in_dt.time()
-        print(f"[DEBUG] guardar_nuevo_cliente - Fechas procesadas: check_in_dt={check_in_dt}, check_out_dt={check_out_dt}, hora_ingreso={hora_ingreso_time}")
+        # Validar que la fecha de check-out sea en el futuro
+        now = datetime.now()
+        if check_out_dt <= now:
+            if request.is_json:
+                return jsonify({"success": False, "error": "La fecha de check-out debe ser en el futuro"})
+            flash('La fecha de check-out debe ser en el futuro.', 'error')
+            return redirect(url_for('index'))
 
         conn = get_db_connection()
         if not conn:
@@ -656,6 +660,43 @@ def guardar_nuevo_cliente():
             return redirect(url_for('index'))
 
         cur = conn.cursor()
+        
+        # Get user's configured checkout time
+        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        checkout_config = cur.fetchone()
+        
+        if checkout_config and checkout_config[0]:
+            checkout_time = checkout_config[0]
+            
+            # Handle different types returned by MySQL
+            if isinstance(checkout_time, timedelta):
+                # MySQL TIME type returns as timedelta
+                total_seconds = int(checkout_time.total_seconds())
+                checkout_hour = total_seconds // 3600
+                checkout_minute = (total_seconds % 3600) // 60
+            elif isinstance(checkout_time, str):
+                # String format "HH:MM:SS" or "HH:MM"
+                checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
+                checkout_hour = checkout_time_obj.hour
+                checkout_minute = checkout_time_obj.minute
+            elif isinstance(checkout_time, time):
+                # Already a time object
+                checkout_hour = checkout_time.hour
+                checkout_minute = checkout_time.minute
+            else:
+                # Fallback to default
+                checkout_hour = 13
+                checkout_minute = 0
+        else:
+            # Default to 1 PM if not configured
+            checkout_hour = 13
+            checkout_minute = 0
+        
+        check_out_dt = datetime(check_out_dt.year, check_out_dt.month, check_out_dt.day, checkout_hour, checkout_minute)
+        print(f"[DEBUG] guardar_nuevo_cliente - Using checkout time: {checkout_hour}:{checkout_minute:02d}")
+
+        hora_ingreso_time = check_in_dt.time()
+        print(f"[DEBUG] guardar_nuevo_cliente - Fechas procesadas: check_in_dt={check_in_dt}, check_out_dt={check_out_dt}, hora_ingreso={hora_ingreso_time}")
 
         cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
         habitacion_check = cur.fetchone()
@@ -784,9 +825,48 @@ def registrar_cliente(habitacion_id):
         # Parse check-in datetime
         check_in_dt = datetime.strptime(check_in, "%Y-%m-%dT%H:%M")
         
-        # Parse check-out date and set time to 1 PM
+        # Parse check-out date
         check_out_dt = datetime.strptime(check_out_fecha, "%Y-%m-%d")
-        check_out_dt = datetime(check_out_dt.year, check_out_dt.month, check_out_dt.day, 13, 0)
+        
+        conn = get_db_connection()
+        if not conn:
+            flash('Error de conexión a la base de datos.', 'error')
+            return redirect(url_for('index'))
+
+        cur = conn.cursor()
+        
+        # Get user's configured checkout time
+        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        checkout_config = cur.fetchone()
+        
+        if checkout_config and checkout_config[0]:
+            checkout_time = checkout_config[0]
+            
+            # Handle different types returned by MySQL
+            if isinstance(checkout_time, timedelta):
+                # MySQL TIME type returns as timedelta
+                total_seconds = int(checkout_time.total_seconds())
+                checkout_hour = total_seconds // 3600
+                checkout_minute = (total_seconds % 3600) // 60
+            elif isinstance(checkout_time, str):
+                # String format "HH:MM:SS" or "HH:MM"
+                checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
+                checkout_hour = checkout_time_obj.hour
+                checkout_minute = checkout_time_obj.minute
+            elif isinstance(checkout_time, time):
+                # Already a time object
+                checkout_hour = checkout_time.hour
+                checkout_minute = checkout_time.minute
+            else:
+                # Fallback to default
+                checkout_hour = 13
+                checkout_minute = 0
+        else:
+            # Default to 1 PM if not configured
+            checkout_hour = 13
+            checkout_minute = 0
+        
+        check_out_dt = datetime(check_out_dt.year, check_out_dt.month, check_out_dt.day, checkout_hour, checkout_minute)
         
         # Extract time for hora_ingreso field
         hora_ingreso_time = check_in_dt.time()
@@ -816,14 +896,7 @@ def registrar_cliente(habitacion_id):
                         'procedencia': request.form.get(f'personas_adicionales[{index}][procedencia]', '')
                     })
 
-    conn = get_db_connection()
-    if not conn:
-        flash('Error de conexión a la base de datos.', 'error')
-        return redirect(url_for('index'))
-
     try:
-        cur = conn.cursor()
-        
         cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
         if not cur.fetchone():
             flash('No tienes permisos para modificar esta habitación.', 'error')
@@ -1361,7 +1434,38 @@ def reutilizar_ultimo():
         except ValueError:
             return jsonify({"success": False, "error": "Formato de fecha inválido"}), 400
 
-        nueva_fecha_salida = nueva_fecha_dt.replace(hour=13, minute=0, second=0, microsecond=0) + timedelta(days=int(noches))
+        # Get user's configured checkout time
+        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        checkout_config = cur.fetchone()
+        
+        if checkout_config and checkout_config[0]:
+            checkout_time = checkout_config[0]
+            
+            # Handle different types returned by MySQL
+            if isinstance(checkout_time, timedelta):
+                # MySQL TIME type returns as timedelta
+                total_seconds = int(checkout_time.total_seconds())
+                checkout_hour = total_seconds // 3600
+                checkout_minute = (total_seconds % 3600) // 60
+            elif isinstance(checkout_time, str):
+                # String format "HH:MM:SS" or "HH:MM"
+                checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
+                checkout_hour = checkout_time_obj.hour
+                checkout_minute = checkout_time_obj.minute
+            elif isinstance(checkout_time, time):
+                # Already a time object
+                checkout_hour = checkout_time.hour
+                checkout_minute = checkout_time.minute
+            else:
+                # Fallback to default
+                checkout_hour = 13
+                checkout_minute = 0
+        else:
+            # Default to 1 PM if not configured
+            checkout_hour = 13
+            checkout_minute = 0
+        
+        nueva_fecha_salida = nueva_fecha_dt.replace(hour=checkout_hour, minute=checkout_minute, second=0, microsecond=0) + timedelta(days=int(noches))
         hora_ingreso_time = nueva_fecha_dt
 
         for i, huesped in enumerate(huespedes_ultima_estadia):
@@ -1816,7 +1920,39 @@ def checkin():
         check_in = now
         hora_ingreso = now.time()
         # Calcula la hora de salida a las 13:00 del día correspondiente
-        check_out = check_in.replace(hour=13, minute=0, second=0, microsecond=0) + timedelta(days=int(noches))
+        
+        # Get user's configured checkout time
+        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        checkout_config = cur.fetchone()
+        
+        if checkout_config and checkout_config[0]:
+            checkout_time = checkout_config[0]
+            
+            # Handle different types returned by MySQL
+            if isinstance(checkout_time, timedelta):
+                # MySQL TIME type returns as timedelta
+                total_seconds = int(checkout_time.total_seconds())
+                checkout_hour = total_seconds // 3600
+                checkout_minute = (total_seconds % 3600) // 60
+            elif isinstance(checkout_time, str):
+                # String format "HH:MM:SS" or "HH:MM"
+                checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
+                checkout_hour = checkout_time_obj.hour
+                checkout_minute = checkout_time_obj.minute
+            elif isinstance(checkout_time, time):
+                # Already a time object
+                checkout_hour = checkout_time.hour
+                checkout_minute = checkout_time.minute
+            else:
+                # Fallback to default
+                checkout_hour = 13
+                checkout_minute = 0
+        else:
+            # Default to 1 PM if not configured
+            checkout_hour = 13
+            checkout_minute = 0
+        
+        check_out = check_in.replace(hour=checkout_hour, minute=checkout_minute, second=0, microsecond=0) + timedelta(days=int(noches))
 
         # Verificar si ya hay clientes activos en esta habitación
         cur.execute("""
@@ -1852,77 +1988,124 @@ def checkin():
         conn.close()
 
 def liberar_habitaciones_automaticamente():
-    """Función que se ejecuta en hilo separado para liberar habitaciones a las 13:00 (1 PM)"""
+    """
+    Función que se ejecuta en un hilo separado para liberar habitaciones automáticamente
+    cuando llega la hora de check-out configurada por cada usuario.
+    """
     while True:
         try:
-            now = datetime.now()
-            if now.hour == 13 and now.minute == 0:  # 1:00 PM (13:00)
-                conn = get_db_connection()
-                if conn:
-                    try:
-                        cur = conn.cursor()
-                        # First, mark clients as checked out if their check_out time has passed
-                        cur.execute("""
-                            UPDATE clientes 
-                            SET check_out = NOW(), estado = 'finalizado'
-                            WHERE check_out <= NOW() 
-                            AND (check_out IS NOT NULL)
-                            AND estado = 'activo'
-                        """)
-                        
-                        # Then, release rooms that have no active clients
-                        cur.execute("""
-                            UPDATE habitaciones h 
-                            SET h.estado = 'libre' 
-                            WHERE h.estado IN ('ocupada', 'mensualidad', 'reservado')
-                            AND NOT EXISTS (
-                                SELECT 1 FROM clientes c 
-                                WHERE c.habitacion_id = h.id 
-                                AND (c.check_out IS NULL OR c.check_out > NOW())
-                                AND c.estado = 'activo'
-                            )
-                        """)
-                        
-                        habitaciones_liberadas = cur.rowcount
-                        conn.commit()
-                        print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente a las 13:00 (1 PM)")
-                    except Exception as e:
-                        print(f"Error en liberación automática: {e}")
-                    finally:
-                        cur.close()
-                        conn.close()
-                        
-            time.sleep(60)  # Verificar cada minuto
-        except Exception as e:
-            print(f"Error en hilo de liberación: {e}")
-            time.sleep(60)
-
-def limpiar_observaciones_semanales():
-    """Función que limpia todas las observaciones cada lunes a las 7:00 AM"""
-    while True:
-        try:
-            now = datetime.now()
-            # Check if it's Monday (weekday() returns 0 for Monday) at 7:00 AM
-            if now.weekday() == 0 and now.hour == 7 and now.minute == 0:
-                conn = get_db_connection()
-                if conn:
-                    try:
-                        cur = conn.cursor()
-                        # Delete all observations
-                        cur.execute("DELETE FROM observaciones_diarias")
-                        observaciones_eliminadas = cur.rowcount
-                        conn.commit()
-                        print(f"[{now}] {observaciones_eliminadas} observaciones eliminadas automáticamente el lunes a las 7:00 AM")
-                    except Exception as e:
-                        print(f"Error en limpieza de observaciones: {e}")
-                    finally:
-                        cur.close()
-                        conn.close()
-                        
             time.sleep(60)  # Check every minute
+            
+            now = datetime.now()
+            
+            # Only proceed if we're at the start of a new minute
+            if now.second < 5:  # Within first 5 seconds of the minute
+                conn = get_db_connection()
+                if conn:
+                    cur = conn.cursor()
+                    
+                    # Get all users with configured checkout times
+                    cur.execute("SELECT id, checkout_hora FROM usuarios WHERE checkout_hora IS NOT NULL")
+                    usuarios = cur.fetchall()
+                    
+                    for usuario_id, checkout_hora in usuarios:
+                        # Handle different types returned by MySQL
+                        if isinstance(checkout_hora, timedelta):
+                            # MySQL TIME type returns as timedelta
+                            total_seconds = int(checkout_hora.total_seconds())
+                            checkout_hour = total_seconds // 3600
+                            checkout_minute = (total_seconds % 3600) // 60
+                        elif isinstance(checkout_hora, str):
+                            # String format "HH:MM:SS" or "HH:MM"
+                            checkout_time_obj = datetime.strptime(str(checkout_hora)[:5], "%H:%M").time()
+                            checkout_hour = checkout_time_obj.hour
+                            checkout_minute = checkout_time_obj.minute
+                        elif isinstance(checkout_hora, time):
+                            # Already a time object
+                            checkout_hour = checkout_hora.hour
+                            checkout_minute = checkout_hora.minute
+                        else:
+                            continue  # Skip if invalid type
+                        
+                        # Check if current time matches the checkout time (within 1 minute window)
+                        if now.hour == checkout_hour and now.minute == checkout_minute:
+                            # Mark clients as checked out if their check_out time has passed for this user's rooms
+                            cur.execute("""
+                                UPDATE clientes c
+                                INNER JOIN habitaciones h ON c.habitacion_id = h.id
+                                SET c.check_out = NOW(), c.estado = 'finalizado'
+                                WHERE h.usuario_id = %s
+                                AND c.check_out <= NOW() 
+                                AND (c.check_out IS NOT NULL)
+                                AND c.estado = 'activo'
+                            """, (usuario_id,))
+                            
+                            # Then, release rooms that have no active clients for this user
+                            cur.execute("""
+                                UPDATE habitaciones h 
+                                SET h.estado = 'libre' 
+                                WHERE h.usuario_id = %s
+                                AND h.estado IN ('ocupada', 'mensualidad', 'reservado')
+                                AND NOT EXISTS (
+                                    SELECT 1 FROM clientes c 
+                                    WHERE c.habitacion_id = h.id 
+                                    AND (c.check_out IS NULL OR c.check_out > NOW())
+                                    AND c.estado = 'activo'
+                                )
+                            """, (usuario_id,))
+                            
+                            habitaciones_liberadas = cur.rowcount
+                            conn.commit()
+                            print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente para usuario {usuario_id} a las {checkout_hour:02d}:{checkout_minute:02d}")
+                    
+                    cur.close()
+                    conn.close()
+                    
         except Exception as e:
-            print(f"Error en hilo de limpieza de observaciones: {e}")
-            time.sleep(60)
+            print(f"Error en liberación automática: {e}")
+
+# ----------------- LIMPIEZA DE OBSERVACIONES -----------------
+def limpiar_observaciones_semanales():
+    """
+    Elimina observaciones diarias si no han sido actualizadas en más de 7 días.
+    Esta función se ejecutará una vez a la semana.
+    """
+    while True:
+        try:
+            # Esperar hasta el inicio de la semana (Lunes 00:00:00)
+            ahora = datetime.now()
+            proximo_lunes = ahora + timedelta(days=(7 - ahora.weekday()))
+            proximo_lunes = proximo_lunes.replace(hour=0, minute=0, second=0, microsecond=0)
+            tiempo_espera = (proximo_lunes - ahora).total_seconds()
+            
+            print(f"Esperando {tiempo_espera} segundos hasta el próximo lunes para limpiar observaciones...")
+            time.sleep(tiempo_espera)
+
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                # Eliminar observaciones que no han sido actualizadas en los últimos 7 días
+                cur.execute("""
+                    DELETE FROM observaciones_diarias 
+                    WHERE fecha_actualizacion < NOW() - INTERVAL 7 DAY
+                """)
+                registros_eliminados = cur.rowcount
+                conn.commit()
+                cur.close()
+                conn.close()
+                print(f"[{datetime.now()}] Limpieza semanal de observaciones: {registros_eliminados} registros eliminados.")
+            else:
+                print("No se pudo conectar a la base de datos para la limpieza de observaciones.")
+                
+        except Exception as e:
+            print(f"Error en la limpieza semanal de observaciones: {e}")
+            # Esperar un tiempo antes de reintentar si hay un error
+            time.sleep(3600) # Esperar 1 hora
+
+# Start observations cleanup thread
+observations_cleanup_thread = threading.Thread(target=limpiar_observaciones_semanales, daemon=True)
+observations_cleanup_thread.start()
+print("Hilo de limpieza de observaciones iniciado")
 
 @app.route('/obtener_observaciones', methods=['GET'])
 def obtener_observaciones():
@@ -2115,14 +2298,46 @@ def guardar_reserva_calendario():
         fecha_fin_dt = datetime.strptime(fecha_fin, "%Y-%m-%d")
 
         # Check-in 2 PM y Check-out 1 PM
-        fecha_inicio_dt = fecha_inicio_dt.replace(hour=14, minute=0)
-        fecha_fin_dt = fecha_fin_dt.replace(hour=13, minute=0)
-
         conn = get_db_connection()
         if not conn:
             return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
 
         cur = conn.cursor()
+        
+        # Get user's configured checkout time
+        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        checkout_config = cur.fetchone()
+        
+        if checkout_config and checkout_config[0]:
+            checkout_time = checkout_config[0]
+            
+            # Handle different types returned by MySQL
+            if isinstance(checkout_time, timedelta):
+                # MySQL TIME type returns as timedelta
+                total_seconds = int(checkout_time.total_seconds())
+                checkout_hour = total_seconds // 3600
+                checkout_minute = (total_seconds % 3600) // 60
+            elif isinstance(checkout_time, str):
+                # String format "HH:MM:SS" or "HH:MM"
+                checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
+                checkout_hour = checkout_time_obj.hour
+                checkout_minute = checkout_time_obj.minute
+            elif isinstance(checkout_time, time):
+                # Already a time object
+                checkout_hour = checkout_time.hour
+                checkout_minute = checkout_time.minute
+            else:
+                # Fallback to default
+                checkout_hour = 13
+                checkout_minute = 0
+        else:
+            # Default to 1 PM if not configured
+            checkout_hour = 13
+            checkout_minute = 0
+
+        fecha_inicio_dt = fecha_inicio_dt.replace(hour=14, minute=0)
+        fecha_fin_dt = fecha_fin_dt.replace(hour=checkout_hour, minute=checkout_minute)
+
 
         # Verificar que la habitación pertenezca al usuario
         cur.execute(
@@ -2330,8 +2545,39 @@ def editar_reserva_calendario():
         fecha_fin_dt = datetime.strptime(fecha_fin, "%Y-%m-%d")
 
         # Agregar hora de check-in (2 PM) y check-out (1 PM)
+        # Get user's configured checkout time
+        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        checkout_config = cur.fetchone()
+        
+        if checkout_config and checkout_config[0]:
+            checkout_time = checkout_config[0]
+            
+            # Handle different types returned by MySQL
+            if isinstance(checkout_time, timedelta):
+                # MySQL TIME type returns as timedelta
+                total_seconds = int(checkout_time.total_seconds())
+                checkout_hour = total_seconds // 3600
+                checkout_minute = (total_seconds % 3600) // 60
+            elif isinstance(checkout_time, str):
+                # String format "HH:MM:SS" or "HH:MM"
+                checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
+                checkout_hour = checkout_time_obj.hour
+                checkout_minute = checkout_time_obj.minute
+            elif isinstance(checkout_time, time):
+                # Already a time object
+                checkout_hour = checkout_time.hour
+                checkout_minute = checkout_time.minute
+            else:
+                # Fallback to default
+                checkout_hour = 13
+                checkout_minute = 0
+        else:
+            # Default to 1 PM if not configured
+            checkout_hour = 13
+            checkout_minute = 0
+
         fecha_inicio_dt = fecha_inicio_dt.replace(hour=14, minute=0)
-        fecha_fin_dt = fecha_fin_dt.replace(hour=13, minute=0)
+        fecha_fin_dt = fecha_fin_dt.replace(hour=checkout_hour, minute=checkout_minute)
 
         # Actualizar la reserva
         cur.execute("""
@@ -2425,26 +2671,26 @@ def estadisticas_habitaciones():
 
     try:
         cur = conn.cursor()
-        
+
         # Contar habitaciones por estado
         cur.execute("""
             SELECT estado, COUNT(*) as cantidad
-            FROM habitaciones 
-            WHERE usuario_id = %s 
+            FROM habitaciones
+            WHERE usuario_id = %s
             GROUP BY estado
         """, (user_id,))
-        
+
         estadisticas = {}
         total_habitaciones = 0
-        
+
         for row in cur.fetchall():
             estado, cantidad = row
             estadisticas[estado] = cantidad
             total_habitaciones += cantidad
-        
+
         # Calcular habitaciones no disponibles
         no_disponibles = estadisticas.get('ocupada', 0) + estadisticas.get('reservado', 0) + estadisticas.get('mensualidad', 0) + estadisticas.get('mantenimiento', 0)
-        
+
         return jsonify({
             "success": True,
             "estadisticas": {
@@ -2457,7 +2703,7 @@ def estadisticas_habitaciones():
                 "no_disponibles": no_disponibles
             }
         })
-        
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
     finally:
@@ -2465,6 +2711,105 @@ def estadisticas_habitaciones():
             cur.close()
         if conn:
             conn.close()
+
+# ----------------- CONFIGURACIÓN HORA CHECKOUT -----------------
+@app.route('/obtener_config_checkout')
+def obtener_config_checkout():
+    """Obtiene la configuración de hora de checkout para el usuario"""
+    user_id = require_user_session_json()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
+
+    try:
+        cur = conn.cursor()
+
+        # Verificar si existe configuración para este usuario
+        cur.execute("""
+            SELECT checkout_hora
+            FROM config_checkout
+            WHERE usuario_id = %s
+        """, (user_id,))
+
+        config = cur.fetchone()
+
+        if config:
+            checkout_hora = config[0]
+        else:
+            # Si no existe configuración, usar valor por defecto
+            checkout_hora = '13:00'
+
+        return jsonify({
+            "success": True,
+            "checkout_hora": checkout_hora
+        })
+
+    except Exception as e:
+        print(f"[DEBUG] Error obteniendo config checkout: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.route('/guardar_config_checkout', methods=['POST'])
+def guardar_config_checkout():
+    """Guarda la configuración de hora de checkout para el usuario"""
+    user_id = require_user_session_json()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
+
+    try:
+        data = request.get_json()
+        checkout_hora = data.get('checkout_hora')
+
+        if not checkout_hora:
+            return jsonify({"success": False, "error": "Hora de checkout requerida"}), 400
+
+        # Validar formato de hora (HH:MM)
+        import re
+        if not re.match(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', checkout_hora):
+            return jsonify({"success": False, "error": "Formato de hora inválido"}), 400
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
+
+        try:
+            cur = conn.cursor()
+
+            # Insertar o actualizar la configuración
+            cur.execute("""
+                INSERT INTO config_checkout (usuario_id, checkout_hora)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE
+                    checkout_hora = VALUES(checkout_hora)
+            """, (user_id, checkout_hora))
+
+            conn.commit()
+
+            print(f"[DEBUG] Config checkout guardada: usuario {user_id}, hora {checkout_hora}")
+
+            return jsonify({
+                "success": True,
+                "message": f"Configuración guardada exitosamente. Hora de checkout: {checkout_hora}"
+            })
+
+        except pymysql.MySQLError as e:
+            conn.rollback()
+            print(f"[DEBUG] Error MySQL guardando config checkout: {e}")
+            return jsonify({"success": False, "error": f"Error en la base de datos: {str(e)}"}), 500
+        finally:
+            cur.close()
+            conn.close()
+
+    except Exception as e:
+        print(f"[DEBUG] Error guardando config checkout: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # ----------------- EDITAR PERFIL -----------------
 @app.route('/editar_perfil', methods=['GET', 'POST'])

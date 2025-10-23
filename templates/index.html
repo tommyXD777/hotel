@@ -104,6 +104,15 @@
             overflow-y: auto;
         }
         
+        /* Smaller room cells on mobile */
+        @media (max-width: 640px) {
+            .room-cell {
+                min-height: 100px;
+                padding: 6px;
+                font-size: 0.85rem;
+            }
+        }
+
         /* Full width modals on mobile with better spacing */
         @media (max-width: 768px) {
             .modal-content {
@@ -114,6 +123,14 @@
             }
         }
         
+        /* Responsive grid for mobile */
+        @media (max-width: 640px) {
+            .room-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 8px;
+            }
+        }
+
         /* Responsive button groups */
         @media (max-width: 768px) {
             .grid.grid-cols-1.md\\:grid-cols-5 {
@@ -228,14 +245,24 @@
                     📅 Calendario de Reservas
                 </a>
                 
+                <!-- Improved visual design for checkout configuration button -->
+                <button onclick="abrirModalConfigCheckout()"
+                        title="Configurar Hora de Salida" aria-label="Configurar Hora de Salida"
+                        class="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-orange-700 text-center font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="whitespace-normal">Configurar Hora de Salida</span>
+                </button>
+                
                 <!-- Agregando botón para ver estadísticas de habitaciones -->
-                <button onclick="mostrarEstadisticasHabitaciones()" 
+                <button onclick="mostrarEstadisticasHabitaciones()"
                         class="bg-indigo-500 text-white px-4 py-3 rounded hover:bg-indigo-600 text-center font-medium">
                     📊 Ver Estado de Habitaciones
                 </button>
-                
+
                 <!-- CHANGE: Adding button to open weekly observations -->
-                <button onclick="mostrarObservacionesSemanales()" 
+                <button onclick="mostrarObservacionesSemanales()"
                         class="bg-purple-500 text-white px-4 py-3 rounded hover:bg-purple-600 text-center font-medium">
                     📝 Observaciones Semanales
                 </button>
@@ -934,6 +961,92 @@
                     </button>
                     <button type="button" onclick="ejecutarReutilizacion()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">
                         ♻️ Reutilizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Added modal for checkout time configuration -->
+    <div id="modalConfigCheckout" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">⏰ Configurar Hora de Check-out</h3>
+                <button onclick="cerrarModalConfigCheckout()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-sm text-blue-800">
+                        <strong>ℹ️ Información:</strong> Configura la hora en que las habitaciones se liberarán automáticamente cuando llegue la fecha de salida.
+                    </p>
+                </div>
+                
+                <div class="space-y-3">
+                    <label class="block text-sm font-medium text-gray-700">
+                        Hora de Check-out Automático:
+                    </label>
+                    
+                    <div class="flex items-center space-x-3">
+                        <input type="time" id="checkoutHoraInput" 
+                               class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
+                               value="13:00">
+                        
+                        <!-- Mejorados los botones de hora rápida con mejor contraste y estilo -->
+                        <button type="button" onclick="establecerHoraRapida('13:00')" 
+                                class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-medium px-4 py-2 rounded-lg border border-orange-300 transition-all duration-200 hover:shadow-md text-sm">
+                            1:00 PM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('14:00')" 
+                                class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-medium px-4 py-2 rounded-lg border border-orange-300 transition-all duration-200 hover:shadow-md text-sm">
+                            2:00 PM
+                        </button>
+                    </div>
+                    
+                    <!-- Mejorada la cuadrícula de botones con mejor diseño y contraste -->
+                    <div class="grid grid-cols-3 gap-3 mt-3">
+                        <button type="button" onclick="establecerHoraRapida('10:00')" 
+                                class="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            10:00 AM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('11:00')" 
+                                class="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            11:00 AM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('12:00')" 
+                                class="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            12:00 PM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('15:00')" 
+                                class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            3:00 PM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('16:00')" 
+                                class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            4:00 PM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('17:00')" 
+                                class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            5:00 PM
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p class="text-sm text-yellow-800">
+                        <strong>⚠️ Importante:</strong> Las habitaciones se liberarán automáticamente a esta hora cuando llegue la fecha de check-out programada.
+                    </p>
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <!-- Mejorado el botón de cancelar con mejor contraste -->
+                    <button type="button" onclick="cerrarModalConfigCheckout()" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-lg transition-all duration-200">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="guardarConfigCheckout()" 
+                            class="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                        💾 Guardar Configuración
                     </button>
                 </div>
             </div>
@@ -2302,6 +2415,11 @@
                 if (modalReutilizacion && modalReutilizacion.style.display === 'block') {
                     cerrarModalReutilizacion();
                 }
+                // Close checkout config modal if open
+                const modalConfigCheckout = document.getElementById('modalConfigCheckout');
+                if (modalConfigCheckout && modalConfigCheckout.style.display === 'block') {
+                    cerrarModalConfigCheckout();
+                }
             }
         });
 
@@ -2347,7 +2465,7 @@
             if (window.existingClientData) {
                 const data = window.existingClientData;
                 document.getElementById('nombre_cliente').value = data.nombre;
-                document.querySelector('input[name="precio_reserva"]').value = data.valor;
+                document.getElementById('precio_noche').value = data.valor; // Corrected input name
                 document.getElementById('datosExistentes').style.display = 'none';
             }
         }
@@ -2385,7 +2503,7 @@
             .then(result => {
                 if (result.success) {
                     alert(result.message);
-                    cerrarModalCambiarEstado();
+                    cerrarModal(); // Assuming this modal is the one that opens for changing state
                     location.reload();
                 } else if (result.error) {
                     alert('Error: ' + result.error);
@@ -2794,8 +2912,13 @@
             if (event.target === modalReutilizacion) {
                 cerrarModalReutilizacion();
             }
+            
+            const modalConfigCheckout = document.getElementById('modalConfigCheckout');
+            if (event.target === modalConfigCheckout) {
+                cerrarModalConfigCheckout();
+            }
         }
-
+        
         // CHANGE: Implementado el cálculo automático para reutilizar último cliente
         function calcularTotalReutilizar() {
             const precioPorNoche = parseFloat(document.getElementById('reutilizarPrecioPorNoche').value) || 0;
@@ -2954,6 +3077,73 @@
             });
         }
 
+        // CHANGE: Added functions for checkout time configuration
+        function abrirModalConfigCheckout() {
+            const modal = document.getElementById('modalConfigCheckout');
+            modal.style.display = 'block';
+
+            // Load current configuration
+            fetch('/obtener_config_checkout')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('checkoutHoraInput').value = data.checkout_hora || '13:00';
+                    }
+                })
+                .catch(error => {
+                    console.error('[v0] Error loading checkout config:', error);
+                });
+        }
+
+        function cerrarModalConfigCheckout() {
+            document.getElementById('modalConfigCheckout').style.display = 'none';
+        }
+
+        function establecerHoraRapida(hora) {
+            document.getElementById('checkoutHoraInput').value = hora;
+        }
+
+        function guardarConfigCheckout() {
+            const checkoutHora = document.getElementById('checkoutHoraInput').value;
+
+            if (!checkoutHora) {
+                alert('Por favor selecciona una hora de check-out');
+                return;
+            }
+
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '💾 Guardando...';
+            button.disabled = true;
+
+            fetch('/guardar_config_checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    checkout_hora: checkoutHora
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Configuración guardada exitosamente. Las habitaciones se liberarán automáticamente a las ' + checkoutHora);
+                    cerrarModalConfigCheckout();
+                } else {
+                    alert('❌ Error: ' + (data.error || 'No se pudo guardar la configuración'));
+                }
+            })
+            .catch(error => {
+                console.error('[v0] Error saving checkout config:', error);
+                alert('❌ Error al guardar la configuración: ' + error.message);
+            })
+            .finally(() => {
+                button.textContent = originalText;
+                button.disabled = false;
+            });
+        }
+        
     </script>
 </body>
 </html>
