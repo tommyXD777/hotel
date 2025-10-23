@@ -476,63 +476,103 @@
 
                         <!-- Action buttons -->
                         <div class="flex flex-wrap gap-2 text-sm">
-                            {% if room.estado != 'ocupada' or room.num_personas_ocupadas < 4 %}
+                            <!-- Conditional buttons based on room status -->
+                            
+                            {% if room.estado == 'libre' %}
+                                <!-- Buttons for FREE rooms -->
                                 <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" 
                                    class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
-                                    👤+ Cliente
+                                    👤+ Agregar Cliente
                                 </a>
-                            {% endif %}
-                            
-                            <!-- Agregando botón para editar habitación -->
-                            <a href="{{ url_for('editar_habitacion', habitacion_id=room.id) }}" 
-                               class="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
-
-                               title="Editar información de la habitación">
-                                ✏️ Editar Habitación
-                            </a>
-                            
-                            <!-- Separando claramente los botones de editar habitación vs editar cliente -->
-                          
-  
-                            <!-- Agregando enlace directo para editar el cliente principal si existe -->
-                            {% if room.cliente_id %}
-                                <a href="/editar_cliente/{{ room.cliente_id }}" 
-                                   class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                                   title="Editar datos del cliente principal">
-                                    👤 Editar Cliente Principal
+                                
+                                <a href="{{ url_for('editar_habitacion', habitacion_id=room.id) }}" 
+                                   class="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
+                                   title="Editar información de la habitación">
+                                    ✏️ Editar Habitación
                                 </a>
-                            {% endif %}
+                                
+                                <a href="#" onclick="confirmarReutilizacion({{ room.id }})"
+                                   class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
+                                    ♻️ Reutilizar Cliente
+                                </a>
+                                
+                                <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
+                                      method="POST" class="inline"
+                                      onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
+                                    <button type="submit" 
+                                            class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                        🗑️ Eliminar Habitación
+                                    </button>
+                                </form>
                             
-                            <!-- Agregando botón para liberar habitación cuando está ocupada -->
-                           
-                       <a href="{{ url_for('liberar', habitacion_id=room.id) }}"
-                        class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                        title="liberar cliente-se va antes"
-                        onclick="return confirm('¿Seguro que deseas liberar esta habitación?');">
-                            🔓 Liberar
-                        </a>
-
-                        <!-- CHANGE: Added Cancelar Reserva button for reserved rooms -->
-                        {% if room.estado == 'reservado' %}
-                            <a href="#" onclick="cancelarReserva({{ room.id }})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
-                                ❌ Cancelar Reserva
-                            </a>
-                        {% endif %}
-
-                        <a href="#" onclick="confirmarReutilizacion({{ room.id }})"
-                        class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
-                        ♻️ Reutilizar Último cliente
-                        </a>
-
-
-                            <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
-                                  method="POST" class="inline"
-                                  onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
-                                <button type="submit" 
-                                        class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
-                                    🗑️ Eliminar
+                            {% elif room.estado == 'ocupada' or room.estado == 'mensualidad' %}
+                                <!-- Buttons for OCCUPIED rooms -->
+                                {% if room.cliente_id %}
+                                    <a href="/editar_cliente/{{ room.cliente_id }}" 
+                                       class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                                       title="Editar datos del cliente principal">
+                                        👤 Editar Cliente
+                                    </a>
+                                {% endif %}
+                                
+                                <a href="{{ url_for('liberar', habitacion_id=room.id) }}"
+                                   class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                                   title="Liberar habitación"
+                                   onclick="return confirm('¿Seguro que deseas liberar esta habitación?');">
+                                    🔓 Liberar
+                                </a>
+                                
+                                {% if room.num_personas_ocupadas < 4 %}
+                                    <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" 
+                                       class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                        👤+ Agregar Cliente
+                                    </a>
+                                {% endif %}
+                            
+                            {% elif room.estado == 'reservado' %}
+                                <!-- Buttons for RESERVED rooms -->
+                                <a href="#" onclick="cancelarReserva({{ room.id }})" 
+                                   class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                    ❌ Cancelar Reserva
+                                </a>
+                                
+                                <button type="button" 
+                                        onclick="manejarClickHabitacion(
+                                            {{ room.id }}, 
+                                            '{{ room.numero }}', 
+                                            '{{ room.estado }}', 
+                                            {{ ('\"' + (room.inquilino_principal|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.inquilino_principal else 'null' }}, 
+                                            {{ ('\"' + (room.telefono|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.telefono else 'null' }}, 
+                                            null, 
+                                            null, 
+                                            {{ room.valor if room.valor else 0 }}, 
+                                            null, 
+                                            0,
+                                            null,
+                                            null,
+                                            null
+                                        )"
+                                        class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                                    ✅ Completar Reserva
                                 </button>
-                            </form>
+                            
+                            {% else %}
+                                <!-- Buttons for other states (mantenimiento, etc.) -->
+                                <a href="{{ url_for('editar_habitacion', habitacion_id=room.id) }}" 
+                                   class="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
+                                   title="Editar información de la habitación">
+                                    ✏️ Editar Habitación
+                                </a>
+                                
+                                <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
+                                      method="POST" class="inline"
+                                      onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
+                                    <button type="submit" 
+                                            class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                        🗑️ Eliminar Habitación
+                                    </button>
+                                </form>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -2318,9 +2358,9 @@
             currentHabitacionId = habitacionId; // Ensure currentHabitacionId is set
             
             const formData = new FormData(event.target);
-            const estado = formData.get('estado');
+            const estado = formData.get('nuevo_estado'); // Corrected name to 'nuevo_estado'
             const nombreCliente = formData.get('nombre_cliente') || '';
-            const precioReserva = parseFloat(formData.get('precio_reserva')) || 0;
+            const precioReserva = parseFloat(formData.get('precio_noche')) || 0; // Corrected name to 'precio_noche'
             
             if (estado === 'reservado' && !nombreCliente.trim()) {
                 alert('Por favor ingresa el nombre del cliente para la reserva');
@@ -2396,38 +2436,6 @@
             });
         }
 
-        // Adding the modal HTML dynamically to the DOM
-        document.addEventListener('DOMContentLoaded', function() {
-            const modalCambiarEstadoHTML = `
-                <div id="modalCambiarEstado" class="modal">
-                    <div class="modal-content">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 id="modalCambiarEstadoTitulo" class="text-xl font-bold text-gray-800"></h2>
-                            <button onclick="cerrarModalCambiarEstado()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-                        </div>
-                        <div id="modalCambiarEstadoContenido"></div>
-                    </div>
-                </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', modalCambiarEstadoHTML);
-            
-            // CHANGE: Updated automatic liberation check to run at 1 PM (13:00) instead of 1 AM to match checkout time
-            function verificarLiberacionAutomatica() {
-                const ahora = new Date();
-                // Changed from hour 1 (1 AM) to hour 13 (1 PM / 13:00)
-                if (ahora.getHours() === 13 && ahora.getMinutes() === 0) {
-                    console.log('[v0] Verificando liberación automática de habitaciones a las 13:00 (1 PM)...');
-                    // Recargar la página para mostrar cambios
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                }
-            }
-            
-            // Verificar cada minuto
-            setInterval(verificarLiberacionAutomatica, 60000);
-        });
-        
         // CHANGE: Improved confirmarReutilizacion and added a new modal structure
         function confirmarReutilizacion(habitacionId) {
             console.log('[v0] Iniciando reutilización para habitación:', habitacionId);

@@ -92,9 +92,7 @@
                                     <i class="fas fa-bed"></i> Habitación {{ cliente[11] }} - {{ cliente[12] }}
                                 </p>
                             </div>
-                            <div class="text-end">
-                                <small class="opacity-75">ID Cliente: #{{ cliente[0] }}</small>
-                            </div>
+                            
                         </div>
                     </div>
                     
@@ -196,6 +194,63 @@
                                                required
                                                placeholder="Número del documento">
                                         <div class="form-text">Número sin puntos ni espacios</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sección: Fechas de Estadía -->
+                            <div class="form-section">
+                                <h5 class="section-title">📅 Fechas de Estadía</h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="check_in" class="form-label">
+                                            <i class="fas fa-calendar-check"></i> Fecha de Check-in
+                                        </label>
+                                        <input type="datetime-local" 
+                                               class="form-control" 
+                                               id="check_in" 
+                                               name="check_in" 
+                                               value="{{ cliente[6].strftime('%Y-%m-%dT%H:%M') if cliente[6] else '' }}">
+                                        <div class="form-text">Fecha y hora de entrada del huésped</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="check_out" class="form-label">
+                                            <i class="fas fa-calendar-times"></i> Fecha de Check-out
+                                        </label>
+                                        <input type="date" 
+                                               class="form-control" 
+                                               id="check_out" 
+                                               name="check_out" 
+                                               value="{{ cliente[7].strftime('%Y-%m-%d') if cliente[7] else '' }}">
+                                        <div class="form-text">Fecha estimada de salida del huésped</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="valor" class="form-label">
+                                            <i class="fas fa-dollar-sign"></i> Valor a Pagar
+                                        </label>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               id="valor" 
+                                               name="valor" 
+                                               step="0.01" 
+                                               min="0"
+                                               value="{{ cliente[8] if cliente[8] else '' }}">
+                                        <div class="form-text">Monto total o por noche</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="observacion" class="form-label">
+                                            <i class="fas fa-comment"></i> Observaciones
+                                        </label>
+                                        <textarea class="form-control" 
+                                                  id="observacion" 
+                                                  name="observacion" 
+                                                  rows="2">{{ cliente[9] if cliente[9] else '' }}</textarea>
+                                        <div class="form-text">Notas adicionales sobre la estadía</div>
                                     </div>
                                 </div>
                             </div>
