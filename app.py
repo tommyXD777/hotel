@@ -9,6 +9,7 @@ import threading
 import time
 import pytz
 from zoneinfo import ZoneInfo
+import _thread
 
 bogota = pytz.timezone("America/Bogota")
 now = datetime.now(bogota)
@@ -759,11 +760,11 @@ def guardar_nuevo_cliente():
             print(f"[DEBUG] guardar_nuevo_cliente - Clientes actuales en habitación {habitacion_id}: {clientes_actuales}")
 
             total_personas = 1 + len(personas_adicionales)
-            if clientes_actuales + total_personas > 4:
+            if clientes_actuales + total_personas > 20: # CHANGED FROM 4 TO 20
                 print(f"[DEBUG] guardar_nuevo_cliente - Límite excedido: actuales={clientes_actuales}, intentando={total_personas}")
                 if request.is_json:
-                    return jsonify({"success": False, "error": f"La habitación excedería el límite máximo de 4 clientes (actuales: {clientes_actuales}, intentando agregar: {total_personas})"})
-                flash('La habitación excedería el límite máximo de 4 clientes.', 'error')
+                    return jsonify({"success": False, "error": f"La habitación excedería el límite máximo de 20 clientes (actuales: {clientes_actuales}, intentando agregar: {total_personas})"})
+                flash('La habitación excedería el límite máximo de 20 clientes.', 'error')
                 return redirect(url_for('agregar_cliente_habitacion', habitacion_id=habitacion_id))
 
             print("[DEBUG] guardar_nuevo_cliente - Insertando cliente principal")
@@ -2423,9 +2424,10 @@ def eliminar_reserva_calendario():
     if not user_id:
         return jsonify({"success": False, "error": "Sesión expirada"}), 401
 
-    conn = None
-    cur = None
-    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
+
     try:
         data = request.get_json()
         print(f"DEBUG: Datos JSON recibidos: {data}")
@@ -2434,10 +2436,6 @@ def eliminar_reserva_calendario():
         if not reserva_id:
             return jsonify({"success": False, "error": "ID de reserva requerido"})
         
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({"success": False, "error": "Error de conexión a la base de datos"})
-
         cur = conn.cursor()
         
         # 1. BUSCAR Y VERIFICAR PERMISOS (reserva + usuario_id)
