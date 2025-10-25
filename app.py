@@ -256,7 +256,7 @@ def index():
             dias_ocupada = 0
             if fecha_ingreso and fecha_salida:
                 # FIX: Calculate days correctly - check_out is at 1 PM, so we need to consider the full days
-                # If check_in is 2025-10-23 14:00 and check_out is 2025-10-25 13:00, that's 2 full days
+                # If check-in is 2025-10-23 14:00 and check-out is 2025-10-25 13:00, that's 2 full days
                 dias_ocupada = (fecha_salida.date() - fecha_ingreso.date()).days
                 if dias_ocupada <= 0:
                     dias_ocupada = 1
@@ -644,14 +644,9 @@ def guardar_nuevo_cliente():
         check_in_dt = datetime.strptime(check_in, "%Y-%m-%dT%H:%M")
         check_out_dt = datetime.strptime(check_out_fecha, "%Y-%m-%d")
 
-        # Validar que la fecha de check-out sea en el futuro
-        now = datetime.now()
-        if check_out_dt <= now:
-            if request.is_json:
-                return jsonify({"success": False, "error": "La fecha de check-out debe ser en el futuro"})
-            flash('La fecha de check-out debe ser en el futuro.', 'error')
-            return redirect(url_for('index'))
-
+        # The previous validation prevented creating reservations where checkout was in the past
+        # Now we only validate that checkout is after check-in, which is the correct business logic
+        
         conn = get_db_connection()
         if not conn:
             print("[DEBUG] guardar_nuevo_cliente - Error de conexión a la base de datos")
@@ -695,6 +690,12 @@ def guardar_nuevo_cliente():
         
         check_out_dt = datetime(check_out_dt.year, check_out_dt.month, check_out_dt.day, checkout_hour, checkout_minute)
         print(f"[DEBUG] guardar_nuevo_cliente - Using checkout time: {checkout_hour}:{checkout_minute:02d}")
+
+        if check_out_dt <= check_in_dt:
+            if request.is_json:
+                return jsonify({"success": False, "error": "La fecha de check-out debe ser posterior a la fecha de check-in"})
+            flash('La fecha de check-out debe ser posterior a la fecha de check-in.', 'error')
+            return redirect(url_for('index'))
 
         hora_ingreso_time = check_in_dt.time()
         print(f"[DEBUG] guardar_nuevo_cliente - Fechas procesadas: check_in_dt={check_in_dt}, check_out_dt={check_out_dt}, hora_ingreso={hora_ingreso_time}")
@@ -2023,8 +2024,8 @@ def liberar_habitaciones_automaticamente():
                             checkout_minute = checkout_time_obj.minute
                         elif isinstance(checkout_hora, time):
                             # Already a time object
-                            checkout_hour = checkout_hora.hour
-                            checkout_minute = checkout_hora.minute
+                            checkout_hour = checkout_hour.hour
+                            checkout_minute = checkout_hour.minute
                         else:
                             continue  # Skip if invalid type
                         
