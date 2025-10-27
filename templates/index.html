@@ -417,6 +417,14 @@
                 font-size: 13px;
             }
         }
+        
+        /* Added styles for Line Clamp */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
@@ -2942,7 +2950,187 @@
                 cerrarModalConfigCheckout();
             }, 500);
         }
-        
+
+        function mostrarEstadisticasHabitaciones() {
+            console.log('[v0] Opening room statistics modal');
+            
+            // Count rooms by status from the DOM
+            const roomCells = document.querySelectorAll('.room-cell');
+            let libres = 0;
+            let ocupadas = 0;
+            let reservadas = 0;
+            let mensualidad = 0;
+            let mantenimiento = 0;
+            
+            roomCells.forEach(cell => {
+                if (cell.classList.contains('room-libre')) libres++;
+                else if (cell.classList.contains('room-ocupada') || cell.classList.contains('room-varias-noches')) ocupadas++;
+                else if (cell.classList.contains('room-reservado')) reservadas++;
+                else if (cell.classList.contains('room-mensualidad')) mensualidad++;
+                else if (cell.classList.contains('room-mantenimiento')) mantenimiento++;
+            });
+            
+            const total = roomCells.length;
+            const disponibilidad = total > 0 ? ((libres / total) * 100).toFixed(1) : 0;
+            const ocupacion = total > 0 ? (((ocupadas + reservadas + mensualidad) / total) * 100).toFixed(1) : 0;
+            
+            // Update modal content
+            document.getElementById('stat-libres-modal').textContent = libres;
+            document.getElementById('stat-ocupadas-modal').textContent = ocupadas;
+            document.getElementById('stat-reservadas-modal').textContent = reservadas;
+            document.getElementById('stat-mensualidad-modal').textContent = mensualidad;
+            document.getElementById('stat-mantenimiento-modal').textContent = mantenimiento;
+            document.getElementById('stat-total-modal').textContent = total;
+            document.getElementById('porcentaje-disponibilidad').textContent = disponibilidad + '%';
+            document.getElementById('porcentaje-ocupacion').textContent = ocupacion + '%';
+            
+            // Show modal
+            document.getElementById('modalEstadisticas').style.display = 'block';
+        }
+
+        function cerrarModalEstadisticas() {
+            console.log('[v0] Closing statistics modal');
+            document.getElementById('modalEstadisticas').style.display = 'none';
+        }
+
+        function mostrarObservacionesSemanales() {
+            console.log('[v0] Opening weekly observations modal');
+            
+            // Get days of the week
+            const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+            
+            // Load observations from localStorage
+            const observaciones = JSON.parse(localStorage.getItem('observaciones_semanales') || '{}');
+            
+            // Generate buttons for each day
+            let contenidoHtml = '';
+            diasSemana.forEach((dia, index) => {
+                const observacion = observaciones[dia] || '';
+                const hasObservation = observacion.trim() !== '';
+                const iconoEstado = hasObservation ? '✅' : '📝';
+                const colorBoton = hasObservation ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-300';
+                
+                contenidoHtml += `
+                    <button onclick="abrirModalEditarObservacion('${dia}')" 
+                            class="w-full text-left p-4 border-2 ${colorBoton} rounded-lg hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">${iconoEstado}</span>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800">${dia}</h4>
+                                    ${hasObservation ? `
+                                        <p class="text-sm text-gray-600 mt-1 line-clamp-2">${observacion}</p>
+                                    ` : `
+                                        <p class="text-sm text-gray-500 italic">Sin observaciones</p>
+                                    `}
+                                </div>
+                            </div>
+                            <span class="text-gray-400">→</span>
+                        </div>
+                    </button>
+                `;
+            });
+            
+            document.getElementById('contenidoObservaciones').innerHTML = contenidoHtml;
+            document.getElementById('modalObservacionesSemanales').style.display = 'block';
+        }
+
+        function cerrarModalObservaciones() {
+            console.log('[v0] Closing weekly observations modal');
+            document.getElementById('modalObservacionesSemanales').style.display = 'none';
+        }
+
+        function abrirModalEditarObservacion(dia) {
+            console.log('[v0] Opening edit observation modal for:', dia);
+            
+            // Load existing observation
+            const observaciones = JSON.parse(localStorage.getItem('observaciones_semanales') || '{}');
+            const observacion = observaciones[dia] || '';
+            
+            // Set modal title and content
+            document.getElementById('tituloEditarObservacion').textContent = `Observación - ${dia}`;
+            document.getElementById('diaSeleccionado').value = dia;
+            document.getElementById('textoObservacion').value = observacion;
+            
+            // Show modal
+            document.getElementById('modalEditarObservacion').style.display = 'block';
+        }
+
+        function cerrarModalEditarObservacion() {
+            console.log('[v0] Closing edit observation modal');
+            document.getElementById('modalEditarObservacion').style.display = 'none';
+            document.getElementById('textoObservacion').value = '';
+            document.getElementById('diaSeleccionado').value = '';
+        }
+
+        function guardarObservacion(event, dia) {
+            event.preventDefault();
+            console.log('[v0] Saving observation for:', dia);
+            
+            const observacion = document.getElementById('textoObservacion').value.trim();
+            
+            // Load existing observations
+            const observaciones = JSON.parse(localStorage.getItem('observaciones_semanales') || '{}');
+            
+            // Update observation for the day
+            observaciones[dia] = observacion;
+            
+            // Save to localStorage
+            localStorage.setItem('observaciones_semanales', JSON.stringify(observaciones));
+            
+            showNotification(`Observación guardada para ${dia}`, 'success');
+            
+            // Close edit modal and refresh weekly observations
+            cerrarModalEditarObservacion();
+            mostrarObservacionesSemanales();
+        }
+
+        function eliminarObservacionDia(dia) {
+            console.log('[v0] Deleting observation for:', dia);
+            
+            if (!confirm(`¿Estás seguro de que deseas eliminar la observación de ${dia}?`)) {
+                return;
+            }
+            
+            // Load existing observations
+            const observaciones = JSON.parse(localStorage.getItem('observaciones_semanales') || '{}');
+            
+            // Delete observation for the day
+            delete observaciones[dia];
+            
+            // Save to localStorage
+            localStorage.setItem('observaciones_semanales', JSON.stringify(observaciones));
+            
+            showNotification(`Observación eliminada para ${dia}`, 'success');
+            
+            // Close edit modal and refresh weekly observations
+            cerrarModalEditarObservacion();
+            mostrarObservacionesSemanales();
+        }
+
+        function verificarLimpiezaObservaciones() {
+            const ahora = new Date();
+            const diaSemana = ahora.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const hora = ahora.getHours();
+            
+            // Check if it's Monday (1) at 7:00 AM
+            if (diaSemana === 1 && hora === 7) {
+                const ultimaLimpieza = localStorage.getItem('ultima_limpieza_observaciones');
+                const hoy = ahora.toDateString();
+                
+                // Only clean once per day
+                if (ultimaLimpieza !== hoy) {
+                    console.log('[v0] Auto-cleaning weekly observations');
+                    localStorage.setItem('observaciones_semanales', '{}');
+                    localStorage.setItem('ultima_limpieza_observaciones', hoy);
+                    showNotification('Las observaciones semanales han sido limpiadas automáticamente', 'info');
+                }
+            }
+        }
+
+        verificarLimpiezaObservaciones();
+        setInterval(verificarLimpiezaObservaciones, 3600000); // Check every hour
+
     </script>
 </body>
 </html>
