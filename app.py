@@ -38,13 +38,13 @@ def get_db_connection():
         print(f"   Base de datos: bd_hostal")
 
         conn = pymysql.connect(
-            host='cool.isladigital.xyz',  # Asegurándonos que sea localhost
+            host='173.249.59.24',  # Asegurándonos que sea localhost
             user='nelson',
-            password='3011551141.Arias',
+            password='nelsonc',
             database='bd_hostal',
             charset='utf8mb4',
             autocommit=False,
-            port=3311  # cambiado de 3306 a 3311
+            port=3306  # cambiado de 3306 a 3311
         )
         print("Conexion exitosa a MySQL", flush=True)
         return conn
