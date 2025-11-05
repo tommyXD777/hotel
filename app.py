@@ -40,7 +40,7 @@ def get_db_connection():
         conn = pymysql.connect(
             host='173.249.59.24',  # Asegurándonos que sea localhost
             user='nelson',
-            password='nelsonc',
+            password='3011551141.Arias',
             database='bd_hostal',
             charset='utf8mb4',
             autocommit=False,
