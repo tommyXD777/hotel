@@ -10,6 +10,7 @@ import time
 import pytz
 from zoneinfo import ZoneInfo
 import _thread
+import re
 
 bogota = pytz.timezone("America/Bogota")
 now = datetime.now(bogota)
@@ -32,9 +33,9 @@ def get_db_connection():
     """Obtiene una conexión a la base de datos con manejo de errores mejorado"""
     try:
         print("Intentando conectar a MySQL...")
-        print(f"   Host: localhost")
+        print(f"   Host: mysql") #Changed from localhost to mysql
         print(f"   Usuario: nelson")
-        print(f"   Puerto: 3311")  # actualizado el puerto mostrado
+        print(f"   Puerto: 3306")  # updated the port shown
         print(f"   Base de datos: bd_hostal")
 
         conn = pymysql.connect(
@@ -44,7 +45,7 @@ def get_db_connection():
             database='bd_hostal',
             charset='utf8mb4',
             autocommit=False,
-            port=3306  # cambiado de 3306 a 3311
+            port=3306  # changed from 3306 to 3311
         )
         print("Conexion exitosa a MySQL", flush=True)
         return conn
@@ -54,8 +55,8 @@ def get_db_connection():
             print("Error 2003: No se puede conectar al servidor MySQL", flush=True)
             print("Soluciones posibles:")
             print("   1. Verifica que MySQL este ejecutandose: 'net start mysql' (Windows)")
-            print("   2. Verifica que MySQL este en el puerto 3311")  # actualizado el puerto en el mensaje
-            print("   3. Intenta conectarte manualmente: mysql -u nelson -p -P 3311")  # agregado -P 3311
+            print("   2. Verifica que MySQL este en el puerto 3306")  # updated the port in the message
+            print("   3. Intenta conectarte manualmente: mysql -u nelson -p -P 3306")  # added -P 3306
         elif error_code == 1045:
             print("Error 1045: Acceso denegado - credenciales incorrectas")
             print("Verifica usuario y contrasena en MySQL")
@@ -644,9 +645,6 @@ def guardar_nuevo_cliente():
         check_in_dt = datetime.strptime(check_in, "%Y-%m-%dT%H:%M")
         check_out_dt = datetime.strptime(check_out_fecha, "%Y-%m-%d")
 
-        # The previous validation prevented creating reservations where checkout was in the past
-        # Now we only validate that checkout is after check-in, which is the correct business logic
-        
         conn = get_db_connection()
         if not conn:
             print("[DEBUG] guardar_nuevo_cliente - Error de conexión a la base de datos")
@@ -656,13 +654,16 @@ def guardar_nuevo_cliente():
             return redirect(url_for('index'))
 
         cur = conn.cursor()
-        
+
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
+        
+        print(f"[DEBUG] checkout_config raw: {checkout_config}")
         
         if checkout_config and checkout_config[0]:
             checkout_time = checkout_config[0]
+            print(f"[DEBUG] checkout_time value: {checkout_time}, type: {type(checkout_time)}")
             
             # Handle different types returned by MySQL
             if isinstance(checkout_time, timedelta):
@@ -670,26 +671,31 @@ def guardar_nuevo_cliente():
                 total_seconds = int(checkout_time.total_seconds())
                 checkout_hour = total_seconds // 3600
                 checkout_minute = (total_seconds % 3600) // 60
+                print(f"[DEBUG] timedelta detected - total_seconds: {total_seconds}, hour: {checkout_hour}, minute: {checkout_minute}")
             elif isinstance(checkout_time, str):
                 # String format "HH:MM:SS" or "HH:MM"
                 checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
                 checkout_hour = checkout_time_obj.hour
                 checkout_minute = checkout_time_obj.minute
+                print(f"[DEBUG] string detected - parsed hour: {checkout_hour}, minute: {checkout_minute}")
             elif isinstance(checkout_time, time):
                 # Already a time object
                 checkout_hour = checkout_time.hour
                 checkout_minute = checkout_time.minute
+                print(f"[DEBUG] time object detected - hour: {checkout_hour}, minute: {checkout_minute}")
             else:
                 # Fallback to default
                 checkout_hour = 13
                 checkout_minute = 0
+                print(f"[DEBUG] unknown type, using default - hour: {checkout_hour}, minute: {checkout_minute}")
         else:
             # Default to 1 PM if not configured
             checkout_hour = 13
             checkout_minute = 0
+            print(f"[DEBUG] no config found, using default - hour: {checkout_hour}, minute: {checkout_minute}")
         
         check_out_dt = datetime(check_out_dt.year, check_out_dt.month, check_out_dt.day, checkout_hour, checkout_minute)
-        print(f"[DEBUG] guardar_nuevo_cliente - Using checkout time: {checkout_hour}:{checkout_minute:02d}")
+        print(f"[DEBUG] guardar_nuevo_cliente - Final checkout datetime: {check_out_dt}, Using checkout time: {checkout_hour}:{checkout_minute:02d}")
 
         if check_out_dt <= check_in_dt:
             if request.is_json:
@@ -699,7 +705,7 @@ def guardar_nuevo_cliente():
 
         hora_ingreso_time = check_in_dt.time()
         print(f"[DEBUG] guardar_nuevo_cliente - Fechas procesadas: check_in_dt={check_in_dt}, check_out_dt={check_out_dt}, hora_ingreso={hora_ingreso_time}")
-
+        
         cur.execute("SELECT id FROM habitaciones WHERE id = %s AND usuario_id = %s", (habitacion_id, user_id))
         habitacion_check = cur.fetchone()
         if not habitacion_check:
@@ -776,7 +782,6 @@ def guardar_nuevo_cliente():
                     print(f"[DEBUG] guardar_nuevo_cliente - Insertando persona adicional: {persona['nombre']}")
                     cur.execute("""INSERT INTO clientes (hora_ingreso, nombre, tipo_doc, numero_doc, telefono, procedencia, habitacion_id, check_in, check_out, valor, observacion) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (hora_ingreso_time, persona['nombre'], persona.get('tipo_doc', 'C.c'), persona.get('numero_doc', ''), persona.get('telefono', ''), persona.get('procedencia', ''), habitacion_id, check_in_dt, check_out_dt, 0, ''))
 
-            # FIX: Ensure the room status update happens AFTER the client insertion
             print(f"[DEBUG] guardar_nuevo_cliente - Actualizando estado de habitación {habitacion_id} a 'ocupada'")
             cur.execute("""UPDATE habitaciones SET estado = 'ocupada' WHERE id = %s AND usuario_id = %s""", (habitacion_id, user_id))
             conn.commit()
@@ -838,7 +843,7 @@ def registrar_cliente(habitacion_id):
         cur = conn.cursor()
         
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
@@ -1437,7 +1442,7 @@ def reutilizar_ultimo():
             return jsonify({"success": False, "error": "Formato de fecha inválido"}), 400
 
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
@@ -1456,8 +1461,8 @@ def reutilizar_ultimo():
                 checkout_minute = checkout_time_obj.minute
             elif isinstance(checkout_time, time):
                 # Already a time object
-                checkout_hour = checkout_time.hour
-                checkout_minute = checkout_time.minute
+                checkout_hour = checkout_hour.hour
+                checkout_minute = checkout_hour.minute
             else:
                 # Fallback to default
                 checkout_hour = 13
@@ -1620,11 +1625,8 @@ def obtener_huespedes(habitacion_id):
     except Exception as e:
         return jsonify({"success": False, "error": f"Error al obtener huéspedes: {e}"}), 500
     finally:
-        try:
-            cur.close()
-            conn.close()
-        except:
-            pass
+        cur.close()
+        conn.close()
 
 
 # ----------------- RENUEVAR ESTADÍA -----------------
@@ -1924,7 +1926,7 @@ def checkin():
         # Calcula la hora de salida a las 13:00 del día correspondiente
         
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
@@ -1943,8 +1945,8 @@ def checkin():
                 checkout_minute = checkout_time_obj.minute
             elif isinstance(checkout_time, time):
                 # Already a time object
-                checkout_hour = checkout_time.hour
-                checkout_minute = checkout_time.minute
+                checkout_hour = checkout_hour.hour
+                checkout_minute = checkout_hour.minute
             else:
                 # Fallback to default
                 checkout_hour = 13
@@ -1991,13 +1993,11 @@ def checkin():
 
 def liberar_habitaciones_automaticamente():
     """
-    Función que se ejecuta en un hilo separado para liberar habitaciones automáticamente
-    cuando llega la hora de check-out configurada por cada usuario.
+    Libera habitaciones automáticamente cuando se cumple la hora de checkout configurada
     """
     while True:
         try:
-            time.sleep(60)  # Check every minute
-            
+            time.sleep(30)  # Check every 30 seconds
             now = datetime.now()
             
             # Only proceed if we're at the start of a new minute
@@ -2006,8 +2006,11 @@ def liberar_habitaciones_automaticamente():
                 if conn:
                     cur = conn.cursor()
                     
-                    # Get all users with configured checkout times
-                    cur.execute("SELECT id, checkout_hora FROM usuarios WHERE checkout_hora IS NOT NULL")
+                    cur.execute("""
+                        SELECT DISTINCT usuario_id, hora_limite 
+                        FROM config_checkout 
+                        WHERE hora_limite IS NOT NULL
+                    """)
                     usuarios = cur.fetchall()
                     
                     for usuario_id, checkout_hora in usuarios:
@@ -2024,8 +2027,8 @@ def liberar_habitaciones_automaticamente():
                             checkout_minute = checkout_time_obj.minute
                         elif isinstance(checkout_hora, time):
                             # Already a time object
-                            checkout_hour = checkout_hour.hour
-                            checkout_minute = checkout_hour.minute
+                            checkout_hour = checkout_hora.hour
+                            checkout_minute = checkout_hora.minute
                         else:
                             continue  # Skip if invalid type
                         
@@ -2059,7 +2062,7 @@ def liberar_habitaciones_automaticamente():
                             habitaciones_liberadas = cur.rowcount
                             conn.commit()
                             print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente para usuario {usuario_id} a las {checkout_hour:02d}:{checkout_minute:02d}")
-                    
+
                     cur.close()
                     conn.close()
                     
@@ -2247,7 +2250,6 @@ def eliminar_observacion():
     except Exception as e:
         return jsonify({"success": False, "error": f"Error interno: {str(e)}"}), 500
 
-# ----------------- CALENDARIO -----------------
 @app.route('/calendario')
 def calendario():
     user_id = require_user_session()
@@ -2307,7 +2309,7 @@ def guardar_reserva_calendario():
         cur = conn.cursor()
         
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
@@ -2545,7 +2547,7 @@ def editar_reserva_calendario():
 
         # Agregar hora de check-in (2 PM) y check-out (1 PM)
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM usuarios WHERE id = %s", (user_id,))
+        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
@@ -2712,39 +2714,62 @@ def estadisticas_habitaciones():
             conn.close()
 
 # ----------------- CONFIGURACIÓN HORA CHECKOUT -----------------
-@app.route('/obtener_config_checkout')
+@app.route('/obtener_config_checkout', methods=['GET'])
 def obtener_config_checkout():
-    """Obtiene la configuración de hora de checkout para el usuario"""
+    """Obtiene la configuración de hora de checkout del usuario"""
     user_id = require_user_session_json()
     if not user_id:
         return jsonify({"success": False, "error": "Sesión expirada"}), 401
 
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"success": False, "error": "Error de conexión a la base de datos"}), 500
-
+    conn = None
     try:
+        print(f"[DEBUG] === OBTENER CONFIG CHECKOUT ===")
+        print(f"[DEBUG] Usuario ID: {user_id}")
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Error de conexión"}), 500
+
         cur = conn.cursor()
+        cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
+        result = cur.fetchone()
+        
+        print(f"[DEBUG] Resultado de BD: {result}")
+        print(f"[DEBUG] Tipo de resultado: {type(result[0]) if result else 'None'}")
 
-        # Verificar si existe configuración para este usuario
-        cur.execute("""
-            SELECT checkout_hora
-            FROM config_checkout
-            WHERE usuario_id = %s
-        """, (user_id,))
+        if result and result[0]:
+            hora_limite = result[0]
+            
+            if isinstance(hora_limite, timedelta):
+                total_seconds = int(hora_limite.total_seconds())
+                hours = total_seconds // 3600
+                minutes = (total_seconds % 3600) // 60
+                hora_str = f"{hours:02d}:{minutes:02d}"
+                print(f"[DEBUG] Convertido de timedelta: {hora_str}")
+            elif isinstance(hora_limite, str):
+                hora_str = hora_limite[:5] if len(hora_limite) > 5 else hora_limite
+                print(f"[DEBUG] String recibido: {hora_str}")
+            elif isinstance(hora_limite, time):
+                hora_str = hora_limite.strftime("%H:%M")
+                print(f"[DEBUG] time object recibido: {hora_str}")
+            else:
+                hora_str = str(hora_limite)[:5]
+                print(f"[DEBUG] Otro tipo convertido a string: {hora_str}")
 
-        config = cur.fetchone()
-
-        if config:
-            checkout_hora = config[0]
+            print(f"[DEBUG] Hora final a devolver: {hora_str}")
+            print(f"[DEBUG] === FIN OBTENER CONFIG CHECKOUT ===")
+            
+            return jsonify({
+                "success": True,
+                "checkout_hora": hora_str
+            })
         else:
-            # Si no existe configuración, usar valor por defecto
-            checkout_hora = '13:00'
-
-        return jsonify({
-            "success": True,
-            "checkout_hora": checkout_hora
-        })
+            print(f"[DEBUG] No se encontró configuración para usuario {user_id}")
+            print(f"[DEBUG] === FIN OBTENER CONFIG CHECKOUT ===")
+            return jsonify({
+                "success": False,
+                "error": "No hay configuración guardada"
+            })
 
     except Exception as e:
         print(f"[DEBUG] Error obteniendo config checkout: {e}")
@@ -2766,12 +2791,17 @@ def guardar_config_checkout():
         data = request.get_json()
         checkout_hora = data.get('checkout_hora')
 
+        print(f"[DEBUG] === GUARDAR CONFIG CHECKOUT ===")
+        print(f"[DEBUG] Usuario ID: {user_id}")
+        print(f"[DEBUG] Hora recibida: {checkout_hora}")
+        print(f"[DEBUG] Tipo de dato: {type(checkout_hora)}")
+
         if not checkout_hora:
             return jsonify({"success": False, "error": "Hora de checkout requerida"}), 400
 
         # Validar formato de hora (HH:MM)
-        import re
         if not re.match(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', checkout_hora):
+            print(f"[DEBUG] Formato inválido: {checkout_hora}")
             return jsonify({"success": False, "error": "Formato de hora inválido"}), 400
 
         conn = get_db_connection()
@@ -2781,21 +2811,37 @@ def guardar_config_checkout():
         try:
             cur = conn.cursor()
 
-            # Insertar o actualizar la configuración
-            cur.execute("""
-                INSERT INTO config_checkout (usuario_id, checkout_hora)
-                VALUES (%s, %s)
-                ON DUPLICATE KEY UPDATE
-                    checkout_hora = VALUES(checkout_hora)
-            """, (user_id, checkout_hora))
+            cur.execute("SELECT id, hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
+            existing = cur.fetchone()
+            print(f"[DEBUG] Registro existente: {existing}")
+
+            if existing:
+                print(f"[DEBUG] Actualizando registro existente...")
+                cur.execute("""
+                    UPDATE config_checkout 
+                    SET hora_limite = %s 
+                    WHERE usuario_id = %s
+                """, (checkout_hora, user_id))
+                print(f"[DEBUG] Filas afectadas por UPDATE: {cur.rowcount}")
+            else:
+                print(f"[DEBUG] Insertando nuevo registro...")
+                cur.execute("""
+                    INSERT INTO config_checkout (usuario_id, hora_limite)
+                    VALUES (%s, %s)
+                """, (user_id, checkout_hora))
+                print(f"[DEBUG] Filas afectadas por INSERT: {cur.rowcount}")
 
             conn.commit()
 
-            print(f"[DEBUG] Config checkout guardada: usuario {user_id}, hora {checkout_hora}")
+            cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
+            verificacion = cur.fetchone()
+            print(f"[DEBUG] Verificación después de guardar: {verificacion}")
+            print(f"[DEBUG] === FIN GUARDAR CONFIG CHECKOUT ===")
 
             return jsonify({
                 "success": True,
-                "message": f"Configuración guardada exitosamente. Hora de checkout: {checkout_hora}"
+                "message": f"Configuración guardada: Check-out automático a las {checkout_hora}",
+                "hora_guardada": str(verificacion[0]) if verificacion else None
             })
 
         except pymysql.MySQLError as e:
@@ -2884,6 +2930,7 @@ def editar_perfil():
         
         # If changing password, verify current password
         if nueva_password:
+            from werkzeug.security import generate_password_hash
             cur.execute("SELECT password FROM usuarios WHERE id = %s", (user_id,))
             current_user = cur.fetchone()
             if not current_user or not check_password_hash(current_user[0], password_actual):
@@ -2892,7 +2939,6 @@ def editar_perfil():
         
         # Update profile
         if nueva_password:
-            from werkzeug.security import generate_password_hash
             hashed_password = generate_password_hash(nueva_password)
             cur.execute("UPDATE usuarios SET username = %s, password = %s WHERE id = %s", 
                        (username, hashed_password, user_id))

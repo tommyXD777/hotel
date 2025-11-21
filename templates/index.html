@@ -2913,15 +2913,30 @@
             });
         }
 
+        // CHANGE: Load configuration with proper error handling
         function abrirModalConfigCheckout() {
             const modal = document.getElementById('modalConfigCheckout');
             modal.style.display = 'block';
 
-            // Load from localStorage instead of backend
-            const savedHora = localStorage.getItem('checkout_hora') || '13:00';
-            document.getElementById('checkoutHoraInput').value = savedHora;
-            
-            showNotification('Configuración cargada', 'success');
+            fetch('/obtener_config_checkout')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.checkout_hora) {
+                        // Ensure format is HH:MM without seconds
+                        const horaFormateada = data.checkout_hora.includes(':') ? 
+                            data.checkout_hora.substring(0, 5) : data.checkout_hora;
+                        document.getElementById('checkoutHoraInput').value = horaFormateada;
+                        console.log('[v0] Configuración cargada:', horaFormateada);
+                    } else {
+                        document.getElementById('checkoutHoraInput').value = '13:00';
+                        console.warn('[v0] No se encontró configuración, usando valor por defecto 13:00');
+                    }
+                })
+                .catch(error => {
+                    console.error('[v0] Error al cargar configuración:', error);
+                    document.getElementById('checkoutHoraInput').value = '13:00';
+                    showNotification('Error al cargar configuración, usando valor por defecto', 'warning');
+                });
         }
 
         function cerrarModalConfigCheckout() {
@@ -2935,6 +2950,9 @@
         function guardarConfigCheckout() {
             const checkoutHora = document.getElementById('checkoutHoraInput').value;
 
+            console.log('[v0] === GUARDAR CONFIG CHECKOUT ===');
+            console.log('[v0] Valor del input:', checkoutHora);
+
             if (!checkoutHora) {
                 showNotification('Por favor selecciona una hora de check-out', 'warning');
                 return;
@@ -2945,18 +2963,46 @@
             button.textContent = '💾 Guardando...';
             button.disabled = true;
 
-            // Simulate a brief delay for better UX
-            setTimeout(() => {
-                // Save to localStorage
-                localStorage.setItem('checkout_hora', checkoutHora);
+            fetch('/guardar_config_checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    checkout_hora: checkoutHora
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('[v0] Respuesta del servidor:', data);
                 
-                showNotification(`Configuración guardada exitosamente. Las habitaciones se liberarán automáticamente a las ${checkoutHora}`, 'success');
-                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    console.log('[v0] Hora guardada verificada:', data.hora_guardada);
+                    
+                    setTimeout(() => {
+                        cerrarModalConfigCheckout();
+                        
+                        // Verify by reopening modal
+                        setTimeout(() => {
+                            abrirModalConfigCheckout();
+                        }, 500);
+                    }, 1000);
+                } else {
+                    showNotification('Error: ' + data.error, 'error');
+                    console.error('[v0] Error al guardar:', data.error);
+                }
                 button.textContent = originalText;
                 button.disabled = false;
-                
-                cerrarModalConfigCheckout();
-            }, 500);
+            })
+            .catch(error => {
+                console.error('[v0] Error en fetch:', error);
+                showNotification('Error al guardar configuración', 'error');
+                button.textContent = originalText;
+                button.disabled = false;
+            });
+            
+            console.log('[v0] === FIN GUARDAR CONFIG CHECKOUT ===');
         }
 
         function mostrarEstadisticasHabitaciones() {
