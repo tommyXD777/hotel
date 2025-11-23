@@ -39,7 +39,7 @@ def get_db_connection():
         print(f"   Base de datos: bd_hostal")
 
         conn = pymysql.connect(
-            host='mysql',  # Asegurándonos que sea localhost
+            host='173.249.59.24',  # Asegurándonos que sea localhost
             user='nelson',
             password='3011551141.Arias',
             database='bd_hostal',
@@ -843,7 +843,7 @@ def registrar_cliente(habitacion_id):
         cur = conn.cursor()
         
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
+        cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
@@ -1926,7 +1926,7 @@ def checkin():
         # Calcula la hora de salida a las 13:00 del día correspondiente
         
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
+        cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
@@ -2309,7 +2309,7 @@ def guardar_reserva_calendario():
         cur = conn.cursor()
         
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
+        cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
@@ -2547,7 +2547,7 @@ def editar_reserva_calendario():
 
         # Agregar hora de check-in (2 PM) y check-out (1 PM)
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
+        cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:

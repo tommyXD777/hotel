@@ -623,7 +623,8 @@
                         title="{% if room.estado == 'libre' %}Clic para agregar cliente{% else %}Clic para ver información del cliente{% endif %}">
                         
                         <!-- Added days counter for occupied rooms -->
-                        {% if room.estado == 'ocupada' and room.dias_ocupada %}
+                        <!-- Agregando contador de días también para mensualidad -->
+                        {% if (room.estado == 'ocupada' or room.estado == 'mensualidad') and room.dias_ocupada %}
                             <div class="days-counter">{{ room.dias_ocupada }}d</div>
                         {% endif %}
                         
@@ -675,7 +676,8 @@
                             <h3 class="text-xl font-bold text-gray-800">🏠 Habitación {{ room.numero }}</h3>
                             <div class="flex items-center gap-2">
                                 <!-- Added days counter in cards -->
-                                {% if room.estado == 'ocupada' and room.dias_ocupada %}
+                                <!-- Agregando contador de días en tarjetas también para mensualidad -->
+                                {% if (room.estado == 'ocupada' or room.estado == 'mensualidad') and room.dias_ocupada %}
                                     <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">
                                         {{ room.dias_ocupada }} día{% if room.dias_ocupada != 1 %}s{% endif %}
                                     </span>
