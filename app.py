@@ -39,7 +39,7 @@ def get_db_connection():
         print(f"   Base de datos: bd_hostal")
 
         conn = pymysql.connect(
-            host='mysql',  # Asegurándonos que sea localhost
+            host='173.249.59.24',  # Asegurándonos que sea localhost
             user='nelson',
             password='3011551141.Arias',
             database='bd_hostal',
@@ -1442,7 +1442,7 @@ def reutilizar_ultimo():
             return jsonify({"success": False, "error": "Formato de fecha inválido"}), 400
 
         # Get user's configured checkout time
-        cur.execute("SELECT checkout_hora FROM config_checkout WHERE usuario_id = %s", (user_id,))
+        cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
         checkout_config = cur.fetchone()
         
         if checkout_config and checkout_config[0]:
