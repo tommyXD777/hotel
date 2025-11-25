@@ -8,21 +8,595 @@
 
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
+        /* Estilos para el tablero tipo mapa */
+        .room-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+            max-width: 100%;
+        }
+        
+        /* Added responsive grid for mobile */
+        @media (max-width: 640px) {
+            .room-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 8px;
+            }
+        }
+        
+        .room-cell {
+            aspect-ratio: 1;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            min-height: 120px;
+            padding: 8px;
+        }
+        
+        /* Smaller room cells on mobile */
+        @media (max-width: 640px) {
+            .room-cell {
+                min-height: 100px;
+                padding: 6px;
+                font-size: 0.85rem;
+            }
+        }
+        
+        /* Updated color system according to requirements */
+        .room-libre { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
+        .room-ocupada { background: linear-gradient(135deg, #ef4444, #f87171); color: white; }
+        .room-varias-noches { background: linear-gradient(135deg, #ec4899, #f472b6); color: white; }
+        .room-reservado { background: linear-gradient(135deg, #3b82f6, #60a5fa); color: white; }
+        .room-mensualidad { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
+        .room-mantenimiento { background: linear-gradient(135deg, #6b7280, #9ca3af); color: white; }
+        
+        /* Added styles for guest information display */
+        .guest-info {
+            font-size: 10px;
+            text-align: center;
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+        
+        .days-counter {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            border-radius: 12px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .value-display {
+            font-size: 9px;
+            margin-top: 2px;
+            opacity: 0.9;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 2% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 95%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        /* Smaller room cells on mobile */
+        @media (max-width: 640px) {
+            .room-cell {
+                min-height: 100px;
+                padding: 6px;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Full width modals on mobile with better spacing */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+                padding: 15px;
+                max-height: 85vh;
+            }
+        }
+        
+        /* Responsive grid for mobile */
+        @media (max-width: 640px) {
+            .room-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 8px;
+            }
+        }
+
+        /* Responsive button groups */
+        @media (max-width: 768px) {
+            .grid.grid-cols-1.md\\:grid-cols-5 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .grid.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-3 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .flex.flex-wrap.gap-2 {
+                flex-direction: column;
+            }
+            
+            .flex.flex-wrap.gap-2 > * {
+                width: 100%;
+            }
+        }
+        
+        /* Responsive header */
+        @media (max-width: 640px) {
+            .container.mx-auto.p-4 {
+                padding: 0.75rem;
+            }
+            
+            h1 {
+                font-size: 1.5rem !important;
+            }
+            
+            h2 {
+                font-size: 1.25rem !important;
+            }
+            
+            h3 {
+                font-size: 1.1rem !important;
+            }
+        }
+        
+        /* Responsive form layout */
+        @media (max-width: 640px) {
+            #formCambiarEstado {
+                flex-direction: column !important;
+            }
+            
+            #formCambiarEstado select,
+            #formCambiarEstado input,
+            #formCambiarEstado button {
+                width: 100% !important;
+                margin-bottom: 0.5rem;
+            }
+        }
+
+        /* Replaced toast styles with banner notification styles */
+        .notification-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            pointer-events: none;
+        }
+
+        .notification-banner {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideDown 0.3s ease-out;
+            pointer-events: auto;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .notification-banner.success {
+            background: #d1fae5;
+            border-left-color: #10b981;
+        }
+
+        .notification-banner.error {
+            background: #fee2e2;
+            border-left-color: #ef4444;
+        }
+
+        .notification-banner.warning {
+            background: #fef3c7;
+            border-left-color: #f59e0b;
+        }
+
+        .notification-banner.info {
+            background: #dbeafe;
+            border-left-color: #3b82f6;
+        }
+
+        .notification-message {
+            flex: 1;
+            color: #1f2937;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .notification-close:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #374151;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+        }
+
+        .notification-banner.hiding {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+
+        @media (max-width: 640px) {
+            .notification-banner {
+                padding: 12px 16px;
+            }
+
+            .notification-message {
+                font-size: 14px;
+            }
+        }
+        
+        /* Reverting back to toast notification system (top-right corner) */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 400px;
+            pointer-events: none;
+        }
+
+        .notification-toast {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideInRight 0.3s ease-out;
+            pointer-events: auto;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .notification-toast.success {
+            border-left-color: #10b981;
+        }
+
+        .notification-toast.error {
+            border-left-color: #ef4444;
+        }
+
+        .notification-toast.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .notification-toast.info {
+            border-left-color: #3b82f6;
+        }
+
+        .notification-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .notification-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .notification-message {
+            color: #1f2937;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .notification-close:hover {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .notification-toast.hiding {
+            animation: slideOutRight 0.3s ease-out forwards;
+        }
+
+        @media (max-width: 640px) {
+            .notification-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+
+            .notification-toast {
+                padding: 12px;
+            }
+
+            .notification-message {
+                font-size: 13px;
+            }
+        }
+        
+        /* Added styles for Line Clamp */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
+    <!-- Changed from toast container to notification banner container -->
     <div id="notificationContainer" class="notification-container"></div>
 
     <div class="container mx-auto p-4">
-        
-        <!-- Tablero tipo mapa -->
+        <!-- Added hotel-specific header with user info -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">🏨 Panel de Control - {{ session.usuario }}</h1>
+                    <p class="text-gray-600 mt-2">Gestiona las habitaciones de tu hotel de forma independiente</p>
+                </div>
+                <div class="text-right">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                        <p class="text-sm text-blue-800 font-semibold">✨ Espacio Privado</p>
+                        <p class="text-xs text-blue-600">Solo tú puedes ver y gestionar estas habitaciones</p>
+                    </div>
+                    <form action="{{ url_for('logout') }}" method="POST" class="inline">
+                        <button type="submit" 
+                                class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 shadow-sm">
+                            🔒 Cerrar Sesión
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Updated room management section with multi-tenancy context -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">🏠 Gestión de Habitaciones</h2>
+            
+            <!-- Standardized all buttons to same size with px-6 py-3 and adjusted grid layout -->
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+                <a href="{{ url_for('agregar_habitacion') }}" 
+                   class="bg-green-500 text-white px-6 py-3 rounded hover:bg-green-600 text-center font-medium">
+                    ➕ Agregar Nueva Habitación
+                </a>
+                
+                <a href="{{ url_for('editar_perfil') }}" 
+                   class="bg-purple-500 text-white px-6 py-3 rounded hover:bg-purple-600 text-center font-medium">
+                    👤 Editar Perfil
+                </a>
+                
+                <a href="{{ url_for('exportar_excel') }}" 
+                   class="bg-blue-500 text-white px-6 py-3 rounded hover:bg-blue-600 text-center font-medium">
+                    📊 Exportar Datos a Excel
+                </a>
+                
+                <a href="{{ url_for('calendario') }}" 
+                   class="bg-purple-500 text-white px-6 py-3 rounded hover:bg-purple-600 text-center font-medium">
+                    📅 Calendario de Reservas
+                </a>
+                
+                <!-- Removed wrapper div and standardized button styling -->
+                <button onclick="abrirModalConfigCheckout()"
+                        title="Configurar Hora de Salida" aria-label="Configurar Hora de Salida"
+                        class="bg-blue-500 text-white px-6 py-3 rounded hover:bg-blue-600 text-center font-medium">
+                    ⏰ Configurar Hora de Salida
+                </button>
+                
+                <!-- Agregando botón para ver estadísticas de habitaciones -->
+                <button onclick="mostrarEstadisticasHabitaciones()"
+                        class="bg-indigo-500 text-white px-6 py-3 rounded hover:bg-indigo-600 text-center font-medium">
+                    📊 Ver Estado de Habitaciones
+                </button>
+
+                <!-- CHANGE: Adding button to open weekly observations -->
+                <button onclick="mostrarObservacionesSemanales()"
+                        class="bg-purple-500 text-white px-6 py-3 rounded hover:bg-purple-600 text-center font-medium">
+                    📝 Observaciones Semanales
+                </button>
+            </div>
+
+            <!-- Enhanced room state management with name and price fields -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="text-lg font-medium mb-3 text-gray-700">🔄 Cambiar Estado de Habitación</h3>
+                <form id="formCambiarEstado" action="{{ url_for('cambiar_color_general') }}" method="POST" 
+                      class="flex flex-wrap items-center gap-3">
+                    <select name="habitacion_id" id="selectHabitacion"
+                            class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Seleccionar habitación...</option>
+                        {% for h in habitaciones %}
+                            <option value="{{ h[0] }}">Habitación {{ h[1] }} - {{ h[2] }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="nuevo_estado" id="selectNuevoEstado"
+                            class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            onchange="toggleReservationFields()">
+                        <option value="libre">🟢 Libre</option>
+                        <option value="ocupada">🔴 Ocupada</option>
+                        <option value="reservado">🔵 Reservado</option>
+                        <option value="mensualidad">🟡 Mensualidad</option>
+                        <option value="mantenimiento">⚙️ Mantenimiento</option>
+                    </select>
+
+                    <!-- Fixed reservation fields to always show when reservado is selected -->
+                    <div id="reservationFields" style="display:none;" class="flex items-center gap-2">
+                        <input type="text" name="nombre_cliente" id="nombre_cliente"
+                               placeholder="Nombre del cliente *"
+                               class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <input type="number" name="precio_noche" id="precio_noche" step="0.01" min="0"
+                               placeholder="Precio por noche *"
+                               class="border rounded px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                      
+                    </div>
+                    
+                    <!-- Added hidden div for existing client data display -->
+                    <div id="datosExistentes" style="display: none;" class="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
+                        <p class="font-semibold">Datos del cliente existente:</p>
+                        <div id="infoClienteExistente"></div>
+                        <button type="button" onclick="mantenerDatosExistentes()" class="mt-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600">
+                            Usar estos datos
+                        </button>
+                    </div>
+
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Cambiar estado
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tablero tipo mapa - MOVIDO ARRIBA DE LAS CARDS -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-semibold text-gray-800">🗺️ Tablero de Habitaciones</h2>
+                <!-- Updated legend with new color system -->
+                <div class="flex gap-4 text-sm flex-wrap">
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-green-500 rounded"></div>
+                        <span>Libre</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-red-500 rounded"></div>
+                        <span>Ocupada</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-pink-500 rounded"></div>
+                        <span>Varias Noches</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-blue-500 rounded"></div>
+                        <span>Reserva</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-yellow-500 rounded"></div>
+                        <span>Mensualidad</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-gray-500 rounded"></div>
+                        <span>Mantenimiento</span>
+                    </div>
+                </div>
             </div>
             
             <div class="room-grid">
                 {% for room in rooms %}
+                    <!-- Cleaned room cells - removed guest information from inside the boxes -->
+                     
                     <div class="room-cell 
                         {% if room.estado == 'libre' %}room-libre
                         {% elif room.estado == 'ocupada' and room.dias_ocupada <= 1 %}room-ocupada
@@ -31,50 +605,2612 @@
                         {% elif room.estado == 'mensualidad' %}room-mensualidad
                         {% elif room.estado == 'mantenimiento' %}room-mantenimiento
                         {% endif %}"
-                        onclick="manejarClickHabitacion(...)">
+                        onclick="manejarClickHabitacion(
+                            {{ room.id }}, 
+                            '{{ room.numero }}', 
+                            '{{ room.estado }}', 
+                            {{ ('\"' + (room.inquilino_principal|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.inquilino_principal else 'null' }}, 
+                            {{ ('\"' + (room.telefono|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.telefono else 'null' }}, 
+                            {{ ('\"' + room.fecha_ingreso.strftime('%d/%m/%Y %H:%M') + '\"') if room.fecha_ingreso else 'null' }}, 
+                            {{ ('\"' + room.fecha_salida.strftime('%d/%m/%Y %H:%M') + '\"') if room.fecha_salida else 'null' }}, 
+                            {{ room.valor if room.valor else 0 }}, 
+                            {{ ('\"' + (room.observacion|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.observacion else 'null' }}, 
+                            {{ room.dias_ocupada if room.dias_ocupada else 0 }}, 
+                            {{ ('\"' + (room.tipo_doc|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.tipo_doc else 'null' }}, 
+                            {{ ('\"' + (room.numero_doc|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.numero_doc else 'null' }}, 
+                            {{ ('\"' + (room.procedencia|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.procedencia else 'null' }}
+                        )"
+                        title="{% if room.estado == 'libre' %}Clic para agregar cliente{% else %}Clic para ver información del cliente{% endif %}">
                         
-                        <!-- Modificado para mostrar "rato" cuando dias_ocupada == 0 -->
-                        {% if (room.estado == 'ocupada' or room.estado == 'mensualidad') and room.dias_ocupada is not none %}
-                            <div class="days-counter">
-                                {% if room.dias_ocupada == 0 %}rato{% else %}{{ room.dias_ocupada }}d{% endif %}
-                            </div>
+                        <!-- Added days counter for occupied rooms -->
+                        <!-- Agregando contador de días también para mensualidad -->
+                        {% if (room.estado == 'ocupada' or room.estado == 'mensualidad') and room.dias_ocupada %}
+                            <div class="days-counter">{{ room.dias_ocupada }}d</div>
                         {% endif %}
                         
                         <div class="text-lg font-bold">{{ room.numero }}</div>
                         <div class="text-xs text-center opacity-90">{{ room.descripcion[:12] }}...</div>
                         
+                        <!-- Removed guest information display from room cells -->
+                        {% if room.estado != 'libre' %}
+                            <div class="text-xs text-center mt-2 opacity-75">
+                                {% if room.estado == 'ocupada' %}OCUPADA
+                                {% elif room.estado == 'reservado' %}
+                                    RESERVADA
+                                    {% if room.inquilino_principal %}
+                                        <br><span class="font-semibold">{{ room.inquilino_principal[:10] }}...</span>
+                                    {% endif %}
+                                    {% if room.valor %}
+                                        <br>${{ "%.0f"|format(room.valor) }}/noche
+                                    {% endif %}
+                                {% elif room.estado == 'mensualidad' %}MENSUALIDAD
+                                {% elif room.estado == 'mantenimiento' %}MANTENIMIENTO
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="text-xs text-center mt-2 opacity-75">DISPONIBLE</div>
+                        {% endif %}
+                        
+                        {% if room.num_personas_ocupadas > 1 %}
+                            <div class="absolute top-1 left-1 bg-white bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                                {{ room.num_personas_ocupadas }}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- CHANGE: Added "Reutilizar Último Cliente" button to room grid -->
+                        {% if room.estado == 'libre' %}
+                            
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>
         </div>
 
-        <!-- Enhanced room grid -->
+        <!-- Enhanced room grid with better visual hierarchy -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for room in rooms %}
                 <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                    <!-- Room header with status -->
                     <div class="p-4 {{ 'bg-green-50 border-l-4 border-green-500' if room.estado == 'libre' else 'bg-red-50 border-l-4 border-red-500' if room.estado == 'ocupada' and room.dias_ocupada <= 1 else 'bg-pink-50 border-l-4 border-pink-500' if room.estado == 'ocupada' and room.dias_ocupada > 1 else 'bg-blue-50 border-l-4 border-blue-500' if room.estado == 'reservado' else 'bg-yellow-50 border-l-4 border-yellow-500' if room.estado == 'mensualidad' else 'bg-gray-50 border-l-4 border-gray-500' }}">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="text-xl font-bold text-gray-800">🏠 Habitación {{ room.numero }}</h3>
                             <div class="flex items-center gap-2">
-                                <!-- Modificado para mostrar "rato" cuando dias_ocupada == 0 -->
-                                {% if (room.estado == 'ocupada' or room.estado == 'mensualidad') and room.dias_ocupada is not none %}
+                                <!-- Added days counter in cards -->
+                                <!-- Agregando contador de días en tarjetas también para mensualidad -->
+                                {% if (room.estado == 'ocupada' or room.estado == 'mensualidad') and room.dias_ocupada %}
                                     <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">
-                                        {% if room.dias_ocupada == 0 %}
-                                            rato
-                                        {% else %}
-                                            {{ room.dias_ocupada }} día{% if room.dias_ocupada != 1 %}s{% endif %}
-                                        {% endif %}
+                                        {{ room.dias_ocupada }} día{% if room.dias_ocupada != 1 %}s{% endif %}
                                     </span>
                                 {% endif %}
+                                <span class="text-sm font-semibold px-2 py-1 rounded {{ 'text-green-700 bg-green-100' if room.estado == 'libre' else 'text-red-700 bg-red-100' if room.estado == 'ocupada' and room.dias_ocupada <= 1 else 'text-pink-700 bg-pink-100' if room.estado == 'ocupada' and room.dias_ocupada > 1 else 'text-blue-700 bg-blue-100' if room.estado == 'reservado' else 'text-yellow-700 bg-yellow-100' if room.estado == 'mensualidad' else 'text-gray-700 bg-gray-100' }}">
+                                    {% if room.estado == 'libre' %}
+                                        ✅ LIBRE
+                                    {% elif room.estado == 'ocupada' and room.dias_ocupada <= 1 %}
+                                        🔴 OCUPADA
+                                    {% elif room.estado == 'ocupada' and room.dias_ocupada > 1 %}
+                                          VARIAS NOCHES
+                                    {% elif room.estado == 'reservado' %}
+                                        🔵 RESERVADO
+                                        <!-- Show reservation details in cards -->
+                                        {% if room.inquilino_principal %}
+                                            <br><small>Cliente: {{ room.inquilino_principal }}</small>
+                                        {% endif %}
+                                        {% if room.valor %}
+                                            <br><small>Precio: ${{ "{:,.0f}".format(room.valor) }}/noche</small>
+                                        {% endif %}
+                                    {% elif room.estado == 'mensualidad' %}
+                                        🟡 MENSUALIDAD
+                                    {% elif room.estado == 'mantenimiento' %}
+                                        ⚙️ MANTENIMIENTO
+                                    {% endif %}
+                                </span>
                             </div>
+                        </div>
+                        <p class="text-gray-600">{{ room.descripcion }}</p>
+                    </div>
+
+                    <!-- Room content -->
+                    <div class="p-4">
+                      
+                        {% if (room.estado == 'ocupada' or room.estado == 'mensualidad') and room.inquilino_principal %}
+                            <div class="space-y-2 mb-4">
+                                <p class="text-sm"><strong class="text-gray-700">Cliente Principal:</strong> {{ room.inquilino_principal }}</p>
+                                {% if room.telefono %}
+                                    <p class="text-sm"><strong class="text-gray-700">Teléfono:</strong> {{ room.telefono }}</p>
+                                {% endif %}
+                                {% if room.fecha_ingreso %}
+                                    <p class="text-sm"><strong class="text-gray-700">Fecha de Ingreso:</strong> {{ room.fecha_ingreso.strftime('%d/%m/%Y %H:%M') }}</p>
+                                {% endif %}
+                                {% if room.fecha_salida %}
+                                    <p class="text-sm"><strong class="text-gray-700">Fecha de Salida:</strong> {{ room.fecha_salida.strftime('%d/%m/%Y %H:%M') }}</p>
+                                {% endif %}
+                                {% if room.valor %}
+                                    <p class="text-sm"><strong class="text-gray-700">Valor:</strong> ${{ "{:,.0f}".format(room.valor) }}</p>
+                                {% endif %}
+                                {% if room.observacion %}
+                                    <p class="text-sm"><strong class="text-gray-700">Observación:</strong> {{ room.observacion }}</p>
+                                {% endif %}
+                                {% if room.personas_list and room.personas_list|length > 1 %}
+                                    <div class="mt-3">
+                                        <p class="text-sm font-semibold text-gray-700 mb-1">Todos los huéspedes ({{ room.personas_list|length }}):</p>
+                                        <div class="space-y-1">
+                                            {% for persona in room.personas_list %}
+                                                <div class="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
+                                                    <span>{{ persona.nombre }} - {{ persona.telefono or "Sin teléfono" }}</span>
+                                                    <a href="/editar_cliente/{{ persona.id }}" 
+                                                    class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600">
+                                                        👤 EDITAR CLIENTE
+                                                    </a>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Action buttons -->
+                        <div class="flex flex-wrap gap-2 text-sm">
+                            <!-- Conditional buttons based on room status -->
+                            
+                            {% if room.estado == 'libre' %}
+                                <!-- Buttons for FREE rooms -->
+                                <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" 
+                                   class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                    👤+ Agregar Cliente
+                                </a>
+                                
+                                <a href="{{ url_for('editar_habitacion', habitacion_id=room.id) }}" 
+                                   class="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
+                                   title="Editar información de la habitación">
+                                    ✏️ Editar Habitación
+                                </a>
+                                
+                                <a href="#" onclick="confirmarReutilizacion({{ room.id }})"
+                                   class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
+                                    ♻️ Reutilizar Cliente
+                                </a>
+                                
+                                <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
+                                      method="POST" class="inline"
+                                      onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
+                                    <button type="submit" 
+                                            class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                        🗑️ Eliminar Habitación
+                                    </button>
+                                </form>
+                            
+                            {% elif room.estado == 'ocupada' or room.estado == 'mensualidad' %}
+                                <!-- Buttons for OCCUPIED rooms -->
+                                {% if room.cliente_id %}
+                                    <a href="/editar_cliente/{{ room.cliente_id }}" 
+                                       class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                                       title="Editar datos del cliente principal">
+                                        👤 Editar Cliente
+                                    </a>
+                                {% endif %}
+                                
+                                <a href="{{ url_for('liberar', habitacion_id=room.id) }}"
+                                   class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                                   title="Liberar habitación"
+                                   onclick="return confirm('¿Seguro que deseas liberar esta habitación?');">
+                                    🔓 Liberar
+                                </a>
+                                
+                                {% if room.num_personas_ocupadas < 4 %}
+                                    <a href="{{ url_for('agregar_cliente_habitacion', habitacion_id=room.id) }}" 
+                                       class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                        👤+ Agregar Cliente
+                                    </a>
+                                {% endif %}
+                            
+                            {% elif room.estado == 'reservado' %}
+                                <!-- Buttons for RESERVED rooms -->
+                                <a href="#" onclick="cancelarReserva({{ room.id }})" 
+                                   class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                    ❌ Cancelar Reserva
+                                </a>
+                                
+                                <button type="button" 
+                                        onclick="manejarClickHabitacion(
+                                            {{ room.id }}, 
+                                            '{{ room.numero }}', 
+                                            '{{ room.estado }}', 
+                                            {{ ('\"' + (room.inquilino_principal|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.inquilino_principal else 'null' }}, 
+                                            {{ ('\"' + (room.telefono|replace('\"', '\\\"')|replace('\n', ' ')|replace('\r', ' ')) + '\"') if room.telefono else 'null' }}, 
+                                            null, 
+                                            null, 
+                                            {{ room.valor if room.valor else 0 }}, 
+                                            null, 
+                                            0,
+                                            null,
+                                            null,
+                                            null
+                                        )"
+                                        class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                                    ✅ Completar Reserva
+                                </button>
+                            
+                            {% else %}
+                                <!-- Buttons for other states (mantenimiento, etc.) -->
+                                <a href="{{ url_for('editar_habitacion', habitacion_id=room.id) }}" 
+                                   class="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
+                                   title="Editar información de la habitación">
+                                    ✏️ Editar Habitación
+                                </a>
+                                
+                                <form action="{{ url_for('eliminar_habitacion', habitacion_id=room.id) }}" 
+                                      method="POST" class="inline"
+                                      onsubmit="return confirm('¿Estás seguro de eliminar esta habitación?')">
+                                    <button type="submit" 
+                                            class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                        🗑️ Eliminar Habitación
+                                    </button>
+                                </form>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
             {% endfor %}
         </div>
+
+        <!-- Added empty state message -->
+        {% if not rooms %}
+            <div class="text-center py-12">
+                <div class="bg-white rounded-lg shadow-md p-8">
+                    <h3 class="text-xl font-semibold text-gray-600 mb-4">🏨 ¡Bienvenido a tu espacio hotelero!</h3>
+                    <p class="text-gray-500 mb-6">Aún no tienes habitaciones registradas. Comienza agregando tu primera habitación.</p>
+                    <a href="{{ url_for('agregar_habitacion') }}" 
+                       class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 font-medium">
+                        ➕ Agregar Primera Habitación
+                    </a>
+                </div>
+            </div>
+        {% endif %}
     </div>
 
+    <!-- Modal para agregar cliente o mostrar información -->
+    <div id="modalAgregarCliente" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitulo" class="text-xl font-bold"></h3>
+                <button onclick="cerrarModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div id="modalContenido">
+                <!-- El contenido del formulario o información se carga aquí -->
+            </div>
+        </div>
+    </div>
+
+     <!-- Added renewal modal -->
+    <div id="modalRenovacion" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalRenovacionTitulo" class="text-xl font-bold"></h3>
+                <button onclick="cerrarModalRenovacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div id="modalRenovacionContenido">
+                 <!-- El contenido del formulario de renovación se carga aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom calendar picker modal for date selection -->
+    <!-- Updated calendar modal to remove minutes section -->
+    <div id="modalCalendario" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">📅 Seleccionar Fecha y Hora</h3>
+                <button onclick="cerrarModalCalendario()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Calendar Section -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <button type="button" onclick="cambiarMes(-1)" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                            ◀
+                        </button>
+                        <h4 id="mesAnio" class="text-lg font-semibold"></h4>
+                        <button type="button" onclick="cambiarMes(1)" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                            ▶
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-7 gap-1 text-center text-sm">
+                        <div class="font-semibold p-2">DO</div>
+                        <div class="font-semibold p-2">LU</div>
+                        <div class="font-semibold p-2">MA</div>
+                        <div class="font-semibold p-2">MI</div>
+                        <div class="font-semibold p-2">JU</div>
+                        <div class="font-semibold p-2">VI</div>
+                        <div class="font-semibold p-2">SA</div>
+                    </div>
+                    
+                    <div id="diasCalendario" class="grid grid-cols-7 gap-1 text-center text-sm">
+                        <!-- Days will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <!-- Time Section (12-hour format with AM/PM toggle) -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-lg font-semibold mb-3">🕐 Seleccionar Hora</h4>
+                    
+                    <!-- Updated to 12-hour format with AM/PM toggle -->
+                    <div class="mb-3 flex justify-center space-x-2">
+                        <button type="button" id="amBtn" onclick="cambiarAmPm('AM')" class="ampm-btn bg-blue-500 text-white px-4 py-2 rounded text-sm">
+                            a.m.
+                        </button>
+                        <button type="button" id="pmBtn" onclick="cambiarAmPm('PM')" class="ampm-btn bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded text-sm">
+                            p.m.
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-6 gap-2">
+                        <button type="button" onclick="seleccionarHora12(12)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">12</button>
+                        <button type="button" onclick="seleccionarHora12(1)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">01</button>
+                        <button type="button" onclick="seleccionarHora12(2)" class="hora-btn bg-blue-500 text-white px-3 py-2 rounded text-sm">02</button>
+                        <button type="button" onclick="seleccionarHora12(3)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">03</button>
+                        <button type="button" onclick="seleccionarHora12(4)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">04</button>
+                        <button type="button" onclick="seleccionarHora12(5)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">05</button>
+                        <button type="button" onclick="seleccionarHora12(6)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">06</button>
+                        <button type="button" onclick="seleccionarHora12(7)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">07</button>
+                        <button type="button" onclick="seleccionarHora12(8)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">08</button>
+                        <button type="button" onclick="seleccionarHora12(9)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">09</button>
+                        <button type="button" onclick="seleccionarHora12(10)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">10</button>
+                        <button type="button" onclick="seleccionarHora12(11)" class="hora-btn bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">11</button>
+                    </div>
+                </div>
+                
+                <!-- Added multiple nights pricing section -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-lg font-semibold mb-3">💰 Precio por Estadía</h4>
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <label class="text-sm font-medium">Noches:</label>
+                            <input type="number" id="numeroNoches" min="1" value="1" onchange="calcularPrecioTotal()" 
+                                   class="border border-gray-300 rounded px-3 py-1 w-20 text-center">
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <label class="text-sm font-medium">Precio por noche:</label>
+                            <input type="number" id="precioPorNoche" min="0" step="0.01" placeholder="0.00" onchange="calcularPrecioTotal()"
+                                   class="border border-gray-300 rounded px-3 py-1 w-24">
+                        </div>
+                        <div class="bg-green-50 p-3 rounded">
+                            <div class="flex justify-between items-center">
+                                <span class="font-semibold">Total:</span>
+                                <span id="precioTotal" class="text-lg font-bold text-green-600">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selected Date/Time Display -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="text-sm font-semibold text-gray-600 mb-2">Fecha y Hora Seleccionada:</h4>
+                    <p id="fechaHoraSeleccionada" class="text-lg font-medium text-gray-800">Selecciona fecha y hora</p>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex justify-between space-x-3">
+                    <div class="flex space-x-2">
+                        <button type="button" onclick="limpiarSeleccion()" class="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded text-sm">
+                            Limpiar
+                        </button>
+                        <button type="button" onclick="hoyFechaHora()" class="bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded text-sm">
+                            Hoy
+                        </button>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button type="button" onclick="cerrarModalCalendario()" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
+                            Cancelar
+                        </button>
+                        <button type="button" onclick="confirmarFechaHora()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                            Aceptar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for reservation details -->
+    <div id="modalReservacion" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="modalReservacionTitulo" class="text-xl font-bold text-gray-800"></h2>
+                <button onclick="cerrarModalReservacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="modalReservacionContenido">
+                <!-- Formulario de reserva se carga aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for statistics -->
+    <div id="modalEstadisticas" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800">📊 Estado de Habitaciones</h3>
+                <button onclick="cerrarModalEstadisticas()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-green-600" id="stat-libres-modal">0</div>
+                    <div class="text-sm text-gray-600">🟢 Habitaciones Libres</div>
+                </div>
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-red-600" id="stat-ocupadas-modal">0</div>
+                    <div class="text-sm text-gray-600">🔴 Habitaciones Ocupadas</div>
+                </div>
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-blue-600" id="stat-reservadas-modal">0</div>
+                    <div class="text-sm text-gray-600">🔵 Habitaciones Reservadas</div>
+                </div>
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-yellow-600" id="stat-mensualidad-modal">0</div>
+                    <div class="text-sm text-gray-600">🟡 Mensualidad</div>
+                </div>
+                <div class="bg-gray-50 border-l-4 border-gray-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-gray-600" id="stat-mantenimiento-modal">0</div>
+                    <div class="text-sm text-gray-600">⚙️ Mantenimiento</div>
+                </div>
+                <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded">
+                    <div class="text-3xl font-bold text-indigo-600" id="stat-total-modal">0</div>
+                    <div class="text-sm text-gray-600">🏨 Total de Habitaciones</div>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-semibold text-gray-700 mb-2">📈 Resumen</h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span>Disponibilidad:</span>
+                        <span class="font-semibold" id="porcentaje-disponibilidad">0%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Ocupación:</span>
+                        <span class="font-semibold" id="porcentaje-ocupacion">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 text-center">
+                <button onclick="cerrarModalEstadisticas()" 
+                        class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CHANGE: Adding modal for weekly observations -->
+    <div id="modalObservacionesSemanales" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800">📝 Observaciones Semanales</h3>
+                <button onclick="cerrarModalObservaciones()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
+            </div>
+            
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p class="text-sm text-yellow-800">
+                    ⚠️ <strong>Nota:</strong> Las observaciones se limpian automáticamente cada lunes a las 7:00 AM
+                </p>
+            </div>
+            
+            <div id="contenidoObservaciones" class="space-y-3">
+                <!-- Weekly observation buttons will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for editing individual day observation -->
+    <div id="modalEditarObservacion" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="tituloEditarObservacion" class="text-xl font-bold text-gray-800"></h3>
+                <button onclick="cerrarModalEditarObservacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <form onsubmit="guardarObservacion(event, document.getElementById('diaSeleccionado').value)" class="space-y-4">
+                <input type="hidden" id="diaSeleccionado" name="semana"> <!-- Changed name to 'semana' -->
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Observación:</label>
+                    <textarea id="textoObservacion" name="observacion" rows="6"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                              placeholder="Escribe tus observaciones para este día..."></textarea>
+                </div>
+                
+                <div class="flex justify-between space-x-3">
+                    <button type="button" onclick="eliminarObservacionDia(document.getElementById('diaSeleccionado').value)" 
+                            class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        🗑️ Eliminar
+                    </button>
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="cerrarModalEditarObservacion()" 
+                                class="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            💾 Guardar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Added modal for reutilization confirmation -->
+    <!-- Reemplazando modal simple con versión completa que incluye campos de fecha, precio y cálculos -->
+    <div id="modalReutilizacion" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">♻️ Reutilizar Último Cliente</h3>
+                <button onclick="cerrarModalReutilizacion()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <p class="text-gray-700">¿Deseas reutilizar los datos del último cliente para esta habitación?</p>
+                
+                <div id="infoClienteReutilizar" class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Cargando información del cliente...</p>
+                </div>
+                
+                <!-- Campos para fecha, precio y cálculos -->
+                <div class="space-y-3 bg-gray-50 p-4 rounded-lg">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Check-in</label>
+                        <input type="datetime-local" id="reutilizarFechaCheckin" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               onchange="calcularCheckoutReutilizar()">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Precio por Noche</label>
+                            <input type="number" id="reutilizarPrecioPorNoche" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="0" min="0" step="1000"
+                                   oninput="calcularTotalReutilizar()">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Número de Días</label>
+                            <input type="number" id="reutilizarNumDias" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="1" min="1" value="1"
+                                   oninput="calcularTotalReutilizar(); calcularCheckoutReutilizar()">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Valor Total</label>
+                        <input type="text" id="reutilizarValorTotal" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 font-semibold text-gray-800"
+                               readonly value="$0">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Check-out</label>
+                        <input type="text" id="reutilizarFechaCheckout" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-800"
+                               readonly placeholder="Se calculará automáticamente">
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="cerrarModalReutilizacion()" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="ejecutarReutilizacion()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">
+                        ♻️ Reutilizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Added modal for checkout time configuration -->
+    <div id="modalConfigCheckout" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">⏰ Configurar Hora de Check-out</h3>
+                <button onclick="cerrarModalConfigCheckout()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-sm text-blue-800">
+                        <strong>ℹ️ Información:</strong> Configura la hora en que las habitaciones se liberarán automáticamente cuando llegue la fecha de salida.
+                    </p>
+                </div>
+                
+                <div class="space-y-3">
+                    <label class="block text-sm font-medium text-gray-700">
+                        Hora de Check-out Automático:
+                    </label>
+                    
+                    <div class="flex items-center space-x-3">
+                        <input type="time" id="checkoutHoraInput" 
+                               class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
+                               value="13:00">
+                        
+                        <!-- Mejorados los botones de hora rápida con mejor contraste y estilo -->
+                        <button type="button" onclick="establecerHoraRapida('13:00')" 
+                                class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-medium px-4 py-2 rounded-lg border border-orange-300 transition-all duration-200 hover:shadow-md text-sm">
+                            1:00 PM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('14:00')" 
+                                class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-medium px-4 py-2 rounded-lg border border-orange-300 transition-all duration-200 hover:shadow-md text-sm">
+                            2:00 PM
+                        </button>
+                    </div>
+                    
+                    <!-- Mejorada la cuadrícula de botones con mejor diseño y contraste -->
+                    <div class="grid grid-cols-3 gap-3 mt-3">
+                        <button type="button" onclick="establecerHoraRapida('10:00')" 
+                                class="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            10:00 AM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('11:00')" 
+                                class="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            11:00 AM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('12:00')" 
+                                class="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            12:00 PM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('15:00')" 
+                                class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            3:00 PM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('16:00')" 
+                                class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            4:00 PM
+                        </button>
+                        <button type="button" onclick="establecerHoraRapida('17:00')" 
+                                class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm">
+                            5:00 PM
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p class="text-sm text-yellow-800">
+                        <strong>⚠️ Importante:</strong> Las habitaciones se liberarán automáticamente a esta hora cuando llegue la fecha de check-out programada.
+                    </p>
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <!-- Mejorado el botón de cancelar con mejor contraste -->
+                    <button type="button" onclick="cerrarModalConfigCheckout()" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-lg transition-all duration-200">
+                        Cancelar
+                    </button>
+                    <!-- Changed to solid purple background for better text visibility -->
+                    <button type="button" onclick="guardarConfigCheckout()" 
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                        💾 Guardar Configuración
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts para funcionalidad del tablero -->
     <script>
+        let habitacionActual = null;
+        let fechaSeleccionada = null;
+        let horaSeleccionada = 14; // Default 2 PM (24-hour format internally)
+        let hora12Seleccionada = 2; // Default 2 (12-hour format for display)
+        let amPmSeleccionado = 'PM'; // Default PM
+        let minutoSeleccionado = 0; // Default 0 minutes
+        let mesActual = new Date().getMonth();
+        let anioActual = new Date().getFullYear();
+        let callbackConfirmarFecha = null;
+        let currentHabitacionId = null; // To store the current room ID for modal context
+        let existingClientData = null; // Variable to store client data for 'reservado' state
+
+        // Updated showNotification to use toast styles instead of banner
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('notificationContainer');
+            
+            const toast = document.createElement('div');
+            toast.className = `notification-toast ${type}`;
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            
+            toast.innerHTML = `
+                <div class="notification-icon">${icons[type] || icons.info}</div>
+                <div class="notification-content">
+                    <div class="notification-message">${message}</div>
+                </div>
+                <button class="notification-close" onclick="closeNotification(this)">×</button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-dismiss after 15 seconds
+            setTimeout(() => {
+                removeNotification(toast);
+            }, 15000);
+        }
+
+        function closeNotification(button) {
+            const toast = button.closest('.notification-toast');
+            removeNotification(toast);
+        }
+
+        function removeNotification(toast) {
+            toast.classList.add('hiding');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }
+
+        function toggleReservationFields() {
+            const select = document.getElementById('selectNuevoEstado');
+            const fields = document.getElementById('reservationFields');
+            const nombreInput = document.getElementById('nombre_cliente');
+            const precioInput = document.getElementById('precio_noche');
+            
+            if (select && fields) {
+                if (select.value === 'reservado') {
+                    fields.style.display = 'flex';
+                    nombreInput.setAttribute('required', 'required');
+                    precioInput.setAttribute('required', 'required');
+                    checkExistingClientData();
+                } else {
+                    fields.style.display = 'none';
+                    nombreInput.removeAttribute('required');
+                    precioInput.removeAttribute('required');
+                    document.getElementById('datosExistentes').style.display = 'none';
+                    window.existingClientData = null;
+                }
+            }
+        }
+
+        function abrirCalendario(callback) {
+            callbackConfirmarFecha = callback;
+            document.getElementById('modalCalendario').style.display = 'block';
+            generarCalendario();
+            actualizarFechaHoraDisplay();
+        }
+
+        function cerrarModalCalendario() {
+            document.getElementById('modalCalendario').style.display = 'none';
+            callbackConfirmarFecha = null;
+        }
+
+        function generarCalendario() {
+            const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            
+            document.getElementById('mesAnio').textContent = `${meses[mesActual]} ${anioActual}`;
+            
+            const primerDia = new Date(anioActual, mesActual, 1);
+            const ultimoDia = new Date(anioActual, mesActual + 1, 0);
+            const diasEnMes = ultimoDia.getDate();
+            const diaSemanaInicio = primerDia.getDay();
+            
+            const diasContainer = document.getElementById('diasCalendario');
+            diasContainer.innerHTML = '';
+            
+            for (let i = 0; i < diaSemanaInicio; i++) {
+                const diaVacio = document.createElement('div');
+                diaVacio.className = 'p-2';
+                diasContainer.appendChild(diaVacio);
+            }
+            
+            for (let dia = 1; dia <= diasEnMes; dia++) {
+                const diaBtn = document.createElement('button');
+                diaBtn.type = 'button';
+                diaBtn.textContent = dia;
+                diaBtn.className = 'p-2 hover:bg-blue-100 rounded cursor-pointer';
+                
+                const fechaDia = new Date(anioActual, mesActual, dia);
+                const hoy = new Date();
+                
+                if (fechaDia.toDateString() === hoy.toDateString()) {
+                    diaBtn.className += ' bg-blue-500 text-white font-bold';
+                }
+                
+                if (fechaSeleccionada && fechaSeleccionada.getDate() === dia && 
+                    fechaSeleccionada.getMonth() === mesActual && 
+                    fechaSeleccionada.getFullYear() === anioActual) {
+                    diaBtn.className += ' bg-green-500 text-white font-bold';
+                }
+                
+                diaBtn.onclick = () => seleccionarDia(dia);
+                diasContainer.appendChild(diaBtn);
+            }
+        }
+
+        function cambiarMes(direccion) {
+            mesActual += direccion;
+            if (mesActual > 11) {
+                mesActual = 0;
+                anioActual++;
+            } else if (mesActual < 0) {
+                mesActual = 11;
+                anioActual--;
+            }
+            generarCalendario();
+        }
+
+        function seleccionarDia(dia) {
+            fechaSeleccionada = new Date(anioActual, mesActual, dia);
+            generarCalendario();
+            actualizarFechaHoraDisplay();
+        }
+
+        function cambiarAmPm(periodo) {
+            amPmSeleccionado = periodo;
+            
+            document.getElementById('amBtn').className = periodo === 'AM' ? 
+                'ampm-btn bg-blue-500 text-white px-4 py-2 rounded text-sm' : 
+                'ampm-btn bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded text-sm';
+            document.getElementById('pmBtn').className = periodo === 'PM' ? 
+                'ampm-btn bg-blue-500 text-white px-4 py-2 rounded text-sm' : 
+                'ampm-btn bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded text-sm';
+            
+            convertirA24Horas();
+            actualizarFechaHoraDisplay();
+        }
+
+        function seleccionarHora12(hora) {
+            hora12Seleccionada = hora;
+            document.querySelectorAll('.hora-btn').forEach(btn => {
+                btn.className = btn.className.replace(' bg-blue-500 text-white', ' bg-blue-100 hover:bg-blue-200');
+            });
+            event.target.className = 'hora-btn bg-blue-500 text-white px-3 py-2 rounded text-sm';
+            
+            convertirA24Horas();
+            actualizarFechaHoraDisplay();
+        }
+
+        function convertirA24Horas() {
+            if (amPmSeleccionado === 'AM') {
+                horaSeleccionada = hora12Seleccionada === 12 ? 0 : hora12Seleccionada;
+            } else {
+                horaSeleccionada = hora12Seleccionada === 12 ? 12 : hora12Seleccionada + 12;
+            }
+        }
+
+        function calcularPrecioTotal() {
+            const noches = parseInt(document.getElementById('numeroNoches').value) || 1;
+            const precioPorNoche = parseFloat(document.getElementById('precioPorNoche').value) || 0;
+            const total = noches * precioPorNoche;
+            document.getElementById('precioTotal').textContent = `$${total.toFixed(2)}`;
+        }
+
+        function actualizarFechaHoraDisplay() {
+            if (fechaSeleccionada) {
+                const fechaFormateada = fechaSeleccionada.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                const horaFormateada = `${hora12Seleccionada.toString().padStart(2, '0')}:00 ${amPmSeleccionado.toLowerCase()}`;
+                document.getElementById('fechaHoraSeleccionada').textContent = `${fechaFormateada} - ${horaFormateada}`;
+            } else {
+                document.getElementById('fechaHoraSeleccionada').textContent = 'Selecciona fecha y hora';
+            }
+        }
+
+        function limpiarSeleccion() {
+            fechaSeleccionada = null;
+            horaSeleccionada = 14;
+            hora12Seleccionada = 2;
+            amPmSeleccionado = 'PM';
+            document.getElementById('numeroNoches').value = 1;
+            document.getElementById('precioPorNoche').value = '';
+            calcularPrecioTotal();
+            generarCalendario();
+            actualizarFechaHoraDisplay();
+        }
+
+        function hoyFechaHora() {
+            const ahora = new Date();
+            fechaSeleccionada = new Date(ahora.getMonth() === 11 ? ahora.getFullYear() + 1 : ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+            
+            const hora24 = ahora.getHours();
+            if (hora24 === 0) {
+                hora12Seleccionada = 12;
+                amPmSeleccionado = 'AM';
+            } else if (hora24 < 12) {
+                hora12Seleccionada = hora24;
+                amPmSeleccionado = 'AM';
+            } else if (hora24 === 12) {
+                hora12Seleccionada = 12;
+                amPmSeleccionado = 'PM';
+            } else {
+                hora12Seleccionada = hora24 - 12;
+                amPmSeleccionado = 'PM';
+            }
+            
+            horaSeleccionada = hora24;
+            mesActual = ahora.getMonth();
+            anioActual = ahora.getFullYear();
+            
+            cambiarAmPm(amPmSeleccionado);
+            generarCalendario();
+            actualizarFechaHoraDisplay();
+        }
+
+        function confirmarFechaHora() {
+            if (!fechaSeleccionada) {
+                alert('Por favor selecciona una fecha');
+                return;
+            }
+            
+            const fechaHoraCompleta = new Date(
+                fechaSeleccionada.getFullYear(),
+                fechaSeleccionada.getMonth(),
+                fechaSeleccionada.getDate(),
+                horaSeleccionada,
+                0 
+            );
+            
+            const year = fechaHoraCompleta.getFullYear();
+            const month = String(fechaHoraCompleta.getMonth() + 1).padStart(2, '0');
+            const day = String(fechaHoraCompleta.getDate()).padStart(2, '0');
+            const hours = String(fechaHoraCompleta.getHours()).padStart(2, '0');
+            const minutes = String(fechaHoraCompleta.getMinutes()).padStart(2, '0');
+            
+            const fechaISO = `${year}-${month}-${day}T${hours}:${minutes}`;
+            
+            const noches = parseInt(document.getElementById('numeroNoches').value) || 1;
+            const precioPorNoche = parseFloat(document.getElementById('precioPorNoche').value) || 0;
+            const precioTotal = noches * precioPorNoche;
+            
+            if (callbackConfirmarFecha) {
+                callbackConfirmarFecha(fechaISO, { noches, precioPorNoche, precioTotal });
+            }
+            
+            cerrarModalCalendario();
+        }
+
+        function manejarClickHabitacion(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia) {
+            console.log('[v0] Click en habitación:', {
+                habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia
+            });
+            
+            habitacionActual = habitacionId;
+            currentHabitacionId = habitacionId;
+            
+            if (estado === 'libre') {
+                abrirModalAgregarCliente(habitacionId, numero, estado);
+            } else if (estado === 'reservado' && (clienteNombre && clienteNombre !== 'null')) {
+                abrirModalCompletarReserva(habitacionId, numero, clienteNombre, valor);
+            } else {
+                mostrarInformacionCliente(
+                    habitacionId, 
+                    numero, 
+                    estado, 
+                    clienteNombre || '', 
+                    telefono || '', 
+                    fechaIngreso || '', 
+                    fechaSalida || '', 
+                    valor || 0, 
+                    observacion || '', 
+                    dias || 0,
+                    tipoDoc || '',
+                    numeroDoc || '',
+                    procedencia || ''
+                );
+            }
+        }
+        
+        function abrirModalCompletarReserva(habitacionId, numero, nombreExistente, valorExistente) {
+            console.log('[v0] Opening complete reservation modal for room:', habitacionId);
+            document.getElementById('modalTitulo').textContent = `Completar Reserva - Habitación ${numero}`;
+            document.getElementById('modalContenido').innerHTML = generarFormularioCompletarReserva(habitacionId, nombreExistente, valorExistente);
+            document.getElementById('modalAgregarCliente').style.display = 'block';
+            contadorPersonasCompletarReserva = 0;
+        }
+        
+        function generarFormularioCompletarReserva(habitacionId, nombreExistente, valorExistente) {
+            return `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-center">
+                        <div class="text-yellow-600 mr-3">⚠️</div>
+                        <div>
+                            <h4 class="text-yellow-800 font-semibold">Reserva Existente</h4>
+                            <p class="text-yellow-700 text-sm">Esta habitación ya tiene una reserva básica. Complete los datos del cliente para activarla.</p>
+                            <p class="text-yellow-700 text-sm mt-1"><strong>Cliente:</strong> ${nombreExistente} | <strong>Valor:</strong> $${valorExistente || 0}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form onsubmit="completarReserva(event, ${habitacionId})" class="space-y-6">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">👤 Datos Completos del Cliente</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                                <input type="text" name="nombre" required value="${nombreExistente || ''}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                                <select name="tipo_doc" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="C.c">Cédula de Ciudadanía</option>
+                                    <option value="T.i">Tarjeta de Identidad</option>
+                                    <option value="Pasaporte">Pasaporte</option>
+                                    <option value="C.e">Cédula de Extranjería</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                                <input type="text" name="numero_doc" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                <input type="tel" name="telefono"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                                <input type="text" name="procedencia"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="Ciudad o país de origen">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700">👥 Personas Adicionales</h3>
+                            <button type="button" onclick="agregarPersonaAdicionalCompletarReserva()" 
+                                    class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                                ➕ Agregar Persona
+                            </button>
+                        </div>
+                        
+                        <div id="personasAdicionalesCompletarReserva" class="space-y-4">
+                            <!-- Las personas adicionales se agregan aquí dinámicamente -->
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">📅 Fechas y Valor</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Check-in *</label>
+                                <input type="datetime-local" name="check_in" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Check-out *</label>
+                                <input type="date" name="check_out_fecha" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
+                                <input type="number" name="valor" step="0.01" min="0" value="${valorExistente || ''}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       id="valor_modal_1" oninput="formatearNumero('valor_modal_1')">
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                            <textarea name="observacion" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                      placeholder="Notas adicionales sobre la reserva..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="cerrarModal()" 
+                                class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                            Completar Reserva
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+        
+        function completarReserva(event, habitacionId) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            
+            const data = {
+                habitacion_id: habitacionId,
+                nombre: formData.get('nombre'),
+                tipo_doc: formData.get('tipo_doc'),
+                numero_doc: formData.get('numero_doc'),
+                telefono: formData.get('telefono'),
+                procedencia: formData.get('procedencia'),
+                check_in: formData.get('check_in'),
+                check_out_fecha: formData.get('check_out_fecha'),
+                valor: formData.get('valor'),
+                observacion: formData.get('observacion'),
+                personas_adicionales: []
+            };
+            
+            const personasAdicionales = [];
+            const personasContainer = document.getElementById('personasAdicionalesCompletarReserva');
+            if (personasContainer) {
+                const personaDivs = personasContainer.querySelectorAll('[id^="persona-completar-"]');
+                personaDivs.forEach((div) => {
+                    const index = div.id.split('-')[2];
+                    const nombre = formData.get(`personas_adicionales_completar[${index}][nombre]`);
+                    if (nombre) {
+                        personasAdicionales.push({
+                            nombre: nombre,
+                            tipo_doc: formData.get(`personas_adicionales_completar[${index}][tipo_doc]`) || 'C.c',
+                            numero_doc: formData.get(`personas_adicionales_completar[${index}][numero_doc]`) || '',
+                            telefono: formData.get(`personas_adicionales_completar[${index}][telefono]`) || '',
+                            procedencia: formData.get(`personas_adicionales_completar[${index}][procedencia]`) || ''
+                        });
+                    }
+                });
+            }
+            data.personas_adicionales = personasAdicionales;
+            
+            console.log('[v0] Completing reservation:', data);
+            
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = '⏳ Completando...';
+            submitButton.disabled = true;
+            
+            fetch('/guardar_nuevo_cliente', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showNotification(result.message, 'success');
+                    cerrarModal();
+                    location.reload();
+                } else if (result.error) {
+                    showNotification(result.error, 'error');
+                    submitButton.textContent = originalText;
+                    submitButton.disabled = false;
+                } else {
+                    showNotification('Error desconocido al completar la reserva', 'error');
+                    submitButton.textContent = originalText;
+                    submitButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error al completar la reserva', 'error');
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
+            });
+        }
+
+        let contadorPersonasCompletarReserva = 0;
+        
+        function agregarPersonaAdicionalCompletarReserva() {
+            contadorPersonasCompletarReserva++;
+            const container = document.getElementById('personasAdicionalesCompletarReserva');
+            
+            const personaDiv = document.createElement('div');
+            personaDiv.className = 'border border-gray-300 rounded-lg p-3 bg-gray-50';
+            personaDiv.id = `persona-completar-${contadorPersonasCompletarReserva}`;
+            
+            personaDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-medium text-gray-700">Persona Adicional ${contadorPersonasCompletarReserva}</h4>
+                    <button type="button" onclick="eliminarPersonaCompletarReserva(${contadorPersonasCompletarReserva})" 
+                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
+                        ❌ Eliminar
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                        <input type="text" name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][nombre]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                        <select name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][tipo_doc]" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            <option value="C.c">Cédula de Ciudadanía</option>
+                            <option value="T.i">Tarjeta de Identidad</option>
+                            <option value="Pasaporte">Pasaporte</option>
+                            <option value="C.e">Cédula de Extranjería</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                        <input type="text" name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][numero_doc]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input type="tel" name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][telefono]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                        <input type="text" name="personas_adicionales_completar[${contadorPersonasCompletarReserva}][procedencia]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                               placeholder="Ciudad o país de origen">
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(personaDiv);
+        }
+        
+        function eliminarPersonaCompletarReserva(index) {
+            const personaDiv = document.getElementById(`persona-completar-${index}`);
+            if (personaDiv) {
+                personaDiv.remove();
+            }
+        }
+
+        function mostrarInformacionCliente(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia) {
+            console.log('[v0] Mostrando información del cliente para habitación:', habitacionId);
+            
+            document.getElementById('modalTitulo').textContent = `Información - Habitación ${numero}`;
+            
+            let estadoTexto = '';
+            let estadoColor = '';
+            
+            switch(estado) {
+                case 'ocupada':
+                    estadoTexto = (dias && dias > 1) ? 'OCUPADA - VARIAS NOCHES' : 'OCUPADA';
+                    estadoColor = (dias && dias > 1) ? 'bg-pink-100 text-pink-800' : 'bg-red-100 text-red-800';
+                    break;
+                case 'reservado':
+                    estadoTexto = 'RESERVADA';
+                    estadoColor = 'bg-blue-100 text-blue-800';
+                    break;
+                case 'mensualidad':
+                    estadoTexto = 'MENSUALIDAD';
+                    estadoColor = 'bg-yellow-100 text-yellow-800';
+                    break;
+                case 'mantenimiento':
+                    estadoTexto = 'MANTENIMIENTO';
+                    estadoColor = 'bg-gray-100 text-gray-800';
+                    break;
+            }
+            
+            fetch(`/obtener_huespedes/${habitacionId}`)
+                .then(response => {
+                    console.log('[v0] Response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('[v0] Guest data received:', data);
+                    if (data.success) {
+                        const huespedes = data.huespedes;
+                        let huespedesHtml = '';
+                        
+                        if (huespedes && huespedes.length > 0) {
+                            huespedesHtml = `
+                                <div class="border border-gray-200 rounded-lg p-4">
+                                    <h4 class="text-lg font-semibold text-gray-700 mb-4">👥 Todos los Huéspedes (${huespedes.length})</h4>
+                                    <div class="space-y-4">
+                            `;
+                            
+                            huespedes.forEach((huesped, index) => {
+                                huespedesHtml += `
+                                    <div class="border-l-4 ${index === 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'} p-3 rounded">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h5 class="font-semibold text-gray-800">
+                                                ${index === 0 ? '👤 Cliente Principal: ' : '👥 Acompañante: '}${huesped.nombre}
+                                            </h5>
+                                            <a href="/editar_cliente/${huesped.id}" 
+                                               class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600">
+                                                ✏️ Editar
+                                            </a>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                            ${huesped.tipo_doc ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Documento:</span>
+                                                <span class="text-gray-900">${huesped.tipo_doc} ${huesped.numero_doc || ''}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${huesped.telefono ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Teléfono:</span>
+                                                <span class="text-gray-900">${huesped.telefono}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${huesped.procedencia ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Procedencia:</span>
+                                                <span class="text-gray-900">${huesped.procedencia}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${index === 0 && huesped.check_in ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Check-in:</span>
+                                                <span class="text-gray-900">${new Date(huesped.check_in).toLocaleString()}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${index === 0 && huesped.check_out ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Check-out:</span>
+                                                <span class="text-gray-900">${new Date(huesped.check_out).toLocaleString()}</span>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            ${index === 0 && huesped.valor ? `
+                                            <div>
+                                                <span class="font-medium text-gray-600">Valor:</span>
+                                                <span class="text-gray-900 font-semibold">$${Number(huesped.valor).toLocaleString()}</span>
+                                            </div>
+                                            ` : ''}
+                                        </div>
+                                        
+                                        ${index === 0 && huesped.observacion ? `
+                                        <div class="mt-2">
+                                            <span class="font-medium text-gray-600">Observaciones:</span>
+                                            <p class="text-gray-900 bg-white p-2 rounded mt-1">${huesped.observacion}</p>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            });
+                            
+                            huespedesHtml += `
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        const contenido = `
+                            <div class="space-y-6">
+                                <div class="text-center">
+                                    <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold ${estadoColor}">
+                                        ${estadoTexto}
+                                    </span>
+                                    ${(dias && dias > 0) ? `<div class="text-sm text-gray-600 mt-2">${dias} día${dias !== 1 ? 's' : ''} de estadía</div>` : ''}
+                                </div>
+
+                                ${huespedesHtml || `
+                                <div class="text-center text-gray-500">
+                                    <p>Esta habitación está ${estadoTexto.toLowerCase()} pero no tiene información de huéspedes disponible.</p>
+                                </div>
+                                `}
+
+                                <div class="flex justify-center space-x-3 pt-4">
+                                    ${estado === 'ocupada' || estado === 'mensualidad' ? `
+                                    <a href="/agregar_cliente_habitacion/${habitacionId}" 
+                                       class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                                        👤+ Agregar Huésped
+                                    </a>
+                                    
+                                    ${!huespedesHtml ? `
+                                    <button 
+                                        onclick="cerrarModal(); confirmarReutilizacion(${habitacionId}); event.stopPropagation();"
+                                        class="bg-purple-500 text-white px-6 py-2 rounded hover:bg-purple-600">
+                                        ✨ Reutilizar
+                                    </button>
+                                    ` : `
+                                    <button 
+                                        onclick="abrirModalRenovacion(${habitacionId}, '${numero}', '${clienteNombre || 'Cliente'}'); event.stopPropagation();"
+                                        class="bg-purple-500 text-white px-6 py-2 rounded hover:bg-purple-600">
+                                        ✨ Reutilizar
+                                    </button>
+                                    `}
+
+                                    <button onclick="liberarHabitacion(${habitacionId})" 
+                                            class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+                                        🏠 Liberar Habitación
+                                    </button>
+                                    ` : ''}
+                                    
+                                    <button onclick="cerrarModal()"
+                                           class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.getElementById('modalContenido').innerHTML = contenido;
+                        document.getElementById('modalAgregarCliente').style.display = 'block';
+                    } else {
+                        console.error('[v0] Error al obtener huéspedes:', data.error);
+                        mostrarInformacionClienteOriginal(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia);
+                    }
+                })
+                .catch(error => {
+                    console.error('[v0] Error al obtener huéspedes:', error);
+                    mostrarInformacionClienteOriginal(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia);
+                });
+        }
+
+        function mostrarInformacionClienteOriginal(habitacionId, numero, estado, clienteNombre, telefono, fechaIngreso, fechaSalida, valor, observacion, dias, tipoDoc, numeroDoc, procedencia) {
+            let estadoTexto = '';
+            let estadoColor = '';
+            
+            switch(estado) {
+                case 'ocupada':
+                    estadoTexto = (dias && dias > 1) ? 'OCUPADA - VARIAS NOCHES' : 'OCUPADA';
+                    estadoColor = (dias && dias > 1) ? 'bg-pink-100 text-pink-800' : 'bg-red-100 text-red-800';
+                    break;
+                case 'reservado':
+                    estadoTexto = 'RESERVADA';
+                    estadoColor = 'bg-blue-100 text-blue-800';
+                    break;
+                case 'mensualidad':
+                    estadoTexto = 'MENSUALIDAD';
+                    estadoColor = 'bg-yellow-100 text-yellow-800';
+                    break;
+                case 'mantenimiento':
+                    estadoTexto = 'MANTENIMIENTO';
+                    estadoColor = 'bg-gray-100 text-gray-800';
+                    break;
+            }
+            
+            const contenido = `
+                <div class="space-y-6">
+                    <div class="text-center">
+                        <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold ${estadoColor}">
+                            ${estadoTexto}
+                        </span>
+                        ${(dias && dias > 0) ? `<div class="text-sm text-gray-600 mt-2">${dias} día${dias !== 1 ? 's' : ''} de estadía</div>` : ''}
+                    </div>
+
+                    ${clienteNombre ? `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-gray-700 mb-4">👤 Información del Cliente</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium text-gray-700">Nombre:</label><p class="text-gray-900">${clienteNombre}</p></div>
+                            ${telefono ? `<div><label class="block text-sm font-medium text-gray-700">Teléfono:</label><p class="text-gray-900">${telefono}</p></div>` : ''}
+                            ${tipoDoc ? `<div><label class="block text-sm font-medium text-gray-700">Documento:</label><p class="text-gray-900">${tipoDoc} ${numeroDoc || ''}</p></div>` : ''}
+                            ${procedencia ? `<div><label class="block text-sm font-medium text-gray-700">Procedencia:</label><p class="text-gray-900">${procedencia}</p></div>` : ''}
+                            ${fechaIngreso ? `<div><label class="block text-sm font-medium text-gray-700">Check-in:</label><p class="text-gray-900">${fechaIngreso}</p></div>` : ''}
+                            ${fechaSalida ? `<div><label class="block text-sm font-medium text-gray-700">Check-out:</label><p class="text-gray-900">${fechaSalida}</p></div>` : ''}
+                            ${(valor && valor > 0) ? `<div><label class="block text-sm font-medium text-gray-700">Valor:</label><p class="text-gray-900">$${Number(valor).toLocaleString()}</p></div>` : ''}
+                            ${observacion ? `<div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700">Observaciones:</label><p class="text-gray-900">${observacion}</p></div>` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div class="flex justify-center space-x-3 pt-4">
+                        ${estado === 'ocupada' || estado === 'mensualidad' ? `
+                        <a href="/agregar_cliente_habitacion/${habitacionId}" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">👤+ Agregar Huésped</a>
+                        <button onclick="abrirModalRenovacion(${habitacionId}, '${numero}', '${clienteNombre || 'Cliente'}')" 
+                                            class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                                        🔄 Reutilizar
+                                    </button>
+                        <button onclick="liberarHabitacion(${habitacionId})" class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">🏠 Liberar Habitación</button>
+                        ` : ''}
+                        <button onclick="cerrarModal()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">Cerrar</button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('modalContenido').innerHTML = contenido;
+            document.getElementById('modalAgregarCliente').style.display = 'block';
+        }
+        
+        function abrirModalAgregarCliente(habitacionId, numero, estado) {
+            console.log('[v0] Opening add client modal for room:', habitacionId);
+            document.getElementById('modalTitulo').textContent = `Agregar Cliente - Habitación ${numero}`;
+            document.getElementById('modalContenido').innerHTML = generarFormularioAgregarCliente(habitacionId);
+            document.getElementById('modalAgregarCliente').style.display = 'block';
+            contadorPersonas = 0;
+        }
+
+        function generarFormularioAgregarCliente(habitacionId) {
+            return `
+                <form onsubmit="guardarCliente(event, ${habitacionId})" class="space-y-6">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">👤 Cliente Principal</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                                <input type="text" name="nombre" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                                <select name="tipo_doc" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="C.c">Cédula de Ciudadanía</option>
+                                    <option value="T.i">Tarjeta de Identidad</option>
+                                    <option value="Pasaporte">Pasaporte</option>
+                                    <option value="C.e">Cédula de Extranjería</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                                <input type="text" name="numero_doc" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                <input type="tel" name="telefono"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                                <input type="text" name="procedencia"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       placeholder="Ciudad o país de origen">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700">👥 Personas Adicionales</h3>
+                            <button type="button" onclick="agregarPersonaAdicional()" 
+                                    class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                                ➕ Agregar Persona
+                            </button>
+                        </div>
+                        
+                        <div id="personasAdicionales" class="space-y-4">
+                            <!-- Las personas adicionales se agregan aquí dinámicamente -->
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">📅 Fechas y Valor</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Check-in *</label>
+                                <input type="datetime-local" name="check_in" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Check-out </label>
+                                <input type="date" name="check_out_fecha" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
+                                <input type="number" name="valor" step="0.01" min="0"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       id="valor_modal_2" oninput="formatearNumero('valor_modal_2')"
+                                       placeholder="0.00">
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                            <textarea name="observacion" rows="2"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                      placeholder="Observaciones adicionales..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="cerrarModal()"
+                               class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 flex items-center gap-2">
+                            <span>💾</span>
+                            <span>Registrar Cliente(s)</span>
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+
+        let contadorPersonas = 0;
+        
+        function agregarPersonaAdicional() {
+            contadorPersonas++;
+            const container = document.getElementById('personasAdicionales');
+            
+            const personaDiv = document.createElement('div');
+            personaDiv.className = 'border border-gray-300 rounded-lg p-3 bg-gray-50';
+            personaDiv.id = `persona-${contadorPersonas}`;
+            
+            personaDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-medium text-gray-700">Persona Adicional ${contadorPersonas}</h4>
+                    <button type="button" onclick="eliminarPersona(${contadorPersonas})" 
+                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
+                        ❌ Eliminar
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo *</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][nombre]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                        <select name="personas_adicionales[${contadorPersonas}][tipo_doc]" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                            <option value="C.c">Cédula de Ciudadanía</option>
+                            <option value="T.i">Tarjeta de Identidad</option>
+                            <option value="Pasaporte">Pasaporte</option>
+                            <option value="C.e">Cédula de Extranjería</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][numero_doc]" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input type="tel" name="personas_adicionales[${contadorPersonas}][telefono]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Procedencia</label>
+                        <input type="text" name="personas_adicionales[${contadorPersonas}][procedencia]"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                               placeholder="Ciudad o país de origen">
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(personaDiv);
+        }
+        
+        function eliminarPersona(id) {
+            const personaDiv = document.getElementById(`persona-${id}`);
+            if (personaDiv) {
+                personaDiv.remove();
+            }
+        }
+
+        function guardarCliente(event, habitacionId) {
+            event.preventDefault();
+            
+            console.log('[v0] Guardando cliente(s) para habitación:', habitacionId);
+            
+            const formData = new FormData(event.target);
+            
+            const valorFormateado = formData.get('valor') || '0';
+            const valorLimpio = limpiarValorFormateado(valorFormateado);
+            
+            const data = {
+                habitacion_id: habitacionId,
+                nombre: formData.get('nombre') || '',
+                tipo_doc: formData.get('tipo_doc') || 'C.c',
+                numero_doc: formData.get('numero_doc') || '',
+                telefono: formData.get('telefono') || '',
+                procedencia: formData.get('procedencia') || '',
+                check_in: formData.get('check_in') || '',
+                check_out_fecha: formData.get('check_out_fecha') || '',
+                valor: parseFloat(valorLimpio) || 0,
+                observacion: formData.get('observacion') || '',
+                personas_adicionales: []
+            };
+            
+            for (let i = 1; i <= contadorPersonas; i++) {
+                const nombre = formData.get(`personas_adicionales[${i}][nombre]`);
+                if (nombre) {
+                    data.personas_adicionales.push({
+                        nombre: nombre,
+                        tipo_doc: formData.get(`personas_adicionales[${i}][tipo_doc]`) || 'C.c',
+                        numero_doc: formData.get(`personas_adicionales[${i}][numero_doc]`) || '',
+                        telefono: formData.get(`personas_adicionales[${i}][telefono]`) || '',
+                        procedencia: formData.get(`personas_adicionales[${i}][procedencia]`) || ''
+                    });
+                }
+            }
+            
+            if (!data.nombre || !data.numero_doc || !data.check_in || !data.check_out_fecha) {
+                alert('Por favor completa todos los campos obligatorios del cliente principal');
+                return;
+            }
+            
+            console.log('[v0] Enviando datos del cliente y personas adicionales:', data);
+            
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = '💾 Guardando...';
+            submitButton.disabled = true;
+            
+            fetch('/guardar_nuevo_cliente', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                console.log('[v0] Respuesta del servidor:', response.status, response.statusText);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('[v0] Resultado completo:', result);
+                if (result.success) {
+                    alert(`Cliente${data.personas_adicionales.length > 0 ? 's' : ''} registrado${data.personas_adicionales.length > 0 ? 's' : ''} exitosamente`);
+                    cerrarModal();
+                    window.location.reload(true);
+                } else {
+                    console.error('[v0] Error del servidor:', result.error);
+                    alert('Error: ' + (result.error || 'Error desconocido'));
+                    submitButton.textContent = originalText;
+                    submitButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('[v0] Error en la petición:', error);
+                alert('Error al registrar el cliente: ' + error.message);
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
+            });
+        }
+
+        function generarFormularioRenovacion(habitacionId, numero, clienteNombre) {
+            return `
+                <form onsubmit="procesarRenovacion(event, ${habitacionId})" class="space-y-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <h4 class="text-lg font-semibold text-blue-800 mb-2">👤 Cliente: ${clienteNombre}</h4>
+                        <p class="text-blue-600">🏠 Habitación ${numero}</p>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">🔄 Tipo de Renovación</h3>
+                        
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="radio" name="tipo_renovacion" value="dias" checked 
+                                       class="mr-2" onchange="toggleRenovacionTipo()">
+                                <span class="font-medium">Renovar por días adicionales</span>
+                            </label>
+                            
+                            <div id="opcionesDias" class="ml-6 space-y-2">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <button type="button" onclick="seleccionarDias(1)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">1 día</button>
+                                    <button type="button" onclick="seleccionarDias(2)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">2 días</button>
+                                    <button type="button" onclick="seleccionarDias(3)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">3 días</button>
+                                    <button type="button" onclick="seleccionarDias(7)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">1 semana</button>
+                                    <button type="button" onclick="seleccionarDias(15)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">15 días</button>
+                                    <button type="button" onclick="seleccionarDias(30)" 
+                                            class="bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded text-sm">1 mes</button>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">O especifica días:</label>
+                                    <input type="number" name="dias_renovacion" id="diasRenovacion" min="1" max="365"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                           placeholder="Número de días">
+                                </div>
+                            </div>
+                            
+                            <label class="flex items-center">
+                                <input type="radio" name="tipo_renovacion" value="fecha" 
+                                       class="mr-2" onchange="toggleRenovacionTipo()">
+                                <span class="font-medium">Establecer nueva fecha de salida</span>
+                            </label>
+                            
+                            <div id="opcionesFecha" class="ml-6" style="display: none;">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nueva fecha de salida:</label>
+                                <input type="date" name="nueva_fecha_salida" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                       min="${new Date().toISOString().split('T')[0]}">
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">💰 Valor Adicional</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Valor adicional por la renovación:</label>
+                            <input type="number" name="valor_adicional" step="0.01" min="0"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                   placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">📝 Observaciones</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones de la renovación:</label>
+                            <textarea name="observacion_renovacion" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                                      placeholder="Motivo de la renovación, condiciones especiales, etc."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="cerrarModalRenovacion()"
+                               class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                            🔄 Renovar Estadía
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+
+        function toggleRenovacionTipo() {
+            const tipoSeleccionado = document.querySelector('input[name="tipo_renovacion"]:checked').value;
+            const opcionesDias = document.getElementById('opcionesDias');
+            const opcionesFecha = document.getElementById('opcionesFecha');
+            
+            if (tipoSeleccionado === 'dias') {
+                opcionesDias.style.display = 'block';
+                opcionesFecha.style.display = 'none';
+            } else {
+                opcionesDias.style.display = 'none';
+                opcionesFecha.style.display = 'block';
+            }
+        }
+
+        function seleccionarDias(dias) {
+            document.getElementById('diasRenovacion').value = dias;
+        }
+
+        function procesarRenovacion(event, habitacionId) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const tipoRenovacion = formData.get('tipo_renovacion');
+            
+            const valorAdicionalFormateado = formData.get('valor_adicional') || '0';
+            const valorAdicionalLimpio = limpiarValorFormateado(valorAdicionalFormateado);
+            
+            const data = {
+                habitacion_id: habitacionId,
+                tipo_renovacion: tipoRenovacion,
+                dias_renovacion: tipoRenovacion === 'dias' ? parseInt(formData.get('dias_renovacion')) || 0 : 0,
+                nueva_fecha_salida: tipoRenovacion === 'fecha' ? formData.get('nueva_fecha_salida') : '',
+                valor_adicional: parseFloat(valorAdicionalLimpio) || 0,
+                observacion_renovacion: formData.get('observacion_renovacion') || ''
+            };
+            
+            if (tipoRenovacion === 'dias' && data.dias_renovacion <= 0) {
+                alert('Por favor selecciona o ingresa el número de días a renovar');
+                return;
+            }
+            
+            if (tipoRenovacion === 'fecha' && !data.nueva_fecha_salida) {
+                alert('Por favor selecciona la nueva fecha de salida');
+                return;
+            }
+            
+            console.log('[v0] Procesando renovación:', data);
+            
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = '🔄 Renovando...';
+            submitButton.disabled = true;
+            
+            fetch('/renovar_estadia', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                console.log('[v0] Respuesta de renovación:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('[v0] Resultado de renovación:', result);
+                if (result.success) {
+                    alert(result.message || 'Estadía renovada exitosamente');
+                    cerrarModalRenovacion();
+                    window.location.reload(true);
+                } else {
+                    alert('Error: ' + (result.error || 'Error desconocido'));
+                    submitButton.textContent = originalText;
+                    submitButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('[v0] Error en renovación:', error);
+                alert('Error al renovar estadía: ' + error.message);
+                submitButton.textContent = originalText;
+                submitButton.disabled = false;
+            });
+        }
+
+        function cerrarModalRenovacion() {
+            const modal = document.getElementById('modalRenovacion');
+            if (modal) {
+                modal.style.display = 'none';
+                document.getElementById('modalRenovacionContenido').innerHTML = '';
+            }
+        }
+
+        function cerrarModal() {
+            console.log('[v0] Cerrando modal');
+            const modal = document.getElementById('modalAgregarCliente');
+            if (modal) {
+                modal.style.display = 'none';
+                const modalContent = document.getElementById('modalContenido');
+                if (modalContent) {
+                    modalContent.innerHTML = '';
+                }
+                contadorPersonas = 0;
+                contadorPersonasCompletarReserva = 0;
+                window.existingClientData = null;
+            }
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('modalAgregarCliente');
+            if (event.target === modal) {
+                cerrarModal();
+            }
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modal = document.getElementById('modalAgregarCliente');
+                if (modal && modal.style.display === 'block') {
+                    cerrarModal();
+                }
+                const modalRenovacion = document.getElementById('modalRenovacion');
+                if (modalRenovacion && modalRenovacion.style.display === 'block') {
+                    cerrarModalRenovacion();
+                }
+                const modalCalendario = document.getElementById('modalCalendario');
+                if (modalCalendario && modalCalendario.style.display === 'block') {
+                    cerrarModalCalendario();
+                }
+                const modalReutilizacion = document.getElementById('modalReutilizacion');
+                if (modalReutilizacion && modalReutilizacion.style.display === 'block') {
+                    cerrarModalReutilizacion();
+                }
+                const modalConfigCheckout = document.getElementById('modalConfigCheckout');
+                if (modalConfigCheckout && modalConfigCheckout.style.display === 'block') {
+                    cerrarModalConfigCheckout();
+                }
+            }
+        });
+
+        async function checkExistingClientData() {
+            const habitacionId = currentHabitacionId;
+            
+            try {
+                const response = await fetch(`/cambiar_estado_habitacion`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        habitacion_id: habitacionId,
+                        estado: 'reservado',
+                        check_existing_data: true
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.client_data) {
+                    const clientData = data.client_data;
+                    document.getElementById('infoClienteExistente').innerHTML = `
+                        <strong>Nombre:</strong> ${clientData.nombre}<br>
+                        <strong>Teléfono:</strong> ${clientData.telefono}<br>
+                        <strong>Valor:</strong> $${clientData.valor}<br>
+                        <strong>Observación:</strong> ${clientData.observacion}
+                    `;
+                    document.getElementById('datosExistentes').style.display = 'block';
+                    window.existingClientData = clientData;
+                } else {
+                    document.getElementById('datosExistentes').style.display = 'none';
+                    window.existingClientData = null;
+                }
+            } catch (error) {
+                console.error('Error checking existing client data:', error);
+                document.getElementById('datosExistentes').style.display = 'none';
+                window.existingClientData = null;
+            }
+        }
+
+        function mantenerDatosExistentes() {
+            if (window.existingClientData) {
+                const data = window.existingClientData;
+                document.getElementById('nombre_cliente').value = data.nombre;
+                document.getElementById('precio_noche').value = data.valor;
+                document.getElementById('datosExistentes').style.display = 'none';
+            }
+        }
+
+        function procesarCambioEstado(event, habitacionId) {
+            event.preventDefault();
+            
+            currentHabitacionId = habitacionId;
+            
+            const formData = new FormData(event.target);
+            const estado = formData.get('nuevo_estado');
+            const nombreCliente = formData.get('nombre_cliente') || '';
+            const precioReserva = parseFloat(formData.get('precio_noche')) || 0;
+            
+            if (estado === 'reservado' && !nombreCliente.trim()) {
+                alert('Por favor ingresa el nombre del cliente para la reserva');
+                return;
+            }
+            
+            const data = {
+                habitacion_id: habitacionId,
+                estado: estado,
+                nombre_cliente: nombreCliente,
+                precio_reserva: precioReserva
+            };
+            
+            console.log('[v0] Changing room status:', data);
+            
+            fetch('/cambiar_estado_habitacion', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert(result.message);
+                    cerrarModal();
+                    location.reload();
+                } else if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    alert('Ocurrió un error desconocido.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cambiar estado de habitación');
+            });
+        }
+
+        function cerrarModalCambiarEstado() {
+            document.getElementById('modalCambiarEstado').style.display = 'none';
+        }
+
+        function liberarHabitacion(habitacionId) {
+            if (confirm('¿Estás seguro de que deseas liberar esta habitación?')) {
+                window.location.href = `/liberar/${habitacionId}`;
+            }
+        }
+
+        function cancelarReserva(habitacionId) {
+            if (!confirm('¿Estás seguro de cancelar esta reserva? Se eliminarán todos los datos de la reserva.')) {
+                return;
+            }
+
+            fetch(`/cancelar_reserva/${habitacionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 500);
+                } else {
+                    showNotification(data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('[v0] Error:', error);
+                showNotification('Error al cancelar la reserva', 'error');
+            });
+        }
+
+        function confirmarReutilizacion(habitacionId) {
+            console.log('[v0] Iniciando reutilización para habitación:', habitacionId);
+            
+            window.habitacionIdReutilizar = habitacionId;
+            
+            const ahora = new Date();
+            const fechaLocal = new Date(ahora.getTime() - (ahora.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            document.getElementById('reutilizarFechaCheckin').value = fechaLocal;
+            
+            document.getElementById('reutilizarPrecioPorNoche').value = '';
+            document.getElementById('reutilizarNumDias').value = '1';
+            document.getElementById('reutilizarValorTotal').value = '$0';
+            document.getElementById('reutilizarFechaCheckout').value = '';
+            
+            calcularCheckoutReutilizar();
+            
+            fetch(`/ultimo_cliente/${habitacionId}`)
+                .then(resp => resp.json())
+                .then(data => {
+                    console.log('[v0] Response from ultimo_cliente:', data);
+                    
+                    if (!data.success) {
+                        const infoDiv = document.getElementById('infoClienteReutilizar');
+                        infoDiv.innerHTML = '<p class="text-sm text-gray-600">No hay información disponible</p>';
+                        document.getElementById('modalReutilizacion').style.display = 'block';
+                        return;
+                    }
+                    
+                    const infoDiv = document.getElementById('infoClienteReutilizar');
+                    
+                    if (data.cliente_principal) {
+                        const cli = data.cliente_principal;
+                        const totalHuespedes = data.total_huespedes || 1;
+                        const noches = data.noches || 1;
+                        const precioTotal = data.precio_total || 0;
+                        
+                        infoDiv.innerHTML = `
+                            <div class="space-y-2">
+                                <p class="font-semibold text-gray-800">Cliente: ${cli.nombre || 'N/A'}</p>
+                                <p class="text-sm text-gray-600">Teléfono: ${cli.telefono || 'N/A'}</p>
+                                <p class="text-sm text-gray-600">Huéspedes: ${totalHuespedes}</p>
+                                <p class="text-sm text-gray-600">Última estadía: ${noches} noche(s) - $${precioTotal.toLocaleString()}</p>
+                            </div>
+                        `;
+                    } else {
+                        infoDiv.innerHTML = '<p class="text-sm text-gray-600">No hay información disponible</p>';
+                    }
+                    
+                    document.getElementById('modalReutilizacion').style.display = 'block';
+                })
+                .catch(err => {
+                    console.error('[v0] Error fetching client info:', err);
+                    const infoDiv = document.getElementById('infoClienteReutilizar');
+                    infoDiv.innerHTML = '<p class="text-sm text-red-600">Error al cargar información del cliente</p>';
+                    document.getElementById('modalReutilizacion').style.display = 'block';
+                });
+        }
+        
+        function cerrarModalReutilizacion() {
+            document.getElementById('modalReutilizacion').style.display = 'none';
+            window.habitacionIdReutilizar = null;
+        }
+        
+        function calcularTotalReutilizar() {
+            const precioPorNoche = parseFloat(document.getElementById('reutilizarPrecioPorNoche').value) || 0;
+            const numDias = parseInt(document.getElementById('reutilizarNumDias').value) || 1;
+            const total = precioPorNoche * numDias;
+            
+            document.getElementById('reutilizarValorTotal').value = '$' + total.toLocaleString();
+        }
+        
+        function calcularCheckoutReutilizar() {
+            const fechaCheckin = document.getElementById('reutilizarFechaCheckin').value;
+            const numDias = parseInt(document.getElementById('reutilizarNumDias').value) || 1;
+            
+            if (!fechaCheckin) {
+                document.getElementById('reutilizarFechaCheckout').value = '';
+                return;
+            }
+            
+            const checkin = new Date(fechaCheckin);
+            const checkout = new Date(checkin);
+            checkout.setDate(checkout.getDate() + numDias);
+            
+            const checkoutFormatted = checkout.toLocaleString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            document.getElementById('reutilizarFechaCheckout').value = checkoutFormatted;
+        }
+        
+        function ejecutarReutilizacion() {
+            if (!window.habitacionIdReutilizar) {
+                showNotification('Error: No se ha seleccionado una habitación', 'error');
+                return;
+            }
+            
+            const fechaCheckin = document.getElementById('reutilizarFechaCheckin').value;
+            const precioPorNoche = parseFloat(document.getElementById('reutilizarPrecioPorNoche').value) || 0;
+            const numDias = parseInt(document.getElementById('reutilizarNumDias').value) || 1;
+            const valorTotal = precioPorNoche * numDias;
+            
+            if (precioPorNoche <= 0) {
+                showNotification('Por favor ingresa un precio por noche válido', 'warning');
+                return;
+            }
+            
+            if (!fechaCheckin) {
+                showNotification('Por favor selecciona una fecha de check-in', 'warning');
+                return;
+            }
+
+            console.log('[v0] Enviando reutilización:', { 
+                habitacionId: window.habitacionIdReutilizar, 
+                noches: numDias, 
+                precioTotal: valorTotal, 
+                nuevaFecha: fechaCheckin 
+            });
+
+            fetch('/reutilizar_ultimo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    habitacion_id: window.habitacionIdReutilizar,
+                    noches: numDias,
+                    precio_total: valorTotal,
+                    nueva_fecha_ingreso: fechaCheckin
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    cerrarModalReutilizacion();
+                    setTimeout(() => {
+                        location.reload();
+                    }, 500);
+                } else {
+                    showNotification(data.error, 'error');
+                }
+            })
+            .catch(err => {
+                console.error('[v0] Error:', err);
+                showNotification('Error al reutilizar el cliente', 'error');
+            });
+        }
+
+        // CHANGE: Load configuration with proper error handling
+        function abrirModalConfigCheckout() {
+            const modal = document.getElementById('modalConfigCheckout');
+            modal.style.display = 'block';
+
+            fetch('/obtener_config_checkout')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.checkout_hora) {
+                        // Ensure format is HH:MM without seconds
+                        const horaFormateada = data.checkout_hora.includes(':') ? 
+                            data.checkout_hora.substring(0, 5) : data.checkout_hora;
+                        document.getElementById('checkoutHoraInput').value = horaFormateada;
+                        console.log('[v0] Configuración cargada:', horaFormateada);
+                    } else {
+                        document.getElementById('checkoutHoraInput').value = '13:00';
+                        console.warn('[v0] No se encontró configuración, usando valor por defecto 13:00');
+                    }
+                })
+                .catch(error => {
+                    console.error('[v0] Error al cargar configuración:', error);
+                    document.getElementById('checkoutHoraInput').value = '13:00';
+                    showNotification('Error al cargar configuración, usando valor por defecto', 'warning');
+                });
+        }
+
+        function cerrarModalConfigCheckout() {
+            document.getElementById('modalConfigCheckout').style.display = 'none';
+        }
+
+        function establecerHoraRapida(hora) {
+            document.getElementById('checkoutHoraInput').value = hora;
+        }
+
+        function guardarConfigCheckout() {
+            const checkoutHora = document.getElementById('checkoutHoraInput').value;
+
+            console.log('[v0] === GUARDAR CONFIG CHECKOUT ===');
+            console.log('[v0] Valor del input:', checkoutHora);
+
+            if (!checkoutHora) {
+                showNotification('Por favor selecciona una hora de check-out', 'warning');
+                return;
+            }
+
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '💾 Guardando...';
+            button.disabled = true;
+
+            fetch('/guardar_config_checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    checkout_hora: checkoutHora
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('[v0] Respuesta del servidor:', data);
+                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    console.log('[v0] Hora guardada verificada:', data.hora_guardada);
+                    
+                    setTimeout(() => {
+                        cerrarModalConfigCheckout();
+                        
+                        // Verify by reopening modal
+                        setTimeout(() => {
+                            abrirModalConfigCheckout();
+                        }, 500);
+                    }, 1000);
+                } else {
+                    showNotification('Error: ' + data.error, 'error');
+                    console.error('[v0] Error al guardar:', data.error);
+                }
+                button.textContent = originalText;
+                button.disabled = false;
+            })
+            .catch(error => {
+                console.error('[v0] Error en fetch:', error);
+                showNotification('Error al guardar configuración', 'error');
+                button.textContent = originalText;
+                button.disabled = false;
+            });
+            
+            console.log('[v0] === FIN GUARDAR CONFIG CHECKOUT ===');
+        }
+
+        function mostrarEstadisticasHabitaciones() {
+            console.log('[v0] Opening room statistics modal');
+            
+            // Count rooms by status from the DOM
+            const roomCells = document.querySelectorAll('.room-cell');
+            let libres = 0;
+            let ocupadas = 0;
+            let reservadas = 0;
+            let mensualidad = 0;
+            let mantenimiento = 0;
+            
+            roomCells.forEach(cell => {
+                if (cell.classList.contains('room-libre')) libres++;
+                else if (cell.classList.contains('room-ocupada') || cell.classList.contains('room-varias-noches')) ocupadas++;
+                else if (cell.classList.contains('room-reservado')) reservadas++;
+                else if (cell.classList.contains('room-mensualidad')) mensualidad++;
+                else if (cell.classList.contains('room-mantenimiento')) mantenimiento++;
+            });
+            
+            const total = roomCells.length;
+            const disponibilidad = total > 0 ? ((libres / total) * 100).toFixed(1) : 0;
+            const ocupacion = total > 0 ? (((ocupadas + reservadas + mensualidad) / total) * 100).toFixed(1) : 0;
+            
+            // Update modal content
+            document.getElementById('stat-libres-modal').textContent = libres;
+            document.getElementById('stat-ocupadas-modal').textContent = ocupadas;
+            document.getElementById('stat-reservadas-modal').textContent = reservadas;
+            document.getElementById('stat-mensualidad-modal').textContent = mensualidad;
+            document.getElementById('stat-mantenimiento-modal').textContent = mantenimiento;
+            document.getElementById('stat-total-modal').textContent = total;
+            document.getElementById('porcentaje-disponibilidad').textContent = disponibilidad + '%';
+            document.getElementById('porcentaje-ocupacion').textContent = ocupacion + '%';
+            
+            // Show modal
+            document.getElementById('modalEstadisticas').style.display = 'block';
+        }
+
+        function cerrarModalEstadisticas() {
+            console.log('[v0] Closing statistics modal');
+            document.getElementById('modalEstadisticas').style.display = 'none';
+        }
+
+        function mostrarObservacionesSemanales() {
+            console.log('[v0] Opening weekly observations modal');
+            
+            // Get days of the week
+            const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+            
+            // Load observations from localStorage
+            const observaciones = JSON.parse(localStorage.getItem('observaciones_semanales') || '{}');
+            
+            // Generate buttons for each day
+            let contenidoHtml = '';
+            diasSemana.forEach((dia, index) => {
+                const observacion = observaciones[dia] || '';
+                const hasObservation = observacion.trim() !== '';
+                const iconoEstado = hasObservation ? '✅' : '📝';
+                const colorBoton = hasObservation ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-300';
+                
+                contenidoHtml += `
+                    <button onclick="abrirModalEditarObservacion('${dia}')" 
+                            class="w-full text-left p-4 border-2 ${colorBoton} rounded-lg hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">${iconoEstado}</span>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800">${dia}</h4>
+                                    ${hasObservation ? `
+                                        <p class="text-sm text-gray-600 mt-1 line-clamp-2">${observacion}</p>
+                                    ` : `
+                                        <p class="text-sm text-gray-500 italic">Sin observaciones</p>
+                                    `}
+                                </div>
+                            </div>
+                            <span class="text-gray-400">→</span>
+                        </div>
+                    </button>
+                `;
+            });
+            
+            document.getElementById('contenidoObservaciones').innerHTML = contenidoHtml;
+            document.getElementById('modalObservacionesSemanales').style.display = 'block';
+        }
+
+        function cerrarModalObservaciones() {
+            console.log('[v0] Closing weekly observations modal');
+            document.getElementById('modalObservacionesSemanales').style.display = 'none';
+        }
+
+        function abrirModalEditarObservacion(dia) {
+            console.log('[v0] Opening edit observation modal for:', dia);
+            
+            // Load existing observation
+            const observaciones = JSON.parse(localStorage.getItem('observaciones_semanales') || '{}');
+            const observacion = observaciones[dia] || '';
+            
+            // Set modal title and content
+            document.getElementById('tituloEditarObservacion').textContent = `Observación - ${dia}`;
+            document.getElementById('diaSeleccionado').value = dia;
+            document.getElementById('textoObservacion').value = observacion;
+            
+            // Show modal
+            document.getElementById('modalEditarObservacion').style.display = 'block';
+        }
+
+        function cerrarModalEditarObservacion() {
+            console.log('[v0] Closing edit observation modal');
+            document.getElementById('modalEditarObservacion').style.display = 'none';
+            document.getElementById('textoObservacion').value = '';
+            document.getElementById('diaSeleccionado').value = '';
+        }
+
+        function guardarObservacion(event, dia) {
+            event.preventDefault();
+            console.log('[v0] Saving observation for:', dia);
+            
+            const observacion = document.getElementById('textoObservacion').value.trim();
+            
+            // Load existing observations
+            const observaciones = JSON.parse(localStorage.getItem('observaciones_semanales') || '{}');
+            
+            // Update observation for the day
+            observaciones[dia] = observacion;
+            
+            // Save to localStorage
+            localStorage.setItem('observaciones_semanales', JSON.stringify(observaciones));
+            
+            showNotification(`Observación guardada para ${dia}`, 'success');
+            
+            // Close edit modal and refresh weekly observations
+            cerrarModalEditarObservacion();
+            mostrarObservacionesSemanales();
+        }
+
+        function eliminarObservacionDia(dia) {
+            console.log('[v0] Deleting observation for:', dia);
+            
+            if (!confirm(`¿Estás seguro de que deseas eliminar la observación de ${dia}?`)) {
+                return;
+            }
+            
+            // Load existing observations
+            const observaciones = JSON.parse(localStorage.getItem('observaciones_semanales') || '{}');
+            
+            // Delete observation for the day
+            delete observaciones[dia];
+            
+            // Save to localStorage
+            localStorage.setItem('observaciones_semanales', JSON.stringify(observaciones));
+            
+            showNotification(`Observación eliminada para ${dia}`, 'success');
+            
+            // Close edit modal and refresh weekly observations
+            cerrarModalEditarObservacion();
+            mostrarObservacionesSemanales();
+        }
+
+        function verificarLimpiezaObservaciones() {
+            const ahora = new Date();
+            const diaSemana = ahora.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const hora = ahora.getHours();
+            
+            // Check if it's Monday (1) at 7:00 AM
+            if (diaSemana === 1 && hora === 7) {
+                const ultimaLimpieza = localStorage.getItem('ultima_limpieza_observaciones');
+                const hoy = ahora.toDateString();
+                
+                // Only clean once per day
+                if (ultimaLimpieza !== hoy) {
+                    console.log('[v0] Auto-cleaning weekly observations');
+                    localStorage.setItem('observaciones_semanales', '{}');
+                    localStorage.setItem('ultima_limpieza_observaciones', hoy);
+                    showNotification('Las observaciones semanales han sido limpiadas automáticamente', 'info');
+                }
+            }
+        }
+
+        // Add helper function to clean formatted numbers
+        function limpiarValorFormateado(valor) {
+            // Remove all dots (thousand separators) from the formatted value
+            return valor.toString().replace(/\./g, '');
+        }
+
+        function formatearNumero(elementId) {
+            let input = document.getElementById(elementId);
+            let valor = input.value;
+
+            // Quitar cualquier punto que haya sido insertado previamente
+            valor = valor.replace(/\./g, "");
+
+            // Verificar si el valor es mayor a 10,000
+            if (parseFloat(valor) > 10000) {
+                // Agregar el separador de miles
+                valor = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            }
+
+            // Actualizar el campo con el número formateado
+            input.value = valor;
+        }
+
+
+        verificarLimpiezaObservaciones();
+        setInterval(verificarLimpiezaObservaciones, 3600000); // Check every hour
+
     </script>
 </body>
 </html>
