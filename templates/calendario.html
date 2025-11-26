@@ -12,6 +12,7 @@
             border: 1px solid #e5e7eb;
             cursor: pointer;
             transition: all 0.2s;
+            padding: 8px;
         }
         .calendar-day:hover {
             background-color: #f3f4f6;
@@ -29,6 +30,10 @@
             margin: 1px 0;
             border-radius: 3px;
             color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
         }
         .reservation-ocupada { background-color: #ef4444; }
         .reservation-reservado { background-color: #3b82f6; }
@@ -42,308 +47,196 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0,0,0,0.5);
+            overflow-y: auto;
         }
         .modal-content {
             background-color: white;
-            margin: 5% auto;
-            padding: 20px;
+            margin: 2% auto;
+            padding: 24px;
             border-radius: 8px;
             width: 90%;
             max-width: 600px;
-            max-height: 80vh;
+            max-height: 90vh;
             overflow-y: auto;
-        }
-        
-        @media (max-width: 640px) {
-            .calendar-day {
-                min-height: 80px;
-                font-size: 0.75rem;
-            }
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         
         @media (max-width: 768px) {
-            /* Container adjustments */
-            .container {
-                padding: 0.5rem !important;
+            .calendar-day {
+                min-height: 70px;
+                font-size: 0.75rem;
+                padding: 4px;
             }
             
-            /* Header section */
-            .bg-white.rounded-lg.shadow-md.p-6 {
-                padding: 1rem !important;
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+                padding: 1rem;
             }
             
-            h1 {
-                font-size: 1.25rem !important;
+            .grid.grid-cols-2 {
+                grid-template-columns: 1fr !important;
             }
             
-            h2 {
-                font-size: 1rem !important;
-            }
-            
-            h3 {
-                font-size: 1.125rem !important;
-            }
-            
-            /* Flex containers to stack vertically */
             .flex.justify-between.items-center {
-                flex-direction: column !important;
-                align-items: flex-start !important;
-                gap: 0.75rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
             }
             
             .flex.gap-3 {
-                flex-direction: column !important;
+                flex-direction: column;
                 width: 100%;
-                gap: 0.5rem !important;
+                gap: 0.5rem;
             }
             
             .flex.gap-3 > a,
             .flex.gap-3 > button {
                 width: 100%;
-                text-align: center;
-            }
-            
-            /* Calendar navigation buttons */
-            .flex.justify-between.items-center.mb-4 {
-                flex-direction: row !important;
-            }
-            
-            .flex.justify-between.items-center.mb-4 button {
-                padding: 0.5rem 0.75rem;
-                font-size: 0.875rem;
-            }
-            
-            /* Calendar grid */
-            .calendar-day {
-                min-height: 70px;
-                font-size: 0.75rem;
-                padding: 2px;
-            }
-            
-            .calendar-day .font-semibold {
-                font-size: 0.75rem;
-            }
-            
-            /* Week day headers */
-            .grid.grid-cols-7.gap-1.mb-2 > div {
-                padding: 0.25rem;
-                font-size: 0.625rem;
-            }
-            
-            /* Reservation blocks in calendar */
-            .reservation-block {
-                font-size: 7px;
-                padding: 1px 2px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-            
-            /* Modal adjustments */
-            .modal-content {
-                width: 95%;
-                margin: 2% auto;
-                padding: 1rem;
-                max-height: 90vh;
-            }
-            
-            /* Form grid to single column */
-            .grid.grid-cols-2 {
-                grid-template-columns: 1fr !important;
-            }
-            
-            /* Form buttons */
-            .flex.justify-end.space-x-3 {
-                flex-direction: column !important;
-                gap: 0.5rem !important;
-            }
-            
-            .flex.justify-end.space-x-3 button {
-                width: 100%;
-            }
-            
-            /* Reservation list cards */
-            .border.border-gray-200.rounded-lg.p-4 {
-                padding: 0.75rem !important;
-            }
-            
-            .border.border-gray-200.rounded-lg.p-4 .flex.justify-between {
-                flex-direction: column !important;
-                gap: 0.75rem;
-            }
-            
-            .border.border-gray-200.rounded-lg.p-4 .text-right {
-                text-align: left !important;
-            }
-            
-            .border.border-gray-200.rounded-lg.p-4 .flex.gap-2 {
-                flex-direction: row !important;
-                width: 100%;
-            }
-            
-            .border.border-gray-200.rounded-lg.p-4 .flex.gap-2 button {
-                flex: 1;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            /* Extra small screens */
-            .calendar-day {
-                min-height: 60px;
-            }
-            
-            .grid.grid-cols-7.gap-1.mb-2 > div {
-                font-size: 0.5rem;
-                padding: 0.125rem;
-            }
-            
-            .reservation-block {
-                font-size: 6px;
-            }
-            
-            h1 {
-                font-size: 1.125rem !important;
             }
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto p-4">
-         
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div class="flex justify-between items-center">
-                <div>
-                     
-                    <h1 class="text-3xl font-bold text-gray-800">📅 Calendario de Reservas</h1>
-                    <p class="text-gray-600 mt-2">Gestiona reservas de larga duración</p>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col">
+        <!-- HEADER -->
+        <div class="bg-white border-b border-gray-200 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="flex justify-between items-center gap-4">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800">📅 Calendario de Reservas</h1>
+                        <p class="text-gray-600 text-sm mt-1">Gestiona reservas de larga duración</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <a href="{{ url_for('index') }}" 
+                           class="inline-flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
+                            ← Volver al Panel
+                        </a>
+                        <button onclick="abrirModalReserva()" 
+                                class="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition font-medium">
+                            ➕ Nueva Reserva
+                        </button>
+                    </div>
                 </div>
-                <div class="flex gap-3">
-                    <a href="{{ url_for('index') }}" 
-                       class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
-                        ← Volver al Panel
-                    </a>
-                    <button onclick="abrirModalReserva()" 
-                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                        ➕ Nueva Reserva
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+            <!-- Calendario -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <div class="flex justify-between items-center mb-6">
+                    <button onclick="cambiarMes(-1)" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg transition">
+                        ← Anterior
+                    </button>
+                    <h2 id="mesAnio" class="text-2xl font-semibold text-gray-800"></h2>
+                    <button onclick="cambiarMes(1)" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg transition">
+                        Siguiente →
                     </button>
                 </div>
-            </div>
-        </div>
 
-         
+                <!-- Días de la semana -->
+                <div class="grid grid-cols-7 gap-1 mb-2 bg-gray-100 rounded-lg overflow-hidden">
+                    <div class="text-center font-semibold p-3 bg-gray-200">Dom</div>
+                    <div class="text-center font-semibold p-3 bg-gray-200">Lun</div>
+                    <div class="text-center font-semibold p-3 bg-gray-200">Mar</div>
+                    <div class="text-center font-semibold p-3 bg-gray-200">Mié</div>
+                    <div class="text-center font-semibold p-3 bg-gray-200">Jue</div>
+                    <div class="text-center font-semibold p-3 bg-gray-200">Vie</div>
+                    <div class="text-center font-semibold p-3 bg-gray-200">Sáb</div>
+                </div>
 
-         Calendario 
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex justify-between items-center mb-4">
-                <button onclick="cambiarMes(-1)" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded">
-                    ← Anterior
-                </button>
-                <h2 id="mesAnio" class="text-xl font-semibold"></h2>
-                <button onclick="cambiarMes(1)" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded">
-                    Siguiente →
-                </button>
-            </div>
-
-             Días de la semana 
-            <div class="grid grid-cols-7 gap-1 mb-2">
-                <div class="text-center font-semibold p-2 bg-gray-100">Dom</div>
-                <div class="text-center font-semibold p-2 bg-gray-100">Lun</div>
-                <div class="text-center font-semibold p-2 bg-gray-100">Mar</div>
-                <div class="text-center font-semibold p-2 bg-gray-100">Mié</div>
-                <div class="text-center font-semibold p-2 bg-gray-100">Jue</div>
-                <div class="text-center font-semibold p-2 bg-gray-100">Vie</div>
-                <div class="text-center font-semibold p-2 bg-gray-100">Sáb</div>
+                <!-- Días del calendario -->
+                <div id="calendarioDias" class="grid grid-cols-7 gap-1">
+                    <!-- Generado con JavaScript -->
+                </div>
             </div>
 
-             Días del calendario 
-            <div id="calendarioDias" class="grid grid-cols-7 gap-1">
-                 Los días se generan con JavaScript 
-            </div>
-        </div>
-
-         Lista de reservas 
-        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
-            <h3 class="text-xl font-semibold mb-4">📋 Reservas Actuales</h3>
-            <div id="listaReservas" class="space-y-3">
-                 Las reservas se cargan con JavaScript 
+            <!-- Lista de reservas -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">📋 Reservas Actuales</h3>
+                <div id="listaReservas" class="space-y-3">
+                    <div class="text-center py-8 text-gray-500">
+                        <p>Cargando reservas...</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-     Modal para nueva reserva 
+    <!-- MODAL para nueva/editar reserva -->
     <div id="modalReserva" class="modal">
         <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">📅 Nueva Reserva Larga</h3>
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">📅 Nueva Reserva Larga</h3>
                 <button onclick="cerrarModalReserva()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
 
+            <!-- Improved form with better layout and validation -->
             <form id="formReserva" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Habitación *</label>
-                    <select id="habitacionSelect" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
-                        <option value="">Seleccionar habitación...</option>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Cliente *</label>
+                    <input type="text" id="nombreCliente" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                           placeholder="Nombre completo del cliente">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Inicio *</label>
+                        <input type="date" id="fechaInicio" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Fin *</label>
+                        <input type="date" id="fechaFin" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Habitación (Opcional)</label>
+                    <select id="habitacionSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                        <option value="">-- No especificada --</option>
                         {% for h in habitaciones %}
                         <option value="{{ h[0] }}">Habitación {{ h[1] }} - {{ h[2] }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Cliente *</label>
-                    <input type="text" id="nombreCliente" required 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
-                           placeholder="Nombre completo del cliente">
-                </div>
-
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio *</label>
-                        <input type="date" id="fechaInicio" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Fin *</label>
-                        <input type="date" id="fechaFin" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Valor por Noche *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Valor por Noche *</label>
                         <input type="number" id="valorPorNoche" step="0.01" min="0" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                placeholder="0.00">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Total Calculado</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Total Calculado</label>
                         <input type="text" id="totalCalculado" readonly
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-semibold"
-                               placeholder="$0.00">
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-semibold">
                     </div>
                 </div>
 
-                <!-- Added observation field -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
                     <textarea id="observacionReserva" rows="3"
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                               placeholder="Observaciones adicionales sobre la reserva..."></textarea>
                 </div>
 
-                <div id="resumenReserva" class="bg-blue-50 p-4 rounded-lg" style="display: none;">
-                    <h4 class="font-semibold text-blue-800 mb-2">📊 Resumen de la Reserva</h4>
-                    <div id="detallesReserva" class="text-sm text-blue-700"></div>
+                <div id="resumenReserva" class="bg-blue-50 border border-blue-200 p-4 rounded-lg" style="display: none;">
+                    <h4 class="font-semibold text-blue-800 mb-3">📊 Resumen de la Reserva</h4>
+                    <div id="detallesReserva" class="text-sm text-blue-700 space-y-1"></div>
                 </div>
 
-                <div class="flex justify-end space-x-3 pt-4">
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
                     <button type="button" onclick="cerrarModalReserva()" 
-                            class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400">
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg transition">
                         Cancelar
                     </button>
                     <button type="submit" 
-                            class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition font-medium">
                         💾 Guardar Reserva
                     </button>
                 </div>
@@ -356,64 +249,75 @@
         let anioActual = new Date().getFullYear();
         let reservasData = [];
 
-        // Inicializar calendario
         document.addEventListener('DOMContentLoaded', function() {
             generarCalendario();
             cargarReservas();
             
-            // Event listeners para el formulario
+            // Event listeners for form calculation
             document.getElementById('fechaInicio').addEventListener('change', calcularResumen);
             document.getElementById('fechaFin').addEventListener('change', calcularResumen);
             document.getElementById('valorPorNoche').addEventListener('input', calcularResumen);
+            
+            // Form submission
+            document.getElementById('formReserva').addEventListener('submit', function(e) {
+                e.preventDefault();
+                guardarReserva();
+            });
         });
 
-        function generarCalendario() {
-            const meses = [
-                'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-            ];
+        function abrirModalReserva() {
+            // Reset form to new mode
+            document.getElementById('formReserva').reset();
+            document.getElementById('formReserva').dataset.modo = 'crear';
+            document.querySelector('#modalReserva h3').textContent = '📅 Nueva Reserva Larga';
+            document.querySelector('#formReserva button[type="submit"]').textContent = '💾 Guardar Reserva';
+            document.getElementById('resumenReserva').style.display = 'none';
             
-            document.getElementById('mesAnio').textContent = `${meses[mesActual]} ${anioActual}`;
-            
-            const primerDia = new Date(anioActual, mesActual, 1);
-            const ultimoDia = new Date(anioActual, mesActual + 1, 0);
-            const diasEnMes = ultimoDia.getDate();
-            const diaSemanaInicio = primerDia.getDay();
-            
-            const container = document.getElementById('calendarioDias');
-            container.innerHTML = '';
-            
-            // Días vacíos al inicio
-            for (let i = 0; i < diaSemanaInicio; i++) {
-                const diaVacio = document.createElement('div');
-                diaVacio.className = 'calendar-day bg-gray-50';
-                container.appendChild(diaVacio);
+            // Remove hidden client ID field if it exists
+            let clienteIdInput = document.getElementById('cliente_id_edit');
+            if (clienteIdInput) {
+                clienteIdInput.remove();
             }
             
-            // Días del mes
-            for (let dia = 1; dia <= diasEnMes; dia++) {
-                const diaElement = document.createElement('div');
-                diaElement.className = 'calendar-day bg-white';
-                diaElement.innerHTML = `
-                    <div class="font-semibold text-sm p-1">${dia}</div>
-                    <div class="reservations-container"></div>
-                `;
-                
-                const fechaActual = new Date(anioActual, mesActual, dia);
-                const hoy = new Date();
-                
-                if (fechaActual.toDateString() === hoy.toDateString()) {
-                    diaElement.classList.add('bg-blue-100', 'border-blue-300');
-                }
-                
-                container.appendChild(diaElement);
-            }
-            
-            mostrarReservasEnCalendario();
+            document.getElementById('modalReserva').style.display = 'block';
         }
 
-        function cambiarMes(direccion) {
-            mesActual += direccion;
+        function cerrarModalReserva() {
+            document.getElementById('modalReserva').style.display = 'none';
+            document.getElementById('formReserva').reset();
+        }
+
+        function calcularResumen() {
+            const fechaInicio = document.getElementById('fechaInicio').value;
+            const fechaFin = document.getElementById('fechaFin').value;
+            const valor = parseFloat(document.getElementById('valorPorNoche').value) || 0;
+
+            if (fechaInicio && fechaFin) {
+                const inicio = new Date(fechaInicio);
+                const fin = new Date(fechaFin);
+                const dias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
+
+                if (dias > 0) {
+                    const total = dias * valor;
+                    document.getElementById('totalCalculado').value = `$${total.toFixed(2)}`;
+                    
+                    const html = `
+                        <p><strong>Fechas:</strong> ${inicio.toLocaleDateString()} - ${fin.toLocaleDateString()}</p>
+                        <p><strong>Noches:</strong> ${dias}</p>
+                        <p><strong>Precio por noche:</strong> $${valor.toFixed(2)}</p>
+                        <p><strong>Total:</strong> $${total.toFixed(2)}</p>
+                    `;
+                    document.getElementById('detallesReserva').innerHTML = html;
+                    document.getElementById('resumenReserva').style.display = 'block';
+                } else {
+                    document.getElementById('totalCalculado').value = '';
+                    document.getElementById('resumenReserva').style.display = 'none';
+                }
+            }
+        }
+
+        function cambiarMes(offset) {
+            mesActual += offset;
             if (mesActual > 11) {
                 mesActual = 0;
                 anioActual++;
@@ -424,264 +328,54 @@
             generarCalendario();
         }
 
-        function mostrarOpcionesReserva(reserva) {
-            const fechaInicio = new Date(reserva.fecha_inicio);
-            const fechaFin = new Date(reserva.fecha_fin);
-            const dias = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
-            const hoy = new Date();
-            const esFutura = fechaInicio > hoy;
-            
-            let mensaje = `📋 INFORMACIÓN DE LA RESERVA\n\n`;
-            mensaje += `👤 Cliente: ${reserva.nombre}\n`;
-            mensaje += `🏠 Habitación: ${reserva.habitacion}\n`;
-            mensaje += `📅 Fechas: ${reserva.fecha_inicio} al ${reserva.fecha_fin}\n`;
-            mensaje += `⏱️ Duración: ${dias} día${dias !== 1 ? 's' : ''}\n`;
-            mensaje += `💰 Valor Total: $${reserva.valor.toFixed(2)}\n`;
-            
-            // Show observations properly
-            if (reserva.observacion && reserva.observacion.trim() !== '') {
-                mensaje += `📝 Observaciones: ${reserva.observacion}\n`;
-            } else {
-                mensaje += `📝 Observaciones: Sin observaciones\n`;
+        function generarCalendario() {
+            const primerDia = new Date(anioActual, mesActual, 1);
+            const ultimoDia = new Date(anioActual, mesActual + 1, 0);
+            const diasEnMes = ultimoDia.getDate();
+            const diaInicio = primerDia.getDay();
+
+            const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            document.getElementById('mesAnio').textContent = `${meses[mesActual]} ${anioActual}`;
+
+            let html = '';
+            for (let i = 0; i < diaInicio; i++) {
+                html += '<div class="calendar-day bg-gray-100"></div>';
             }
-            
-            mensaje += `\n${esFutura ? '🔵 RESERVA FUTURA' : '🟢 RESERVA ACTIVA'}`;
-            
-            // Only show information, no edit/delete options in this popup
-            alert(mensaje);
-        }
 
-        function eliminarReserva(reservaId) {
-            fetch('/eliminar_reserva_calendario', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ reserva_id: reservaId })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(result => {
-                if (result.success) {
-                    alert('✅ ' + result.message);
-                    window.location.reload();
-                } else {
-                    alert('❌ Error: ' + (result.error || 'Error desconocido'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('❌ Error de conexión al eliminar la reserva.');
-            });
-        }
-
-        function editarReserva(reservaId) {
-            // Find the reservation in the data array
-            const reserva = reservasData.find(r => (r.id || r.reserva_id) == reservaId);
-            
-            if (!reserva) {
-                alert('❌ No se pudo encontrar la reserva');
-                return;
-            }
-            
-            // Pre-llenar el modal con los datos existentes
-            document.getElementById('habitacionSelect').value = reserva.habitacion_id;
-            document.getElementById('nombreCliente').value = reserva.nombre;
-            document.getElementById('fechaInicio').value = reserva.fecha_inicio;
-            document.getElementById('fechaFin').value = reserva.fecha_fin;
-            
-            const fechaInicio = new Date(reserva.fecha_inicio);
-            const fechaFin = new Date(reserva.fecha_fin);
-            const dias = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
-            const valorPorNoche = dias > 0 ? (reserva.valor / dias) : 0;
-            
-            document.getElementById('valorPorNoche').value = valorPorNoche.toFixed(2);
-            document.getElementById('observacionReserva').value = reserva.observacion || '';
-            
-            // Cambiar el título del modal
-            document.querySelector('#modalReserva h3').textContent = '✏️ Editar Reserva';
-            
-            // Cambiar el texto del botón
-            const submitBtn = document.querySelector('#formReserva button[type="submit"]');
-            submitBtn.textContent = '💾 Actualizar Reserva';
-            
-            let clienteIdInput = document.getElementById('cliente_id_edit');
-            if (!clienteIdInput) {
-                clienteIdInput = document.createElement('input');
-                clienteIdInput.type = 'hidden';
-                clienteIdInput.id = 'cliente_id_edit';
-                clienteIdInput.name = 'cliente_id';
-                document.getElementById('formReserva').appendChild(clienteIdInput);
-            }
-            // Usar reserva.id o reserva.reserva_id según esté disponible
-            clienteIdInput.value = reserva.id || reserva.reserva_id;
-            
-            // Marcar como modo edición
-            document.getElementById('formReserva').dataset.modo = 'editar';
-            
-            calcularResumen();
-            abrirModalReserva();
-        }
-
-        function abrirModalReserva() {
-            document.getElementById('modalReserva').style.display = 'block';
-            // Establecer fecha mínima como hoy
-            const hoy = new Date().toISOString().split('T')[0];
-            document.getElementById('fechaInicio').min = hoy;
-            document.getElementById('fechaFin').min = hoy;
-        }
-
-        function cerrarModalReserva() {
-            document.getElementById('modalReserva').style.display = 'none';
-            document.getElementById('formReserva').reset();
-            document.getElementById('resumenReserva').style.display = 'none';
-            
-            document.getElementById('totalCalculado').value = '';
-            
-            document.querySelector('#modalReserva h3').textContent = '📅 Nueva Reserva Larga';
-            document.querySelector('#formReserva button[type="submit"]').textContent = '💾 Guardar Reserva';
-            document.getElementById('formReserva').dataset.modo = '';
-            
-            // Remover campo oculto de edición si existe
-            const clienteIdInput = document.getElementById('cliente_id_edit');
-            if (clienteIdInput) {
-                clienteIdInput.remove();
-            }
-        }
-
-        function calcularResumen() {
-            const fechaInicio = document.getElementById('fechaInicio').value;
-            const fechaFin = document.getElementById('fechaFin').value;
-            const valorPorNoche = parseFloat(document.getElementById('valorPorNoche').value) || 0;
-            
-            if (fechaInicio && fechaFin) {
-                const inicio = new Date(fechaInicio);
-                const fin = new Date(fechaFin);
-                const dias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
+            for (let dia = 1; dia <= diasEnMes; dia++) {
+                const fecha = new Date(anioActual, mesActual, dia);
+                const fechaStr = fecha.toISOString().split('T')[0];
                 
-                if (dias > 0) {
-                    const precioTotal = valorPorNoche * dias;
-                    
-                    // Update the calculated total field
-                    document.getElementById('totalCalculado').value = `$${precioTotal.toFixed(2)}`;
-                    
-                    document.getElementById('detallesReserva').innerHTML = `
-                        <div><strong>Duración:</strong> ${dias} día${dias !== 1 ? 's' : ''}</div>
-                        <div><strong>Valor por noche:</strong> $${valorPorNoche.toFixed(2)}</div>
-                        <div><strong>Precio total:</strong> $${precioTotal.toFixed(2)}</div>
-                        <div><strong>Check-in:</strong> ${inicio.toLocaleDateString()} 2:00 PM</div>
-                        <div><strong>Check-out:</strong> ${fin.toLocaleDateString()} 1:00 PM</div>
-                    `;
-                    document.getElementById('resumenReserva').style.display = 'block';
-                } else {
-                    document.getElementById('totalCalculado').value = '';
-                    document.getElementById('resumenReserva').style.display = 'none';
-                }
-            } else {
-                document.getElementById('totalCalculado').value = '';
-                document.getElementById('resumenReserva').style.display = 'none';
-            }
-        }
+                let reservasDelDia = reservasData.filter(r => {
+                    const inicio = new Date(r.fecha_inicio).toISOString().split('T')[0];
+                    const fin = new Date(r.fecha_fin).toISOString().split('T')[0];
+                    return fechaStr >= inicio && fechaStr <= fin;
+                });
 
-        // Manejar envío del formulario
-        document.getElementById('formReserva').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const modoEdicion = this.dataset.modo === 'editar';
-            const clienteId = document.getElementById('cliente_id_edit')?.value;
-            
-            const fechaInicio = new Date(document.getElementById('fechaInicio').value);
-            const fechaFin = new Date(document.getElementById('fechaFin').value);
-            const dias = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
-            const valorPorNoche = parseFloat(document.getElementById('valorPorNoche').value) || 0;
-            const precioTotal = valorPorNoche * dias;
-            
-            const data = {
-                habitacion_id: document.getElementById('habitacionSelect').value,
-                nombre_cliente: document.getElementById('nombreCliente').value,
-                fecha_inicio: document.getElementById('fechaInicio').value,
-                fecha_fin: document.getElementById('fechaFin').value,
-                precio_total: precioTotal,
-                observacion: document.getElementById('observacionReserva').value || ''
-            };
-            
-            if (modoEdicion && clienteId) {
-                data.cliente_id = clienteId;
+                let reservasHtml = reservasDelDia.map(r => 
+                    `<div class="reservation-block reservation-${r.estado}" title="${r.nombre}">${r.nombre}</div>`
+                ).join('');
+
+                html += `<div class="calendar-day">${dia}${reservasHtml}</div>`;
             }
-            
-            if (!data.habitacion_id || !data.nombre_cliente || !data.fecha_inicio || !data.fecha_fin) {
-                alert('Por favor completa todos los campos obligatorios');
-                return;
-            }
-            
-            const fechaInicioDateObj = new Date(data.fecha_inicio);
-            const fechaFinDateObj = new Date(data.fecha_fin);
-            if (fechaFinDateObj <= fechaInicioDateObj) {
-                alert('La fecha de fin debe ser posterior a la fecha de inicio');
-                return;
-            }
-            
-            const endpoint = modoEdicion ? '/editar_reserva_calendario' : '/guardar_reserva_calendario';
-            const accion = modoEdicion ? 'actualizar' : 'guardar';
-            
-            fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(result => {
-                if (result.success) {
-                    alert('✅ ' + result.message);
-                    cerrarModalReserva();
-                    window.location.reload();
-                } else {
-                    if (result.error && result.error.includes('no está disponible') || result.error.includes('Estado actual:')) {
-                        alert('❌ HABITACIÓN NO DISPONIBLE\n\n' + result.error + '\n\n💡 Sugerencia: Selecciona una habitación que esté libre o libera la habitación ocupada primero.');
-                    } else if (result.error && result.error.includes('Ya existe una reserva')) {
-                        alert('📅 CONFLICTO DE FECHAS\n\n' + result.error + '\n\n💡 Sugerencia: Verifica el calendario y selecciona fechas diferentes.');
-                    } else {
-                        alert('❌ Error: ' + (result.error || 'Error desconocido'));
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert(`❌ Error de conexión al ${accion} la reserva. Por favor intenta nuevamente.`);
-            });
-        });
+
+            document.getElementById('calendarioDias').innerHTML = html;
+        }
 
         function cargarReservas() {
             fetch('/obtener_reservas_calendario')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     reservasData = data.reservas;
                     mostrarListaReservas();
-                    mostrarReservasEnCalendario();
+                    generarCalendario();
                 } else {
                     console.error('Error al cargar reservas:', data.error);
                 }
             })
-            .catch(error => {
-                console.error('Error al cargar reservas:', error);
-            });
+            .catch(error => console.error('Error:', error));
         }
 
         function mostrarListaReservas() {
@@ -703,35 +397,32 @@
                 return `
                     <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${esFutura ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-green-500'}">
                         <div class="flex justify-between items-start">
-                            <div>
+                            <div class="flex-1">
                                 <h4 class="font-semibold text-lg">${reserva.nombre}</h4>
-                                <p class="text-gray-600">Habitación ${reserva.habitacion}</p>
+                                <p class="text-gray-600">Habitación: ${reserva.habitacion === 'Sin especificar' ? 'Sin habitación específica' : reserva.habitacion}</p>
                                 <p class="text-sm text-gray-500">
                                     ${fechaInicio.toLocaleDateString()} - ${fechaFin.toLocaleDateString()} 
                                     (${dias} día${dias !== 1 ? 's' : ''})
                                 </p>
-                                ${reserva.observacion ? `<p class="text-xs text-gray-600 mt-1 bg-gray-50 p-2 rounded">📝 ${reserva.observacion}</p>` : ''}
-                                <p class="text-xs ${esFutura ? 'text-blue-600' : 'text-green-600'} font-medium">
+                                <p class="text-xs ${esFutura ? 'text-blue-600' : 'text-green-600'} font-medium mt-1">
                                     ${esFutura ? '🔵 RESERVA FUTURA' : '🟢 RESERVA ACTIVA'}
                                 </p>
                             </div>
                             <div class="text-right">
-                                <div class="text-lg font-bold text-green-600">$${reserva.valor.toFixed(2)}</div>
+                                <div class="text-lg font-bold text-green-600">$${parseFloat(reserva.valor).toFixed(2)}</div>
                                 <div class="text-sm text-gray-500">Total</div>
                                 ${esFutura ? `
                                     <div class="flex gap-2 mt-2">
                                         <button onclick="editarReserva(${reservaId})" 
-                                                class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600">
+                                                class="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition">
                                             ✏️ Editar
                                         </button>
                                         <button onclick="if(confirm('¿Estás seguro de eliminar esta reserva?')) eliminarReserva(${reservaId})" 
-                                                class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
+                                                class="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 transition">
                                             🗑️ Eliminar
                                         </button>
                                     </div>
-                                ` : `
-                                    <div class="text-xs text-gray-500 mt-2">Reserva activa</div>
-                                `}
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -739,48 +430,127 @@
             }).join('');
         }
 
-        function mostrarReservasEnCalendario() {
-            const dias = document.querySelectorAll('.calendar-day');
-            
-            // Limpiar reservas existentes
-            dias.forEach(dia => {
-                const container = dia.querySelector('.reservations-container');
-                if (container) {
-                    container.innerHTML = '';
-                }
-            });
-            
-            // Mostrar cada reserva en el calendario
-            reservasData.forEach(reserva => {
-                const fechaInicio = new Date(reserva.fecha_inicio);
-                const fechaFin = new Date(reserva.fecha_fin);
-                
-                // Solo mostrar si está en el mes actual
-                if (fechaInicio.getMonth() === mesActual && fechaInicio.getFullYear() === anioActual) {
-                    const diaInicio = fechaInicio.getDate();
-                    const diaElement = dias[diaInicio + new Date(anioActual, mesActual, 1).getDay() - 1];
-                    
-                    if (diaElement) {
-                        const container = diaElement.querySelector('.reservations-container');
-                        if (container) {
-                            const hoy = new Date();
-                            const esFutura = fechaInicio > hoy;
-                            const claseColor = esFutura ? 'reservation-reservado' : 'reservation-ocupada';
-                            
-                            const reservaBlock = document.createElement('div');
-                            reservaBlock.className = `reservation-block ${claseColor}`;
-                            reservaBlock.textContent = `${reserva.nombre} - H${reserva.habitacion}`;
-                            reservaBlock.style.cursor = 'pointer';
-                            reservaBlock.onclick = () => mostrarOpcionesReserva(reserva);
-                            
-                            container.appendChild(reservaBlock);
+        function editarReserva(reservaId) {
+            fetch(`/obtener_reserva/${reservaId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const reserva = data.reserva;
+                        
+                        // Populate form fields with reservation data
+                        document.getElementById('nombreCliente').value = reserva.nombre_cliente;
+                        document.getElementById('fechaInicio').value = reserva.fecha_inicio;
+                        document.getElementById('fechaFin').value = reserva.fecha_fin;
+                        document.getElementById('valorPorNoche').value = reserva.precio_total;
+                        document.getElementById('habitacionSelect').value = reserva.habitacion_id || '';
+                        document.getElementById('observacionReserva').value = reserva.observacion || '';
+                        
+                        // Set form to edit mode
+                        document.getElementById('formReserva').dataset.modo = 'editar';
+                        document.querySelector('#modalReserva h3').textContent = '✏️ Editar Reserva';
+                        document.querySelector('#formReserva button[type="submit"]').textContent = '✅ Actualizar Reserva';
+                        
+                        // Add hidden field with reservation ID for editing
+                        let clienteIdInput = document.getElementById('cliente_id_edit');
+                        if (!clienteIdInput) {
+                            clienteIdInput = document.createElement('input');
+                            clienteIdInput.type = 'hidden';
+                            clienteIdInput.id = 'cliente_id_edit';
+                            document.getElementById('formReserva').appendChild(clienteIdInput);
                         }
+                        clienteIdInput.value = reservaId;
+                        
+                        // Calculate and show summary
+                        calcularResumen();
+                        
+                        // Open modal
+                        document.getElementById('modalReserva').style.display = 'block';
+                    } else {
+                        alert('Error: ' + (data.error || 'No se pudo cargar la reserva'));
                     }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar la reserva');
+                });
+        }
+
+        function eliminarReserva(reservaId) {
+            fetch(`/eliminar_reserva/${reservaId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Reserva eliminada exitosamente');
+                    cargarReservas();
+                } else {
+                    alert('❌ Error al eliminar la reserva: ' + (data.error || 'Error desconocido'));
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error al eliminar la reserva');
             });
         }
 
-        // Cerrar modal al hacer clic fuera
+        function guardarReserva() {
+            const nombreCliente = document.getElementById('nombreCliente').value.trim();
+            const fechaInicio = document.getElementById('fechaInicio').value;
+            const fechaFin = document.getElementById('fechaFin').value;
+            const precioTotal = parseFloat(document.getElementById('valorPorNoche').value);
+            const habitacionId = document.getElementById('habitacionSelect').value;
+            const observacion = document.getElementById('observacionReserva').value.trim();
+            
+            if (!nombreCliente || !fechaInicio || !fechaFin || !precioTotal) {
+                alert('Por favor completa todos los campos requeridos');
+                return;
+            }
+            
+            const data = {
+                habitacion_id: habitacionId || null,
+                nombre_cliente: nombreCliente,
+                fecha_inicio: fechaInicio,
+                fecha_fin: fechaFin,
+                precio_total: precioTotal,
+                observacion: observacion
+            };
+            
+            const modoEdicion = document.getElementById('formReserva').dataset.modo === 'editar';
+            const clienteId = document.getElementById('cliente_id_edit')?.value;
+            
+            if (modoEdicion && clienteId) {
+                data.cliente_id = clienteId;
+            }
+            
+            const endpoint = modoEdicion ? '/editar_reserva_calendario' : '/guardar_reserva_calendario';
+            const accion = modoEdicion ? 'actualizar' : 'guardar';
+            
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    cerrarModalReserva();
+                    cargarReservas();
+                    generarCalendario();
+                } else {
+                    alert('❌ Error: ' + (result.error || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(`❌ Error de conexión al ${accion} la reserva.`);
+            });
+        }
+
+        // Close modal when clicking outside
         window.onclick = function(event) {
             const modal = document.getElementById('modalReserva');
             if (event.target === modal) {
