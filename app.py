@@ -3058,11 +3058,145 @@ def obtener_reserva(reserva_id):
 
 
 @app.route('/editar_reserva_calendario', methods=['POST'])
-# ... existing code ...
-# No changes needed here, the route handler is complete in the existing code.
-# This comment is just a placeholder for the structure.
+def editar_reserva_calendario():
+    user_id = require_user_session_json()
+    if not user_id:
+        return jsonify({"success": False, "error": "Sesión expirada"}), 401
 
-# ... rest of the code will follow ...
+    try:
+        print("[DEBUG] editar_reserva_calendario - Inicio")
+        data = request.get_json()
+        print(f"[DEBUG] editar_reserva_calendario - Datos recibidos: {data}")
+
+        reserva_id = data.get('cliente_id')  # cliente_id es reserva_id en edición
+        habitacion_id = data.get('habitacion_id')
+        nombre_cliente = data.get('nombre_cliente')
+        fecha_inicio = data.get('fecha_inicio')
+        fecha_fin = data.get('fecha_fin')
+        precio_total = data.get('precio_total', 0)
+        observacion = data.get('observacion', '')
+
+        print(f"[DEBUG] editar_reserva_calendario - reserva_id={reserva_id}, nombre={nombre_cliente}")
+
+        if not all([reserva_id, nombre_cliente, fecha_inicio, fecha_fin]):
+            print("[DEBUG] editar_reserva_calendario - Campos requeridos faltantes")
+            return jsonify({"success": False, "error": "Los campos Reserva ID, Nombre, Fecha Inicio y Fecha Fin son requeridos"})
+
+        # Convertir fechas
+        fecha_inicio_dt = datetime.strptime(fecha_inicio, "%Y-%m-%d")
+        fecha_fin_dt = datetime.strptime(fecha_fin, "%Y-%m-%d")
+
+        # Get user's configured checkout time
+        conn = get_db_connection()
+        if not conn:
+            print("[DEBUG] editar_reserva_calendario - Error de conexión DB")
+            return jsonify({"success": False, "error": "Error de conexión a base de datos"})
+
+        cur = conn.cursor()
+
+        cur.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
+        checkout_config = cur.fetchone()
+
+        if checkout_config and checkout_config[0]:
+            checkout_time = checkout_config[0]
+
+            if isinstance(checkout_time, timedelta):
+                total_seconds = int(checkout_time.total_seconds())
+                checkout_hour = total_seconds // 3600
+                checkout_minute = (total_seconds % 3600) // 60
+            elif isinstance(checkout_time, str):
+                checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
+                checkout_hour = checkout_time_obj.hour
+                checkout_minute = checkout_time_obj.minute
+            elif isinstance(checkout_time, time):
+                checkout_hour = checkout_time.hour
+                checkout_minute = checkout_time.minute
+            else:
+                checkout_hour = 13
+                checkout_minute = 0
+        else:
+            checkout_hour = 13
+            checkout_minute = 0
+
+        fecha_inicio_dt = fecha_inicio_dt.replace(hour=14, minute=0)
+        fecha_fin_dt = fecha_fin_dt.replace(hour=checkout_hour, minute=checkout_minute)
+
+        # Verificar que la reserva pertenece al usuario
+        cur.execute("""
+            SELECT r.id FROM reservas r
+            WHERE r.id = %s AND r.usuario_id = %s
+        """, (reserva_id, user_id))
+
+        if not cur.fetchone():
+            print(f"[DEBUG] editar_reserva_calendario - Reserva {reserva_id} no pertenece al usuario {user_id}")
+            return jsonify({"success": False, "error": "Reserva no encontrada o no tienes permisos"})
+
+        if habitacion_id:
+            # Verificar que la habitación pertenece al usuario
+            cur.execute(
+                "SELECT numero FROM habitaciones WHERE id = %s AND usuario_id = %s",
+                (habitacion_id, user_id)
+            )
+            habitacion = cur.fetchone()
+            if not habitacion:
+                print(f"[DEBUG] editar_reserva_calendario - Habitación {habitacion_id} no pertenece al usuario")
+                return jsonify({"success": False, "error": "No tienes permisos para esta habitación"})
+
+            # Verificar conflictos de fechas si cambió la habitación
+            cur.execute("""
+                SELECT COUNT(*) FROM reservas r
+                WHERE r.habitacion_id = %s AND r.id != %s AND r.estado != 'cancelada'
+                AND (
+                    (r.fecha_inicio <= %s AND r.fecha_fin > %s) OR
+                    (r.fecha_inicio < %s AND r.fecha_fin >= %s) OR
+                    (r.fecha_inicio >= %s AND r.fecha_inicio < %s)
+                )
+            """, (
+                habitacion_id, reserva_id,
+                fecha_inicio_dt, fecha_inicio_dt,
+                fecha_fin_dt, fecha_fin_dt,
+                fecha_inicio_dt, fecha_fin_dt
+            ))
+
+            conflictos = cur.fetchone()[0]
+            if conflictos > 0:
+                print(f"[DEBUG] editar_reserva_calendario - Conflictos de fecha para habitación {habitacion_id}")
+                return jsonify({
+                    "success": False,
+                    "error": f"Ya existe una reserva en esas fechas para la habitación {habitacion[0]}"
+                })
+
+        # Actualizar la reserva
+        cur.execute("""
+            UPDATE reservas
+            SET habitacion_id = %s, nombre_cliente = %s, fecha_inicio = %s,
+                fecha_fin = %s, precio_total = %s, observacion = %s
+            WHERE id = %s AND usuario_id = %s
+        """, (
+            habitacion_id if habitacion_id else None, nombre_cliente,
+            fecha_inicio_dt, fecha_fin_dt, precio_total,
+            observacion, reserva_id, user_id
+        ))
+
+        print(f"[DEBUG] editar_reserva_calendario - Reserva {reserva_id} actualizada")
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"Reserva de {nombre_cliente} actualizada exitosamente"
+        })
+
+    except Exception as e:
+        print(f"[DEBUG] editar_reserva_calendario - Error: {str(e)}")
+        if 'conn' in locals():
+            conn.rollback()
+        return jsonify({"success": False, "error": f"Error al editar reserva: {str(e)}"})
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        if 'conn' in locals():
+            conn.close()
 
 
 @app.route('/eliminar_reserva/<int:reserva_id>', methods=['POST'])

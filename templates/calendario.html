@@ -34,10 +34,15 @@
             overflow: hidden;
             text-overflow: ellipsis;
             cursor: pointer;
+            transition: transform 0.2s;
         }
-        .reservation-ocupada { background-color: #ef4444; }
-        .reservation-reservado { background-color: #3b82f6; }
-        .reservation-mensualidad { background-color: #f59e0b; }
+        .reservation-block:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        /* Updated colors - removed pendiente, using only future and active */
+        .reservation-futura { background-color: #3b82f6; }
+        .reservation-activa { background-color: #10b981; }
         .modal {
             display: none;
             position: fixed;
@@ -168,11 +173,10 @@
     <div id="modalReserva" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-gray-800">📅 Nueva Reserva Larga</h3>
+                <h3 class="text-xl font-bold text-gray-800">📅 Nueva Reserva</h3>
                 <button onclick="cerrarModalReserva()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
 
-            <!-- Improved form with better layout and validation -->
             <form id="formReserva" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Cliente *</label>
@@ -193,6 +197,28 @@
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                     </div>
                 </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <!-- Cambié "Precio Total" a "Precio por Noche" y agregué automática calculación del total -->
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Precio por Noche *</label>
+                        <input type="number" id="precioPorNoche" step="0.01" min="0" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                               placeholder="0.00">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Noches</label>
+                        <input type="text" id="totalNoches" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-semibold">
+                    </div>
+                </div>
+                
+                <div>
+                    <!-- Nuevo campo para mostrar el precio total calculado automáticamente -->
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Precio Total</label>
+                    <input type="text" id="precioTotalCalculado" readonly
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md bg-blue-50 text-blue-700 font-bold text-lg">
+                </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Habitación (Opcional)</label>
@@ -202,20 +228,6 @@
                         <option value="{{ h[0] }}">Habitación {{ h[1] }} - {{ h[2] }}</option>
                         {% endfor %}
                     </select>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Valor por Noche *</label>
-                        <input type="number" id="valorPorNoche" step="0.01" min="0" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                               placeholder="0.00">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Total Calculado</label>
-                        <input type="text" id="totalCalculado" readonly
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-semibold">
-                    </div>
                 </div>
 
                 <div>
@@ -244,6 +256,34 @@
         </div>
     </div>
 
+    <!-- New modal for viewing reservations of a specific day -->
+    <div id="modalReservasDia" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="tituloReservasDia" class="text-xl font-bold text-gray-800"></h3>
+                <button onclick="cerrarModalReservasDia()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="contenidoReservasDia" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- New modal for viewing detailed reservation information -->
+    <div id="modalDetalleReserva" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">📋 Detalle de Reserva</h3>
+                <button onclick="cerrarModalDetalle()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="contenidoDetalle" class="space-y-3"></div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
+                <button onclick="cerrarModalDetalle()" 
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg transition">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let mesActual = new Date().getMonth();
         let anioActual = new Date().getFullYear();
@@ -253,12 +293,10 @@
             generarCalendario();
             cargarReservas();
             
-            // Event listeners for form calculation
             document.getElementById('fechaInicio').addEventListener('change', calcularResumen);
             document.getElementById('fechaFin').addEventListener('change', calcularResumen);
-            document.getElementById('valorPorNoche').addEventListener('input', calcularResumen);
+            document.getElementById('precioPorNoche').addEventListener('input', calcularResumen);
             
-            // Form submission
             document.getElementById('formReserva').addEventListener('submit', function(e) {
                 e.preventDefault();
                 guardarReserva();
@@ -266,14 +304,12 @@
         });
 
         function abrirModalReserva() {
-            // Reset form to new mode
             document.getElementById('formReserva').reset();
             document.getElementById('formReserva').dataset.modo = 'crear';
-            document.querySelector('#modalReserva h3').textContent = '📅 Nueva Reserva Larga';
+            document.querySelector('#modalReserva h3').textContent = '📅 Nueva Reserva';
             document.querySelector('#formReserva button[type="submit"]').textContent = '💾 Guardar Reserva';
             document.getElementById('resumenReserva').style.display = 'none';
             
-            // Remove hidden client ID field if it exists
             let clienteIdInput = document.getElementById('cliente_id_edit');
             if (clienteIdInput) {
                 clienteIdInput.remove();
@@ -287,10 +323,18 @@
             document.getElementById('formReserva').reset();
         }
 
+        function cerrarModalReservasDia() {
+            document.getElementById('modalReservasDia').style.display = 'none';
+        }
+
+        function cerrarModalDetalle() {
+            document.getElementById('modalDetalleReserva').style.display = 'none';
+        }
+
         function calcularResumen() {
             const fechaInicio = document.getElementById('fechaInicio').value;
             const fechaFin = document.getElementById('fechaFin').value;
-            const valor = parseFloat(document.getElementById('valorPorNoche').value) || 0;
+            const precioPorNoche = parseFloat(document.getElementById('precioPorNoche').value) || 0;
 
             if (fechaInicio && fechaFin) {
                 const inicio = new Date(fechaInicio);
@@ -298,26 +342,29 @@
                 const dias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
 
                 if (dias > 0) {
-                    const total = dias * valor;
-                    document.getElementById('totalCalculado').value = `$${total.toFixed(2)}`;
+                    const precioTotal = dias * precioPorNoche;
+                    
+                    document.getElementById('totalNoches').value = `${dias} noche${dias > 1 ? 's' : ''}`;
+                    document.getElementById('precioTotalCalculado').value = `$${precioTotal.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     
                     const html = `
-                        <p><strong>Fechas:</strong> ${inicio.toLocaleDateString()} - ${fin.toLocaleDateString()}</p>
+                        <p><strong>Fechas:</strong> ${inicio.toLocaleDateString('es-CO')} - ${fin.toLocaleDateString('es-CO')}</p>
                         <p><strong>Noches:</strong> ${dias}</p>
-                        <p><strong>Precio por noche:</strong> $${valor.toFixed(2)}</p>
-                        <p><strong>Total:</strong> $${total.toFixed(2)}</p>
+                        <p><strong>Precio por Noche:</strong> $${precioPorNoche.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                        <p><strong>Total:</strong> $${precioTotal.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                     `;
                     document.getElementById('detallesReserva').innerHTML = html;
                     document.getElementById('resumenReserva').style.display = 'block';
                 } else {
-                    document.getElementById('totalCalculado').value = '';
+                    document.getElementById('totalNoches').value = '';
+                    document.getElementById('precioTotalCalculado').value = '';
                     document.getElementById('resumenReserva').style.display = 'none';
                 }
             }
         }
 
-        function cambiarMes(offset) {
-            mesActual += offset;
+        function cambiarMes(direccion) {
+            mesActual += direccion;
             if (mesActual > 11) {
                 mesActual = 0;
                 anioActual++;
@@ -326,6 +373,15 @@
                 anioActual--;
             }
             generarCalendario();
+        }
+
+        function determinarEstadoReserva(fechaInicio) {
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const inicio = new Date(fechaInicio);
+            inicio.setHours(0, 0, 0, 0);
+            
+            return inicio <= hoy ? 'activa' : 'futura';
         }
 
         function generarCalendario() {
@@ -349,108 +405,237 @@
                 
                 let reservasDelDia = reservasData.filter(r => {
                     const inicio = new Date(r.fecha_inicio).toISOString().split('T')[0];
-                    const fin = new Date(r.fecha_fin).toISOString().split('T')[0];
-                    return fechaStr >= inicio && fechaStr <= fin;
+                    return fechaStr === inicio; // Solo mostrar en fecha de inicio
                 });
 
-                let reservasHtml = reservasDelDia.map(r => 
-                    `<div class="reservation-block reservation-${r.estado}" title="${r.nombre}">${r.nombre}</div>`
-                ).join('');
+                let reservasHtml = reservasDelDia.map(r => {
+                    const estado = determinarEstadoReserva(r.fecha_inicio);
+                    const nombre = r.nombre || r.nombre_cliente;
+                    return `<div class="reservation-block reservation-${estado}" 
+                                 onclick="event.stopPropagation(); mostrarDetalleReserva(${r.id || r.reserva_id})" 
+                                 title="${nombre} - ${r.habitacion || 'Sin habitación'}">
+                                ${nombre}
+                            </div>`;
+                }).join('');
 
-                html += `<div class="calendar-day">${dia}${reservasHtml}</div>`;
+                html += `<div class="calendar-day" onclick="mostrarReservasDia('${fechaStr}', ${dia})">
+                            <div class="font-semibold">${dia}</div>
+                            ${reservasHtml}
+                         </div>`;
             }
 
             document.getElementById('calendarioDias').innerHTML = html;
         }
 
+        function mostrarReservasDia(fechaStr, dia) {
+            const reservasDelDia = reservasData.filter(r => {
+                const inicio = new Date(r.fecha_inicio).toISOString().split('T')[0];
+                const fin = new Date(r.fecha_fin).toISOString().split('T')[0];
+                return fechaStr >= inicio && fechaStr <= fin;
+            });
+
+            const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            document.getElementById('tituloReservasDia').textContent = 
+                `Reservas del ${dia} de ${meses[mesActual]} ${anioActual}`;
+
+            if (reservasDelDia.length === 0) {
+                document.getElementById('contenidoReservasDia').innerHTML = 
+                    '<div class="text-center py-8 text-gray-500">No hay reservas este día</div>';
+            } else {
+                let html = reservasDelDia.map(r => {
+                    const estado = determinarEstadoReserva(r.fecha_inicio);
+                    const estadoTexto = estado === 'activa' ? 'RESERVA ACTIVA' : 'RESERVA FUTURA';
+                    const estadoColor = estado === 'activa' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
+                    
+                    return `
+                        <div class="border rounded-lg p-4 hover:shadow-md transition cursor-pointer" 
+                             onclick="event.stopPropagation(); mostrarDetalleReserva(${r.id || r.reserva_id})">
+                            <h4 class="font-semibold text-lg text-gray-800">${r.nombre || r.nombre_cliente}</h4>
+                            <p class="text-sm text-gray-600">🏠 ${r.habitacion || 'Sin habitación'}</p>
+                            <p class="text-sm text-gray-600">📅 ${new Date(r.fecha_inicio).toLocaleDateString('es-ES')} - ${new Date(r.fecha_fin).toLocaleDateString('es-ES')}</p>
+                            <p class="text-sm text-gray-600">💵 $${(r.valor || r.precio_total || 0).toLocaleString('es-CO')}</p>
+                            <span class="inline-block px-2 py-1 text-xs rounded-full mt-2 ${estadoColor}">
+                                ${estadoTexto}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('contenidoReservasDia').innerHTML = html;
+            }
+            
+            document.getElementById('modalReservasDia').style.display = 'block';
+        }
+
+        function mostrarDetalleReserva(reservaId) {
+            const reserva = reservasData.find(r => (r.id || r.reserva_id) === reservaId);
+            
+            if (!reserva) {
+                alert('No se encontró la reserva');
+                return;
+            }
+
+            const estado = determinarEstadoReserva(reserva.fecha_inicio);
+            const estadoTexto = estado === 'activa' ? 'RESERVA ACTIVA' : 'RESERVA FUTURA';
+            const estadoColor = estado === 'activa' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
+            
+            const fechaInicio = new Date(reserva.fecha_inicio);
+            const fechaFin = new Date(reserva.fecha_fin);
+            const dias = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
+            
+            const html = `
+                <div class="space-y-4">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="flex justify-between items-start mb-3">
+                            <h4 class="text-2xl font-bold text-gray-900">${reserva.nombre || reserva.nombre_cliente}</h4>
+                            <span class="px-3 py-1 text-sm rounded-full ${estadoColor} font-medium">
+                                ${estadoTexto}
+                            </span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <p class="text-sm text-gray-500">Habitación</p>
+                                <p class="font-semibold text-gray-800">🏠 ${reserva.habitacion || 'Sin asignar'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Precio Total</p>
+                                <p class="font-semibold text-gray-800">💵 $${(reserva.valor || reserva.precio_total || 0).toLocaleString('es-CO')}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Fecha de Inicio</p>
+                                <p class="font-semibold text-gray-800">📅 ${fechaInicio.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Fecha de Fin</p>
+                                <p class="font-semibold text-gray-800">📅 ${fechaFin.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Duración</p>
+                                <p class="font-semibold text-gray-800">⏱️ ${dias} ${dias === 1 ? 'noche' : 'noches'}</p>
+                            </div>
+                            ${reserva.observacion ? `
+                            <div class="col-span-2">
+                                <p class="text-sm text-gray-500">Observaciones</p>
+                                <p class="font-semibold text-gray-800">📝 ${reserva.observacion}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="cerrarModalDetalle(); editarReserva(${reserva.id || reserva.reserva_id})" 
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition">
+                            ✏️ Editar
+                        </button>
+                        <button onclick="cerrarModalDetalle(); eliminarReservaConfirm(${reserva.id || reserva.reserva_id})" 
+                                class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('contenidoDetalle').innerHTML = html;
+            document.getElementById('modalDetalleReserva').style.display = 'block';
+        }
+
         function cargarReservas() {
+            console.log('[v0] Cargando reservas del calendario...');
             fetch('/obtener_reservas_calendario')
             .then(response => response.json())
             .then(data => {
+                console.log('[v0] Respuesta del servidor:', data);
                 if (data.success) {
                     reservasData = data.reservas;
+                    console.log('[v0] Reservas cargadas:', reservasData);
                     mostrarListaReservas();
                     generarCalendario();
                 } else {
-                    console.error('Error al cargar reservas:', data.error);
+                    console.error('[v0] Error al cargar reservas:', data.error);
+                    document.getElementById('listaReservas').innerHTML = 
+                        '<div class="text-center py-8 text-red-500">❌ Error al cargar reservas: ' + data.error + '</div>';
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                console.error('[v0] Error en fetch:', error);
+                document.getElementById('listaReservas').innerHTML = 
+                    '<div class="text-center py-8 text-red-500">❌ Error de conexión: ' + error.message + '</div>';
+            });
         }
 
         function mostrarListaReservas() {
-            const container = document.getElementById('listaReservas');
+            const listaDiv = document.getElementById('listaReservas');
             
             if (reservasData.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-4">📅 No hay reservas futuras activas</p>';
+                listaDiv.innerHTML = '<div class="text-center py-8 text-gray-500">No hay reservas activas</div>';
                 return;
             }
-            
-            container.innerHTML = reservasData.map(reserva => {
-                const fechaInicio = new Date(reserva.fecha_inicio);
-                const fechaFin = new Date(reserva.fecha_fin);
-                const dias = Math.ceil((fechaFin - fechaInicio) / (1000 * 60 * 60 * 24));
-                const hoy = new Date();
-                const esFutura = fechaInicio > hoy;
-                const reservaId = reserva.id || reserva.reserva_id;
+
+            let html = reservasData.map(r => {
+                const estado = determinarEstadoReserva(r.fecha_inicio);
+                const estadoTexto = estado === 'activa' ? 'RESERVA ACTIVA' : 'RESERVA FUTURA';
+                const estadoColor = estado === 'activa' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
                 
                 return `
-                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${esFutura ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-green-500'}">
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <h4 class="font-semibold text-lg">${reserva.nombre}</h4>
-                                <p class="text-gray-600">Habitación: ${reserva.habitacion === 'Sin especificar' ? 'Sin habitación específica' : reserva.habitacion}</p>
-                                <p class="text-sm text-gray-500">
-                                    ${fechaInicio.toLocaleDateString()} - ${fechaFin.toLocaleDateString()} 
-                                    (${dias} día${dias !== 1 ? 's' : ''})
-                                </p>
-                                <p class="text-xs ${esFutura ? 'text-blue-600' : 'text-green-600'} font-medium mt-1">
-                                    ${esFutura ? '🔵 RESERVA FUTURA' : '🟢 RESERVA ACTIVA'}
-                                </p>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-lg font-bold text-green-600">$${parseFloat(reserva.valor).toFixed(2)}</div>
-                                <div class="text-sm text-gray-500">Total</div>
-                                ${esFutura ? `
-                                    <div class="flex gap-2 mt-2">
-                                        <button onclick="editarReserva(${reservaId})" 
-                                                class="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition">
-                                            ✏️ Editar
-                                        </button>
-                                        <button onclick="if(confirm('¿Estás seguro de eliminar esta reserva?')) eliminarReserva(${reservaId})" 
-                                                class="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 transition">
-                                            🗑️ Eliminar
-                                        </button>
-                                    </div>
-                                ` : ''}
-                            </div>
+                <div class="border rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                     onclick="mostrarDetalleReserva(${r.id || r.reserva_id})">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-semibold text-lg text-gray-800">${r.nombre || r.nombre_cliente}</h4>
+                            <p class="text-sm text-gray-600">🏠 Habitación: ${r.habitacion || r.habitacion_numero || 'Sin asignar'}</p>
+                            <p class="text-sm text-gray-600">📅 ${new Date(r.fecha_inicio).toLocaleDateString('es-ES')} - ${new Date(r.fecha_fin).toLocaleDateString('es-ES')}</p>
+                            <p class="text-sm text-gray-600">💵 $${(r.valor || r.precio_total || 0).toLocaleString('es-CO')}</p>
+                            <span class="inline-block px-2 py-1 text-xs rounded-full mt-1 ${estadoColor}">
+                                ${estadoTexto}
+                            </span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="event.stopPropagation(); editarReserva(${r.id || r.reserva_id})" 
+                                    class="text-blue-500 hover:text-blue-700 text-sm font-medium">
+                                ✏️ Editar
+                            </button>
+                            <button onclick="event.stopPropagation(); eliminarReservaConfirm(${r.id || r.reserva_id})" 
+                                    class="text-red-500 hover:text-red-700 text-sm font-medium">
+                                🗑️ Eliminar
+                            </button>
                         </div>
                     </div>
-                `;
+                </div>
+            `;
             }).join('');
+
+            listaDiv.innerHTML = html;
         }
 
         function editarReserva(reservaId) {
+            console.log('[v0] Editando reserva ID:', reservaId);
+            
             fetch(`/obtener_reserva/${reservaId}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('[v0] Datos de reserva recibidos:', data);
                     if (data.success) {
                         const reserva = data.reserva;
                         
-                        // Populate form fields with reservation data
                         document.getElementById('nombreCliente').value = reserva.nombre_cliente;
                         document.getElementById('fechaInicio').value = reserva.fecha_inicio;
                         document.getElementById('fechaFin').value = reserva.fecha_fin;
-                        document.getElementById('valorPorNoche').value = reserva.precio_total;
+                        
+                        const inicio = new Date(reserva.fecha_inicio);
+                        const fin = new Date(reserva.fecha_fin);
+                        const dias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
+                        const precioPorNoche = dias > 0 ? (reserva.precio_total / dias) : reserva.precio_total;
+                        
+                        document.getElementById('precioPorNoche').value = precioPorNoche.toFixed(2);
                         document.getElementById('habitacionSelect').value = reserva.habitacion_id || '';
                         document.getElementById('observacionReserva').value = reserva.observacion || '';
                         
-                        // Set form to edit mode
                         document.getElementById('formReserva').dataset.modo = 'editar';
                         document.querySelector('#modalReserva h3').textContent = '✏️ Editar Reserva';
                         document.querySelector('#formReserva button[type="submit"]').textContent = '✅ Actualizar Reserva';
                         
-                        // Add hidden field with reservation ID for editing
                         let clienteIdInput = document.getElementById('cliente_id_edit');
                         if (!clienteIdInput) {
                             clienteIdInput = document.createElement('input');
@@ -460,27 +645,33 @@
                         }
                         clienteIdInput.value = reservaId;
                         
-                        // Calculate and show summary
                         calcularResumen();
-                        
-                        // Open modal
                         document.getElementById('modalReserva').style.display = 'block';
                     } else {
+                        console.error('[v0] Error al obtener reserva:', data.error);
                         alert('Error: ' + (data.error || 'No se pudo cargar la reserva'));
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error al cargar la reserva');
+                    console.error('[v0] Error en editarReserva:', error);
+                    alert('Error al cargar la reserva: ' + error.message);
                 });
         }
 
+        function eliminarReservaConfirm(reservaId) {
+            if (confirm('¿Estás seguro de eliminar esta reserva?')) {
+                eliminarReserva(reservaId);
+            }
+        }
+
         function eliminarReserva(reservaId) {
+            console.log('[v0] Eliminando reserva ID:', reservaId);
             fetch(`/eliminar_reserva/${reservaId}`, {
                 method: 'POST'
             })
             .then(response => response.json())
             .then(data => {
+                console.log('[v0] Respuesta eliminación:', data);
                 if (data.success) {
                     alert('✅ Reserva eliminada exitosamente');
                     cargarReservas();
@@ -489,8 +680,8 @@
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('❌ Error al eliminar la reserva');
+                console.error('[v0] Error:', error);
+                alert('❌ Error al eliminar la reserva: ' + error.message);
             });
         }
 
@@ -498,12 +689,19 @@
             const nombreCliente = document.getElementById('nombreCliente').value.trim();
             const fechaInicio = document.getElementById('fechaInicio').value;
             const fechaFin = document.getElementById('fechaFin').value;
-            const precioTotal = parseFloat(document.getElementById('valorPorNoche').value);
+            const precioPorNoche = parseFloat(document.getElementById('precioPorNoche').value);
             const habitacionId = document.getElementById('habitacionSelect').value;
             const observacion = document.getElementById('observacionReserva').value.trim();
             
-            if (!nombreCliente || !fechaInicio || !fechaFin || !precioTotal) {
-                alert('Por favor completa todos los campos requeridos');
+            const inicio = new Date(fechaInicio);
+            const fin = new Date(fechaFin);
+            const dias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
+            const precioTotal = dias * precioPorNoche;
+            
+            console.log('[v0] Guardando reserva...', { nombreCliente, fechaInicio, fechaFin, precioPorNoche, dias, precioTotal });
+            
+            if (!nombreCliente || !fechaInicio || !fechaFin || !precioPorNoche || dias <= 0) {
+                alert('Por favor completa todos los campos requeridos y verifica que las fechas sean válidas');
                 return;
             }
             
@@ -526,6 +724,8 @@
             const endpoint = modoEdicion ? '/editar_reserva_calendario' : '/guardar_reserva_calendario';
             const accion = modoEdicion ? 'actualizar' : 'guardar';
             
+            console.log('[v0] Enviando a:', endpoint, 'Datos:', data);
+            
             fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -533,28 +733,46 @@
                 },
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        try {
+                            const json = JSON.parse(text);
+                            throw new Error(json.error || `Error ${response.status}`);
+                        } catch (e) {
+                            throw new Error(`Error del servidor (${response.status}): La respuesta no es JSON válido`);
+                        }
+                    });
+                }
+                return response.json();
+            })
             .then(result => {
+                console.log('[v0] Respuesta del servidor:', result);
                 if (result.success) {
                     alert('✅ ' + result.message);
                     cerrarModalReserva();
                     cargarReservas();
-                    generarCalendario();
                 } else {
                     alert('❌ Error: ' + (result.error || 'Error desconocido'));
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert(`❌ Error de conexión al ${accion} la reserva.`);
+                console.error('[v0] Error:', error);
+                alert(`❌ Error al ${accion} la reserva: ` + error.message);
             });
         }
 
-        // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('modalReserva');
-            if (event.target === modal) {
+            const modalReserva = document.getElementById('modalReserva');
+            const modalReservasDia = document.getElementById('modalReservasDia');
+            const modalDetalle = document.getElementById('modalDetalleReserva');
+            
+            if (event.target === modalReserva) {
                 cerrarModalReserva();
+            } else if (event.target === modalReservasDia) {
+                cerrarModalReservasDia();
+            } else if (event.target === modalDetalle) {
+                cerrarModalDetalle();
             }
         }
     </script>
