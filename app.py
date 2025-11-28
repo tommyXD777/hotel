@@ -33,13 +33,13 @@ def get_db_connection():
     """Obtiene una conexión a la base de datos con manejo de errores mejorado"""
     try:
         print("Intentando conectar a MySQL...")
-        print(f"   Host: mysql") #Changed from localhost to mysql
+        print(f"   Host: 173.249.59.24") #ese es el host para local hos para el servdor es mysql
         print(f"   Usuario: nelson")
         print(f"   Puerto: 3306")  # updated the port shown
         print(f"   Base de datos: bd_hostal")
 
         conn = pymysql.connect(
-            host='mysql',  # Asegurándonos que sea localhost
+            host='173.249.59.24',  # Asegurándonos que sea localhost
             user='nelson',
             password='3011551141.Arias',
             database='bd_hostal',
@@ -373,7 +373,7 @@ def guardar_cliente():
     observacion = request.form.get('observacion')
     check_in = request.form['check_in']
     check_out = request.form['check_out']
-    valor = request.form['valor']
+    valor = float(str(request.form['valor']).replace('.', '').replace(',', '.')) if request.form['valor'] else 0
     tipo_doc = request.form.get('tipo_doc', 'C.c')
     numero_doc = request.form.get('numero_doc', '')
     procedencia = request.form.get('procedencia', '')
@@ -469,6 +469,10 @@ def actualizar_cliente():
         check_in_str = request.form.get('check_in', '').strip()
         check_out_str = request.form.get('check_out', '').strip()
         valor = request.form.get('valor', '').strip()
+        if valor:
+            valor = float(str(valor).replace('.', '').replace(',', '.'))
+        else:
+            valor = 0
         observacion = request.form.get('observacion', '').strip()
         nueva_habitacion_id = request.form.get('habitacion_id', '').strip()
 
@@ -714,7 +718,7 @@ def guardar_nuevo_cliente():
             procedencia = data['procedencia']
             check_in = data['check_in']
             check_out_fecha = data['check_out_fecha']
-            valor = data['valor']
+            valor = float(str(data['valor']).replace('.', '').replace(',', '.')) if data['valor'] else 0
             observacion = data['observacion']
             personas_adicionales = data.get('personas_adicionales', [])
         else:
@@ -921,7 +925,7 @@ def registrar_cliente(habitacion_id):
     procedencia = request.form.get('procedencia')
     check_in = request.form.get('check_in')
     check_out_fecha = request.form.get('check_out')
-    valor = request.form.get('valor')
+    valor = float(str(request.form.get('valor')).replace('.', '').replace(',', '.')) if request.form.get('valor') else 0
     observacion = request.form.get('observacion')
 
     try:
@@ -1291,7 +1295,7 @@ def cambiar_color_general():
 
     nuevo_estado = request.form.get('nuevo_estado')
     nombre_cliente = request.form.get('nombre_cliente', '').strip()
-    precio_noche = request.form.get('precio_noche', '0')
+    precio_noche = float(str(request.form.get('precio_noche', '0')).replace('.', '').replace(',', '.')) if request.form.get('precio_noche') else 0
     
     if not nuevo_estado:
         flash('Datos incompletos para cambiar el estado.', 'error')
@@ -1496,7 +1500,7 @@ def reutilizar_ultimo():
     data = request.get_json()
     habitacion_id = data.get('habitacion_id')
     noches = data.get('noches', 1)
-    precio_total = data.get('precio_total')
+    precio_total = float(str(data.get('precio_total')).replace('.', '').replace(',', '.')) if data.get('precio_total') else 0
     nueva_fecha = data.get('nueva_fecha_ingreso')
 
     if not habitacion_id or not nueva_fecha:
@@ -2001,7 +2005,7 @@ def checkin():
     data = request.get_json()
     habitacion_id = data.get('habitacion_id')
     noches = data.get('noches', 1)
-    precio_total = data.get('precio_total')
+    precio_total = float(str(data.get('precio_total')).replace('.', '').replace(',', '.')) if data.get('precio_total') else 0
 
     if not habitacion_id:
         return jsonify({"success": False, "error": "Datos incompletos"}), 400
@@ -2403,7 +2407,7 @@ def guardar_reserva_calendario():
         nombre_cliente = data.get('nombre_cliente')
         fecha_inicio = data.get('fecha_inicio')
         fecha_fin = data.get('fecha_fin')
-        precio_total = data.get('precio_total', 0)
+        precio_total = float(str(data.get('precio_total', 0)).replace('.', '').replace(',', '.')) if data.get('precio_total') else 0
         
         observacion = data.get('observacion', '') or f"Reserva desde calendario - {(datetime.strptime(fecha_fin, '%Y-%m-%d') - datetime.strptime(fecha_inicio, '%Y-%m-%d')).days} días"
         
@@ -3092,7 +3096,7 @@ def editar_reserva_calendario():
         nombre_cliente = data.get('nombre_cliente')
         fecha_inicio = data.get('fecha_inicio')
         fecha_fin = data.get('fecha_fin')
-        precio_total = data.get('precio_total', 0)
+        precio_total = float(str(data.get('precio_total', 0)).replace('.', '').replace(',', '.')) if data.get('precio_total') else 0
         observacion = data.get('observacion', '')
 
         print(f"[DEBUG] editar_reserva_calendario - reserva_id={reserva_id}, nombre={nombre_cliente}")
