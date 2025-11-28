@@ -39,7 +39,7 @@ def get_db_connection():
         print(f"   Base de datos: bd_hostal")
 
         conn = pymysql.connect(
-            host='mysql',  # Asegurándonos que sea localhost
+            host='173.249.59.24',  # Asegurándonos que sea localhost
             user='nelson',
             password='3011551141.Arias',
             database='bd_hostal',
@@ -267,7 +267,7 @@ def index():
             print(f"[DEBUG] index - Habitación {numero}: inquilino_principal={inquilino_principal}, fecha_ingreso={fecha_ingreso}, fecha_salida={fecha_salida}, valor={valor}, dias_ocupada={dias_ocupada}")
             print(f"[DEBUG] index - Estado final de habitación {numero}: {estado}")
 
-            current_time = datetime.now(bogota)  # Usar zona horaria de Bogotá
+            current_time = datetime.now(bogota).replace(tzinfo=None)  # Convertir a naive para comparación
             print(f"[INDEX_LIBERAR] {current_time} - Verificando habitación {numero}: fecha_salida={fecha_salida}, current_time={current_time}, estado={estado}")
 
             if fecha_salida and fecha_salida <= current_time:
@@ -2094,7 +2094,7 @@ def liberar_habitaciones_automaticamente():
     while True:
         try:
             time.sleep(30)  # Check every 30 seconds
-            now = datetime.now(bogota)  # Usar zona horaria de Bogotá
+            now = datetime.now(bogota).replace(tzinfo=None)  # Convertir a naive para consistencia
 
             # Only proceed if we're at the start of a new minute
             if now.second < 5:  # Within first 5 seconds of the minute
