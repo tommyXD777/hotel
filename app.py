@@ -267,17 +267,19 @@ def index():
             print(f"[DEBUG] index - Habitación {numero}: inquilino_principal={inquilino_principal}, fecha_ingreso={fecha_ingreso}, fecha_salida={fecha_salida}, valor={valor}, dias_ocupada={dias_ocupada}")
             print(f"[DEBUG] index - Estado final de habitación {numero}: {estado}")
 
-            current_time = datetime.now()
+            current_time = datetime.now(bogota)  # Usar zona horaria de Bogotá
+            print(f"[INDEX_LIBERAR] {current_time} - Verificando habitación {numero}: fecha_salida={fecha_salida}, current_time={current_time}, estado={estado}")
 
             if fecha_salida and fecha_salida <= current_time:
                 if estado in ['ocupada', 'reservado']:
-                    print(f"[DEBUG] index - Habitación {numero} expirada, cambiando a 'libre'")
+                    print(f"[INDEX_LIBERAR] {current_time} - Habitación {numero} expirada (fecha_salida <= current_time), cambiando a 'libre'")
                     # Update room to libre (green) when checkout time has passed
                     cur.execute("UPDATE habitaciones SET estado = 'libre' WHERE id = %s AND usuario_id = %s", (room_id, user_id))
                     estado = 'libre'
                     # Clear expired client data
                     cur.execute("UPDATE clientes SET check_out = NOW() WHERE habitacion_id = %s AND check_out > NOW()", (room_id,))
                     conn.commit()
+                    print(f"[INDEX_LIBERAR] {current_time} - Habitación {numero} liberada manualmente en index")
                     # Reset client data for display
                     inquilino_principal = None
                     telefono = None
@@ -2092,76 +2094,93 @@ def liberar_habitaciones_automaticamente():
     while True:
         try:
             time.sleep(30)  # Check every 30 seconds
-            now = datetime.now()
-            
+            now = datetime.now(bogota)  # Usar zona horaria de Bogotá
+
             # Only proceed if we're at the start of a new minute
             if now.second < 5:  # Within first 5 seconds of the minute
+                print(f"[AUTO_LIBERAR] {now} - Iniciando verificación automática de liberación")
                 conn = get_db_connection()
                 if conn:
                     cur = conn.cursor()
-                    
+
                     cur.execute("""
-                        SELECT DISTINCT usuario_id, hora_limite 
-                        FROM config_checkout 
+                        SELECT DISTINCT usuario_id, hora_limite
+                        FROM config_checkout
                         WHERE hora_limite IS NOT NULL
                     """)
                     usuarios = cur.fetchall()
-                    
+                    print(f"[AUTO_LIBERAR] {now} - Usuarios con config checkout: {len(usuarios)}")
+
                     for usuario_id, checkout_hora in usuarios:
+                        print(f"[AUTO_LIBERAR] {now} - Procesando usuario {usuario_id}, checkout_hora raw: {checkout_hora} (tipo: {type(checkout_hora)})")
+
                         # Handle different types returned by MySQL
                         if isinstance(checkout_hora, timedelta):
                             # MySQL TIME type returns as timedelta
                             total_seconds = int(checkout_hora.total_seconds())
                             checkout_hour = total_seconds // 3600
                             checkout_minute = (total_seconds % 3600) // 60
+                            print(f"[AUTO_LIBERAR] {now} - Usuario {usuario_id}: timedelta convertido a {checkout_hour:02d}:{checkout_minute:02d}")
                         elif isinstance(checkout_hora, str):
                             # String format "HH:MM:SS" or "HH:MM"
                             checkout_time_obj = datetime.strptime(str(checkout_hora)[:5], "%H:%M").time()
                             checkout_hour = checkout_time_obj.hour
                             checkout_minute = checkout_time_obj.minute
+                            print(f"[AUTO_LIBERAR] {now} - Usuario {usuario_id}: string convertido a {checkout_hour:02d}:{checkout_minute:02d}")
                         elif isinstance(checkout_hora, time):
                             # Already a time object
                             checkout_hour = checkout_hora.hour
                             checkout_minute = checkout_hora.minute
+                            print(f"[AUTO_LIBERAR] {now} - Usuario {usuario_id}: time object {checkout_hour:02d}:{checkout_minute:02d}")
                         else:
+                            print(f"[AUTO_LIBERAR] {now} - Usuario {usuario_id}: tipo inválido, saltando")
                             continue  # Skip if invalid type
-                        
+
+                        print(f"[AUTO_LIBERAR] {now} - Usuario {usuario_id}: Hora actual {now.hour:02d}:{now.minute:02d}, checkout config {checkout_hour:02d}:{checkout_minute:02d}")
+
                         # Check if current time matches the checkout time (within 1 minute window)
                         if now.hour == checkout_hour and now.minute == checkout_minute:
+                            print(f"[AUTO_LIBERAR] {now} - ¡Coincide hora! Liberando habitaciones para usuario {usuario_id}")
+
                             # Mark clients as checked out if their check_out time has passed for this user's rooms
                             cur.execute("""
                                 UPDATE clientes c
                                 INNER JOIN habitaciones h ON c.habitacion_id = h.id
                                 SET c.check_out = NOW(), c.estado = 'finalizado'
                                 WHERE h.usuario_id = %s
-                                AND c.check_out <= NOW() 
+                                AND c.check_out <= NOW()
                                 AND (c.check_out IS NOT NULL)
                                 AND c.estado = 'activo'
                             """, (usuario_id,))
-                            
+                            clientes_actualizados = cur.rowcount
+                            print(f"[AUTO_LIBERAR] {now} - Clientes marcados como check_out: {clientes_actualizados}")
+
                             # Then, release rooms that have no active clients for this user
                             cur.execute("""
-                                UPDATE habitaciones h 
-                                SET h.estado = 'libre' 
+                                UPDATE habitaciones h
+                                SET h.estado = 'libre'
                                 WHERE h.usuario_id = %s
                                 AND h.estado IN ('ocupada', 'mensualidad', 'reservado')
                                 AND NOT EXISTS (
-                                    SELECT 1 FROM clientes c 
-                                    WHERE c.habitacion_id = h.id 
+                                    SELECT 1 FROM clientes c
+                                    WHERE c.habitacion_id = h.id
                                     AND (c.check_out IS NULL OR c.check_out > NOW())
                                     AND c.estado = 'activo'
                                 )
                             """, (usuario_id,))
-                            
+
                             habitaciones_liberadas = cur.rowcount
                             conn.commit()
-                            print(f"[{now}] {habitaciones_liberadas} habitaciones liberadas automáticamente para usuario {usuario_id} a las {checkout_hour:02d}:{checkout_minute:02d}")
+                            print(f"[AUTO_LIBERAR] {now} - {habitaciones_liberadas} habitaciones liberadas automáticamente para usuario {usuario_id} a las {checkout_hour:02d}:{checkout_minute:02d}")
+                        else:
+                            print(f"[AUTO_LIBERAR] {now} - No coincide hora para usuario {usuario_id}")
 
                     cur.close()
                     conn.close()
-                    
+                else:
+                    print(f"[AUTO_LIBERAR] {now} - Error de conexión a BD")
         except Exception as e:
-            print(f"Error en liberación automática: {e}")
+            print(f"[AUTO_LIBERAR] Error en liberación automática: {e}")
 
 # ----------------- LIMPIEZA DE OBSERVACIONES -----------------
 def limpiar_observaciones_semanales():
