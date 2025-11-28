@@ -228,27 +228,13 @@
                                 </div>
                                 
                                 <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="valor" class="form-label">
-                                            <i class="fas fa-dollar-sign"></i> Valor a Pagar
-                                        </label>
-                                        <input type="number" 
-                                               class="form-control" 
-                                               id="valor" 
-                                               name="valor" 
-                                               step="0.01" 
-                                               min="0"
-                                               value="{{ cliente[8] if cliente[8] else '' }}">
-                                        <div class="form-text">Monto total o por noche</div>
-                                    </div>
-                                    
-                                    <div class="col-md-6 mb-3">
+                                    <div class="col-md-12 mb-3">
                                         <label for="observacion" class="form-label">
                                             <i class="fas fa-comment"></i> Observaciones
                                         </label>
-                                        <textarea class="form-control" 
-                                                  id="observacion" 
-                                                  name="observacion" 
+                                        <textarea class="form-control"
+                                                  id="observacion"
+                                                  name="observacion"
                                                   rows="2">{{ cliente[9] if cliente[9] else '' }}</textarea>
                                         <div class="form-text">Notas adicionales sobre la estadía</div>
                                     </div>

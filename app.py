@@ -39,7 +39,7 @@ def get_db_connection():
         print(f"   Base de datos: bd_hostal")
 
         conn = pymysql.connect(
-            host='173.249.59.24',  # Asegurándonos que sea localhost
+            host='mysql',  # Asegurándonos que sea localhost
             user='nelson',
             password='3011551141.Arias',
             database='bd_hostal',
@@ -468,11 +468,6 @@ def actualizar_cliente():
         procedencia = request.form['procedencia']
         check_in_str = request.form.get('check_in', '').strip()
         check_out_str = request.form.get('check_out', '').strip()
-        valor = request.form.get('valor', '').strip()
-        if valor:
-            valor = float(str(valor).replace('.', '').replace(',', '.'))
-        else:
-            valor = 0
         observacion = request.form.get('observacion', '').strip()
         nueva_habitacion_id = request.form.get('habitacion_id', '').strip()
 
@@ -616,9 +611,7 @@ def actualizar_cliente():
             update_fields.append("check_out = %s")
             update_values.append(check_out_dt)
         
-        if valor and valor.replace('.', '', 1).isdigit(): # Check if valor is a valid number
-            update_fields.append("valor = %s")
-            update_values.append(valor)
+        # Valor no se actualiza en edición
 
         if observacion is not None: # Allow empty string to be saved
             update_fields.append("observacion = %s")
