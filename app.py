@@ -268,18 +268,32 @@ def index():
             print(f"[DEBUG] index - Estado final de habitación {numero}: {estado}")
 
             current_time = datetime.now(bogota).replace(tzinfo=None)  # Convertir a naive para comparación
+
+            # Obtener configuración de checkout del usuario para logs
+            cur_checkout = conn.cursor()
+            cur_checkout.execute("SELECT hora_limite FROM config_checkout WHERE usuario_id = %s", (user_id,))
+            checkout_config = cur_checkout.fetchone()
+            checkout_hora_str = str(checkout_config[0]) if checkout_config and checkout_config[0] else "13:00 (default)"
+            cur_checkout.close()
+
+            print(f"[INDEX_LIBERAR] {current_time} - Usuario {user_id} checkout config: {checkout_hora_str}")
             print(f"[INDEX_LIBERAR] {current_time} - Verificando habitación {numero}: fecha_salida={fecha_salida}, current_time={current_time}, estado={estado}")
 
             if fecha_salida and fecha_salida <= current_time:
+                print(f"[INDEX_LIBERAR] {current_time} - Habitación {numero} expirada: fecha_salida={fecha_salida}, current_time={current_time}")
                 if estado in ['ocupada', 'reservado']:
-                    print(f"[INDEX_LIBERAR] {current_time} - Habitación {numero} expirada (fecha_salida <= current_time), cambiando a 'libre'")
+                    print(f"[INDEX_LIBERAR] {current_time} - Liberando habitación {numero} (estado actual: {estado})")
                     # Update room to libre (green) when checkout time has passed
                     cur.execute("UPDATE habitaciones SET estado = 'libre' WHERE id = %s AND usuario_id = %s", (room_id, user_id))
+                    rows_affected = cur.rowcount
+                    print(f"[INDEX_LIBERAR] {current_time} - UPDATE habitaciones afectó {rows_affected} filas")
                     estado = 'libre'
                     # Clear expired client data
                     cur.execute("UPDATE clientes SET check_out = NOW() WHERE habitacion_id = %s AND check_out > NOW()", (room_id,))
+                    clients_affected = cur.rowcount
+                    print(f"[INDEX_LIBERAR] {current_time} - UPDATE clientes afectó {clients_affected} filas")
                     conn.commit()
-                    print(f"[INDEX_LIBERAR] {current_time} - Habitación {numero} liberada manualmente en index")
+                    print(f"[INDEX_LIBERAR] {current_time} - Habitación {numero} liberada manualmente en index, nuevo estado: {estado}")
                     # Reset client data for display
                     inquilino_principal = None
                     telefono = None
@@ -292,6 +306,8 @@ def index():
                     numero_doc = None
                     procedencia = None
                     dias_ocupada = 0
+                else:
+                    print(f"[INDEX_LIBERAR] {current_time} - Habitación {numero} expirada pero estado '{estado}' no permite liberación automática")
 
             elif estado == 'libre' and clientes:
                 print(f"[DEBUG] index - Habitación {numero} está libre pero tiene clientes, verificando reservas")
@@ -2427,25 +2443,20 @@ def guardar_reserva_calendario():
             
             # Handle different types returned by MySQL
             if isinstance(checkout_time, timedelta):
-                # MySQL TIME type returns as timedelta
                 total_seconds = int(checkout_time.total_seconds())
                 checkout_hour = total_seconds // 3600
                 checkout_minute = (total_seconds % 3600) // 60
             elif isinstance(checkout_time, str):
-                # String format "HH:MM:SS" or "HH:MM"
                 checkout_time_obj = datetime.strptime(checkout_time[:5], "%H:%M").time()
                 checkout_hour = checkout_time_obj.hour
                 checkout_minute = checkout_time_obj.minute
             elif isinstance(checkout_time, time):
-                # Already a time object
                 checkout_hour = checkout_time.hour
                 checkout_minute = checkout_time.minute
             else:
-                # Fallback to default
                 checkout_hour = 13
                 checkout_minute = 0
         else:
-            # Default to 1 PM if not configured
             checkout_hour = 13
             checkout_minute = 0
 
@@ -3136,16 +3147,6 @@ def editar_reserva_calendario():
 
         fecha_inicio_dt = fecha_inicio_dt.replace(hour=14, minute=0)
         fecha_fin_dt = fecha_fin_dt.replace(hour=checkout_hour, minute=checkout_minute)
-
-        # Verificar que la reserva pertenece al usuario
-        cur.execute("""
-            SELECT r.id FROM reservas r
-            WHERE r.id = %s AND r.usuario_id = %s
-        """, (reserva_id, user_id))
-
-        if not cur.fetchone():
-            print(f"[DEBUG] editar_reserva_calendario - Reserva {reserva_id} no pertenece al usuario {user_id}")
-            return jsonify({"success": False, "error": "Reserva no encontrada o no tienes permisos"})
 
         if habitacion_id:
             # Verificar que la habitación pertenece al usuario
