@@ -63,6 +63,15 @@
                 {% endif %}
             {% endwith %}
 
+            <!-- Added info alert when there's an existing client -->
+            {% if datos_referencia %}
+            <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
+                <p class="font-semibold">⚠️ Ya hay un cliente registrado en esta habitación</p>
+                <p class="text-sm mt-1">Valor actual: ${{ "{:,.0f}".format(datos_referencia[2]) }}</p>
+                <p class="text-sm">Al agregar este nuevo cliente, podrás ingresar un valor adicional que se sumará al total.</p>
+            </div>
+            {% endif %}
+
             <form action="{{ url_for('registrar_cliente', habitacion_id=habitacion_id) }}" method="POST" class="space-y-6" onsubmit="limpiarValor()">
                 <!-- Cliente Principal -->
                 <div class="border border-gray-200 rounded-lg p-4">
@@ -139,41 +148,46 @@
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
                         </div>
                         
+                        <!-- Conditional value input based on existing client -->
+                        {% if datos_referencia %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Valor Adicional por esta Persona</label>
+                            <!-- Changed input to be for additional value only, hidden field will store the total -->
+                            <input type="number" step="0.01" min="0"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500" 
+                                id="valor-adicional-input" oninput="calcularTotal()">
+                            <!-- Hidden field that will store the calculated total to send to backend -->
+                            <input type="hidden" name="valor" id="valor-total-hidden" value="{{ datos_referencia[2] }}">
+                        </div>
+                        {% else %}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Valor a Pagar</label>
                             <input type="number" name="valor" step="0.01" min="0"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500" 
                                 id="valor" oninput="formatearNumero()">
                         </div>
-
-                        <script>
-                            function formatearNumero() {
-                                let input = document.getElementById("valor");
-                                let valor = input.value;
-
-                                // Quitar cualquier punto que haya sido insertado previamente
-                                valor = valor.replace(/\./g, "");
-
-                                // Verificar si el valor es mayor a 10,000
-                                if (parseFloat(valor) > 10000) {
-                                    // Agregar el separador de miles
-                                    valor = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-                                }
-
-                                // Actualizar el campo con el número formateado
-                                input.value = valor;
-                            }
-
-                            function limpiarValor() {
-                                let input = document.getElementById("valor");
-                                let valor = input.value;
-                                // Quitar puntos (separadores de miles) antes de enviar
-                                valor = valor.replace(/\./g, "");
-                                input.value = valor;
-                            }
-                        </script>
-
+                        {% endif %}
                     </div>
+
+                    <!-- Added total display when there's an existing client -->
+                    {% if datos_referencia %}
+                    <div class="mt-4 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
+                            <div>
+                                <p class="text-sm text-gray-600">Valor Cliente Existente</p>
+                                <p class="text-xl font-bold text-gray-800" id="valor-existente">${{ "{:,.0f}".format(datos_referencia[2]) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Valor Adicional</p>
+                                <p class="text-xl font-bold text-blue-600" id="valor-adicional">$0</p>
+                            </div>
+                            <div class="bg-blue-600 rounded-lg p-2">
+                                <p class="text-sm text-white">Total a Pagar</p>
+                                <p class="text-2xl font-bold text-white" id="valor-total">${{ "{:,.0f}".format(datos_referencia[2]) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     
                     <div class="mt-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
@@ -184,21 +198,26 @@
                 </div>
 
                 <!-- Botones -->
-              <div class="grid grid-cols-2 gap-3 justify-end pt-4">
-            <a href="{{ url_for('index') }}"
-            class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400 text-center">
-                Cancelar
-            </a>
-            <button type="submit" 
-                    class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 flex items-center justify-center gap-2">
-                <span>💾</span>
-                <span>Registrar Cliente(s)</span>
-            </button>
+                <div class="grid grid-cols-2 gap-3 justify-end pt-4">
+                    <a href="{{ url_for('index') }}"
+                       class="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400 text-center">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 flex items-center justify-center gap-2">
+                        <span>💾</span>
+                        <span>Registrar Cliente(s)</span>
+                    </button>
+                </div>
+            </form>
         </div>
+    </div>
 
     <!-- Added JavaScript for additional persons functionality -->
     <script>
         let contadorPersonas = 0;
+        const valorExistente = {{ datos_referencia[2] if datos_referencia else 0 }};
+        const hayClienteExistente = {{ 'true' if datos_referencia else 'false' }};
         
         document.addEventListener('DOMContentLoaded', function() {
             const now = new Date();
@@ -215,9 +234,50 @@
             
             const tomorrow = new Date(now);
             tomorrow.setDate(tomorrow.getDate() + 1);
-            const tomorrowDate = tomorrow.toISOString().slice(0, 10); // Solo fecha YYYY-MM-DD
+            const tomorrowDate = tomorrow.toISOString().slice(0, 10);
             checkoutInput.value = tomorrowDate;
         });
+
+        function calcularTotal() {
+            if (!hayClienteExistente) return;
+            
+            const valorInput = document.getElementById('valor-adicional-input');
+            let valorAdicional = parseFloat(valorInput.value) || 0;
+            
+            // Update display
+            document.getElementById('valor-adicional').textContent = '$' + valorAdicional.toLocaleString('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+            
+            const total = valorExistente + valorAdicional;
+            document.getElementById('valor-total').textContent = '$' + total.toLocaleString('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+            
+            // Update hidden field that will be sent to backend
+            document.getElementById('valor-total-hidden').value = total;
+        }
+        
+        function formatearNumero() {
+            if (hayClienteExistente) {
+                calcularTotal();
+                return;
+            }
+            
+            let input = document.getElementById("valor");
+            let valor = input.value;
+
+            valor = valor.replace(/\./g, "");
+
+            if (parseFloat(valor) > 10000) {
+                valor = valor.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            }
+
+            input.value = valor;
+        }
+
+        function limpiarValor() {
+            let input = document.getElementById("valor");
+            let valor = input.value;
+            valor = valor.replace(/\./g, "");
+            input.value = valor;
+        }
         
         function agregarPersonaAdicional() {
             contadorPersonas++;
