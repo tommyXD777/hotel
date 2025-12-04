@@ -1738,7 +1738,7 @@ def obtener_huespedes(habitacion_id):
         conn.close()
 
 
-# ----------------- RENUEVAR ESTADÍA -----------------
+# ----------------- RENU</V>AR ESTADÍA -----------------
 @app.route('/renovar_estadia', methods=['POST'])
 def renovar_estadia():
     user_id = require_user_session_json()
@@ -2155,20 +2155,19 @@ def liberar_habitaciones_automaticamente():
                         if now.hour == checkout_hour and now.minute == checkout_minute:
                             print(f"[AUTO_LIBERAR] {now} - ¡Coincide hora! Liberando habitaciones para usuario {usuario_id}")
 
-                            # Mark clients as checked out if their check_out time has passed for this user's rooms
+                            # Mark clients as checked out if today's date >= their check_out date
                             cur.execute("""
                                 UPDATE clientes c
                                 INNER JOIN habitaciones h ON c.habitacion_id = h.id
-                                SET c.check_out = NOW(), c.estado = 'finalizado'
+                                SET c.estado = 'finalizado'
                                 WHERE h.usuario_id = %s
-                                AND c.check_out <= NOW()
-                                AND (c.check_out IS NOT NULL)
+                                AND DATE(c.check_out) <= CURDATE()
+                                AND c.check_out IS NOT NULL
                                 AND c.estado = 'activo'
                             """, (usuario_id,))
                             clientes_actualizados = cur.rowcount
-                            print(f"[AUTO_LIBERAR] {now} - Clientes marcados como check_out: {clientes_actualizados}")
+                            print(f"[AUTO_LIBERAR] {now} - Clientes marcados como finalizado: {clientes_actualizados}")
 
-                            # Then, release rooms that have no active clients for this user
                             cur.execute("""
                                 UPDATE habitaciones h
                                 SET h.estado = 'libre'
@@ -2177,7 +2176,6 @@ def liberar_habitaciones_automaticamente():
                                 AND NOT EXISTS (
                                     SELECT 1 FROM clientes c
                                     WHERE c.habitacion_id = h.id
-                                    AND (c.check_out IS NULL OR c.check_out > NOW())
                                     AND c.estado = 'activo'
                                 )
                             """, (usuario_id,))
@@ -3293,3 +3291,4 @@ if __name__ == '__main__':
     print("Hilo de limpieza de observaciones iniciado")
 
     app.run(debug=True, host='0.0.0.0', port=5000)
+
